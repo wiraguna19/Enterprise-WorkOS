@@ -63,12 +63,21 @@ export function ReviewQueue({
           </div>
 
           <div className="mt-1 flex items-center gap-1.5 text-caption text-n-500">
-            <Avatar
-              id={approval.requester.membership_id}
-              name={approval.requester.name ?? "?"}
-              size="sm"
-            />
-            <span>{approval.requester.name}</span>
+            {/* Rendered only when the API sent it. `requested_by` is a
+                whenLoaded field, so it is absent rather than null on any
+                response that did not eager load the relation — and a queue
+                that crashes on a missing name is worse than one that shows a
+                row without it. */}
+            {approval.requested_by && (
+              <>
+                <Avatar
+                  id={approval.requested_by.membership_id}
+                  name={approval.requested_by.name ?? "?"}
+                  size="sm"
+                />
+                <span>{approval.requested_by.name ?? "Unknown"}</span>
+              </>
+            )}
 
             {/* Quorum is stated, not implied. "1 of 3 approvals" tells the
                 reviewer whether their decision resolves this or not. */}

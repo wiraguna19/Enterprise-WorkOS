@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { clsx } from "@/lib/clsx";
-import { Avatar } from "@/components/ui/Avatar";
+import { AccountMenu } from "@/features/auth/AccountMenu";
 import { CommandPalette } from "@/features/search/CommandPalette";
 import { RealtimeProvider } from "@/features/realtime/RealtimeProvider";
 
@@ -50,6 +50,7 @@ const ADMIN: NavItem[] = [
 
 export function AppShell({
   user,
+  membershipId,
   organization,
   permissions,
   teams,
@@ -57,6 +58,7 @@ export function AppShell({
   children,
 }: {
   user: { id: string; name: string; email: string };
+  membershipId: string;
   organization: { id: string; name: string; slug: string };
   permissions: string[];
   teams: Array<{ id: string; name: string; key: string }>;
@@ -108,9 +110,11 @@ export function AppShell({
             <span aria-hidden>◔</span>
           </Link>
 
-          <button type="button" className="rounded-sm p-0.5 hover:bg-n-50" aria-label="Account">
-            <Avatar id={user.id} name={user.name} size="lg" />
-          </button>
+          <AccountMenu
+            user={user}
+            membershipId={membershipId}
+            organizationName={organization.name}
+          />
         </div>
       </header>
 

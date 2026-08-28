@@ -33,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AppShell
       user={me.user}
+      membershipId={me.membership.id}
       organization={me.organization}
       permissions={me.permissions}
       teams={teams}

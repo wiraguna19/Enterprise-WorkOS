@@ -94,7 +94,12 @@ export type Approval = {
   submission_note: string | null;
   submitted_at: string;
   resolved_at: string | null;
-  requester: { membership_id: string; name: string | null };
+  /**
+   * Named as the API names it, and optional as the API sends it: the field is
+   * `whenLoaded('requester')`, so it is absent — not null — from any response
+   * that did not eager load the relation.
+   */
+  requested_by?: { membership_id: string; name: string | null };
   subject: {
     type: string;
     reference: string;
