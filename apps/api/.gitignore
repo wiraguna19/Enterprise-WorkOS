@@ -1,0 +1,18 @@
+/vendor
+/node_modules
+/public/storage
+/storage/*.key
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+.env
+.env.*
+!.env.example
+.phpunit.cache
+.phpunit.result.cache
+/.phpstan
+/.testout
+# Generated at boot: the package manifest and the compiled service list. The
+# directory must exist, its contents must not be committed.
+/bootstrap/cache/*.php

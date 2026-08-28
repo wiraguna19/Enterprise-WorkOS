@@ -1,0 +1,83 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - app
+        - database
+        - tests
+
+    # Every rule relaxed here is a decision, not an accident.
+    ignoreErrors:
+        # Pest's fluent API is not analysable: `$this->manager` inside a test
+        # closure is a property on the TestCase Pest binds at runtime, and the
+        # arch chain (`arch(...)->expect(...)`) is a builder PHPStan reads as
+        # Pest\PendingCalls\TestCall. Scoped to tests/ so the same mistake in
+        # application code is still an error.
+        -
+            identifier: property.notFound
+            path: tests/*
+        -
+            identifier: method.notFound
+            path: tests/*
+        # A test that reads a property off a `first()` result is asserting the
+        # row exists; if it does not, the test fails loudly on the next line.
+        # Guarding every one of them would bury the assertion in ceremony.
+        -
+            identifier: property.nonObject
+            path: tests/*
+        -
+            identifier: method.nonObject
+            path: tests/*
+        # `collect($response->json(...))` — the API envelope is mixed by
+        # definition, and asserting on it is the entire job of a feature test.
+        -
+            identifier: argument.templateType
+            path: tests/*
+        -
+            identifier: missingType.iterableValue
+            path: tests/*
+
+        # `employeeProfile` is contributed to MembershipModel at boot by
+        # OrganizationServiceProvider (resolveRelationUsing), because the
+        # profile is Organization's and Identity may not depend on it
+        # (docs/04 §3). Larastan reads relations declared on the class only, so
+        # it cannot see one registered at runtime — the alternative is pointing
+        # the module graph backwards, which is worse than this exception.
+        -
+            identifier: larastan.relationExistence
+            message: '#Relation .employeeProfile. is not found#'
+        -
+            identifier: property.notFound
+            message: '#Access to an undefined property .*MembershipModel::\$employeeProfile#'
+
+        # Partition creation builds its DDL with sprintf() from a table name and
+        # a date, neither of which comes from a request. `literal-string` cannot
+        # express "assembled from constants", and the alternative — hand-writing
+        # every monthly partition — is what the loop exists to avoid.
+        -
+            identifier: argument.type
+            message: '#unprepared\(\) expects literal-string#'
+            paths:
+                - database/migrations
+                - database/seeders
+                # Same shape, same reasoning: EnsureLogPartitions builds a
+                # partition name from a constant table list and a date. A table
+                # identifier cannot be a bound parameter, and nothing here comes
+                # from a request.
+                - app/Modules/Governance/Infrastructure/Console/EnsureLogPartitions.php
+
+        # ConditionEvaluator validates the operator against a fixed list before
+        # the match, so analysis can prove the arms exhaustive and calls the
+        # `default` unreachable. It stays: the class promises to be total —
+        # "every input produces a boolean, never an exception" — and that
+        # promise has to survive the next operator someone adds to the list
+        # without an arm to go with it.
+        -
+            identifier: match.alwaysTrue
+            path: app/Modules/Workflow/Domain/ConditionEvaluator.php
+
+    checkModelProperties: true
+    checkOctaneCompatibility: false
+    treatPhpDocTypesAsCertain: false

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test-suite configuration.
+
+  The test database is PostgreSQL, not SQLite. That is not a preference: every
+  migration in this repo is raw SQL (docs/03 §0) using composite foreign keys,
+  range partitioning and partial indexes, none of which SQLite understands. A
+  suite that ran on SQLite would prove nothing about the constraints that keep
+  tenants apart.
+
+  DB_DATABASE is overridden to `workos_test` so a careless run can never drop
+  the development data; CI passes the same name (.github/workflows/ci.yml).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <!-- Architecture rules are tests too: a boundary violation fails here. -->
+        <testsuite name="Arch">
+            <directory>tests/Arch</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+
+    <php>
+        <!--
+            Set here rather than on the command line: `artisan test` runs Pest
+            in a CHILD process, which does not inherit `php -d`. The arch suite
+            parses every file under app/Modules to build its dependency graph,
+            and that grew past PHP's 128M default as the modules did — the
+            failure looks like an unrelated crash while rendering some other
+            test's error, which is a long way from "the parser ran out of room".
+        -->
+        <ini name="memory_limit" value="512M"/>
+
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!-- Hashing dominates the runtime of a suite that logs in constantly. -->
+        <env name="BCRYPT_ROUNDS" value="4"/>
+
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_DATABASE" value="workos_test"/>
+
+        <!-- Redis is a production dependency, not a test one: a suite that needs
+             a running Redis fails for reasons that have nothing to do with the
+             code under test. -->
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+
+        <!-- `sync` rather than `array`: the rule engine's behaviour — including
+             its recursion guard (docs/07 §4) — only exists once the job actually
+             runs. Tests that care about dispatch instead call Queue::fake(). -->
+        <env name="QUEUE_CONNECTION" value="sync"/>
+
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+    </php>
+</phpunit>

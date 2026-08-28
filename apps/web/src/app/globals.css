@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/**
+ * Design tokens — the single source of the visual language (docs/09).
+ *
+ * Tailwind v4 is configured in CSS rather than in a JS config file, so these
+ * custom properties ARE the theme: `--color-n-500` becomes `text-n-500`,
+ * `bg-n-500`, `border-n-500` automatically.
+ *
+ * Two rules govern everything below:
+ *   1. Colour carries meaning, not decoration. ~90% of any screen is neutral.
+ *   2. If a surface does not float, it gets a border, not a shadow.
+ */
+
+@theme {
+  /* ── Neutrals ──────────────────────────────────────────────────────────
+     Warm-shifted slate. A cold blue-grey is the most recognisable tell of a
+     generated interface; the warmth is what makes this read as tooling. */
+  --color-n-0: #ffffff;
+  --color-n-25: #fbfbfa;
+  --color-n-50: #f6f6f5;
+  --color-n-100: #ececea;
+  --color-n-200: #dcdcd9;
+  --color-n-300: #c2c2be; /* borders and disabled ONLY — 1.79:1, never text */
+  --color-n-500: #71716a; /* secondary text — 4.92:1 on --color-n-0, verified */
+  --color-n-700: #45453f; /* body text */
+  --color-n-900: #1c1c19; /* headings */
+
+  /* ── Accent — interactive elements only, never decoration ─────────────── */
+  --color-a-50: #eef2ff;
+  --color-a-500: #3b5bdb;
+  --color-a-700: #2f489f;
+
+  /* ── State — status only ──────────────────────────────────────────────── */
+  --color-s-neutral: #71716a;
+  --color-s-info: #2f6feb;
+  --color-s-active: #b45309; /* amber, not yellow: yellow cannot reach AA */
+  --color-s-review: #7c3aed;
+  --color-s-success: #15803d;
+  --color-s-danger: #b91c1c;
+
+  /* ── Typography ───────────────────────────────────────────────────────
+     14px body, not 16px. This is a dense tool used at 100% zoom on large
+     screens; 16px forces scrolling that costs more than it gains (docs/09 §3). */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", monospace;
+
+  --text-micro: 0.6875rem; /* 11 */
+  --text-micro--line-height: 0.875rem;
+  --text-caption: 0.75rem; /* 12 */
+  --text-caption--line-height: 1rem;
+  --text-body-sm: 0.8125rem; /* 13 — table cells */
+  --text-body-sm--line-height: 1.125rem;
+  --text-body: 0.875rem; /* 14 — the default */
+  --text-body--line-height: 1.25rem;
+  --text-h2: 1rem; /* 16 */
+  --text-h2--line-height: 1.5rem;
+  --text-h1: 1.25rem; /* 20 */
+  --text-h1--line-height: 1.75rem;
+  --text-display: 1.5rem; /* 24 — page titles only */
+  --text-display--line-height: 2rem;
+
+  /* ── Radius — 16px+ reads as consumer app, not tooling ────────────────── */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+
+  /* ── Elevation — exactly four levels exist ────────────────────────────── */
+  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-e2: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-e3: 0 16px 32px rgba(0, 0, 0, 0.12);
+
+  /* ── Motion — communicates state change, nothing else ─────────────────── */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Dark mode: a token remap authored alongside light, never retrofitted ──
+   Surfaces are near-black rather than pure black, and borders lighten instead
+   of shadows deepening — shadows are invisible on dark surfaces. */
+@layer base {
+  :root {
+    --row-height: 32px; /* compact is the default for lists (docs/09 §4) */
+    --cell-padding-y: 6px;
+    --cell-padding-x: 12px;
+  }
+
+  :root[data-density="comfortable"] {
+    --row-height: 40px;
+    --cell-padding-y: 12px;
+    --cell-padding-x: 16px;
+  }
+
+  :root[data-theme="dark"] {
+    --color-n-0: #161615;
+    --color-n-25: #1b1b1a;
+    --color-n-50: #1f1f1e;
+    --color-n-100: #2a2a28;
+    --color-n-200: #383835;
+    --color-n-300: #4d4d49;
+    --color-n-500: #9a9a91;
+    --color-n-700: #cecec7;
+    --color-n-900: #f2f2ee;
+
+    --color-a-50: #1e2338;
+    --color-a-500: #7d94f5;
+    --color-a-700: #9aabf8;
+
+    --color-s-active: #e0a458;
+    --color-s-success: #4ade80;
+    --color-s-danger: #f87171;
+    --color-s-review: #c4a2fa;
+    --color-s-info: #7dabff;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--color-n-0);
+    color: var(--color-n-700);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    /* Dates and durations that jitter between rows slow scanning and read as
+       amateurish (docs/09 §3). */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Never remove the focus ring — replace it. Keyboard operation is not
+     optional in a tool people use all day (docs/07 §6). */
+  :focus-visible {
+    outline: 2px solid var(--color-a-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background-color: var(--color-a-50);
+  }
+}
+
+/* Motion collapses entirely for anyone who has asked for that. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

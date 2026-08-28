@@ -1,0 +1,10 @@
+node_modules/
+.next/
+vendor/
+.env
+.env.local
+.DS_Store
+
+# Files an earlier session moved aside rather than deleted. Not history —
+# superseded copies and archives. Delete the folder when you have looked.
+_to_delete/

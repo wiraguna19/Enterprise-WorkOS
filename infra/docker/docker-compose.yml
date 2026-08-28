@@ -1,0 +1,89 @@
+# Local development stack.
+#
+# Everything the application talks to runs here, so a new developer needs
+# `docker compose up` and nothing else — no local Postgres, no "works on my
+# machine" version drift.
+#
+# Versions are pinned to what production runs (docs/01 §7). A patch-level
+# difference is fine; a major-version difference is how "passes locally, fails
+# in CI" happens.
+
+name: workos
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: workos
+      POSTGRES_PASSWORD: workos
+      POSTGRES_DB: workos
+      # C collation keeps index behaviour identical across machines; locale
+      # differences change sort order and therefore cursor pagination results.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workos -d workos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # S3-compatible object storage. Attachments never touch the database
+  # (docs/03 §5) and never stream through the API process (docs/05 §6), so a
+  # real object store must exist in development too.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: workos
+      MINIO_ROOT_PASSWORD: workos-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 workos workos-secret &&
+      mc mb --ignore-existing local/workos-attachments &&
+      mc anonymous set none local/workos-attachments
+      "
+
+  # Catches outbound mail so notification work can be verified without sending
+  # anything to a real address.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

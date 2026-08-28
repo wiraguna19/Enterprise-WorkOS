@@ -1,0 +1,166 @@
+# Module boundary enforcement (docs/04 §3).
+#
+# A violating pull request fails before a human reads it. Without this, module
+# boundaries survive exactly as long as the discipline of whoever is in a hurry.
+parameters:
+  paths:
+    - ./app/Modules
+  layers:
+    - name: Platform
+      collectors:
+        - type: directory
+          value: app/Modules/Platform/.*
+    - name: Identity
+      collectors:
+        - type: directory
+          value: app/Modules/Identity/.*
+    - name: Organization
+      collectors:
+        - type: directory
+          value: app/Modules/Organization/.*
+    - name: Governance
+      collectors:
+        - type: directory
+          value: app/Modules/Governance/.*
+    - name: Workflow
+      collectors:
+        - type: directory
+          value: app/Modules/Workflow/.*
+    - name: Work
+      collectors:
+        - type: directory
+          value: app/Modules/Work/.*
+    - name: Collaboration
+      collectors:
+        - type: directory
+          value: app/Modules/Collaboration/.*
+    - name: Files
+      collectors:
+        - type: directory
+          value: app/Modules/Files/.*
+    - name: Approval
+      collectors:
+        - type: directory
+          value: app/Modules/Approval/.*
+    - name: Notification
+      collectors:
+        - type: directory
+          value: app/Modules/Notification/.*
+    - name: Search
+      collectors:
+        - type: directory
+          value: app/Modules/Search/.*
+    - name: Realtime
+      collectors:
+        - type: directory
+          value: app/Modules/Realtime/.*
+    - name: Calendar
+      collectors:
+        - type: directory
+          value: app/Modules/Calendar/.*
+
+  ruleset:
+    # Platform is the kernel: it depends on nothing above it.
+    Platform: ~
+
+    # Identity may use the kernel only.
+    Identity:
+      - Platform
+      - Governance
+
+    # Organization sits above Identity (people belong to organizations).
+    Organization:
+      - Platform
+      - Identity
+      - Governance
+
+    # Workflow owns states; it knows nothing about the work that uses them.
+    Workflow:
+      - Platform
+      - Identity
+      - Governance
+      - Work
+      - Approval
+      - Notification
+
+    # Work sits above Organization and Workflow. It may ASK Workflow for a
+    # state; it may not reach back up into Approval or Notification — those
+    # subscribe to its events instead (docs/04 §3).
+    Work:
+      - Platform
+      - Identity
+      - Organization
+      - Workflow
+      - Governance
+
+    # Collaboration and Files hang off Work's subjects.
+    Collaboration:
+      - Platform
+      - Identity
+      - Work
+      - Governance
+
+    Files:
+      - Platform
+      - Identity
+      - Work
+      - Governance
+
+    # Approval sits above Work and below Notification. It emits its own events
+    # rather than notifying anyone directly.
+    Approval:
+      - Platform
+      - Identity
+      - Work
+      - Governance
+
+    # Notification is the top of the stack: it SUBSCRIBES to Work, Approval,
+    # and Collaboration events and is imported by none of them. If this list
+    # ever needs to be reversed, the seam has broken (docs/04 §3).
+    Notification:
+      - Platform
+      - Identity
+      - Work
+      - Approval
+      - Governance
+
+    # Search reads across the modules that own the searchable records, and is
+    # imported by none of them. It holds no data of its own: every result comes
+    # back through the same visibility rule the record's own list endpoint uses
+    # (docs/04 §3, docs/06 §2).
+    Search:
+      - Platform
+      - Identity
+      - Organization
+      - Work
+      - Collaboration
+      - Governance
+
+    # Calendar aggregates dates the other modules own — work items, milestones,
+    # and the occurrences a recurrence rule will produce. Like Search, it holds
+    # no records of its own beyond subscription tokens, and is imported by none
+    # of them (docs/04 §3).
+    Calendar:
+      - Platform
+      - Identity
+      - Organization
+      - Work
+      - Workflow
+      - Governance
+
+    # Realtime decides who may LISTEN, which is the same question as who may
+    # read — so it reaches across the modules that own the answer, exactly as
+    # Search and Calendar do, and none of them import it. Publishing goes the
+    # other way and does not come through here: modules publish through
+    # Platform's RealtimePublisher contract, so nothing has to depend on this
+    # layer to emit an event (docs/04 §3, docs/07 §8).
+    Realtime:
+      - Platform
+      - Identity
+      - Organization
+      - Work
+      - Governance
+
+    # Governance is written to by everything but knows about nothing.
+    Governance:
+      - Platform

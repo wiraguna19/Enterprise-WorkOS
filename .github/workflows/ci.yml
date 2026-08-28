@@ -1,0 +1,190 @@
+# CI (docs/11 §6).
+#
+# Gates, in order of how fast they fail. A red pipeline is never merged around:
+# the moment that becomes negotiable, every test in this repo stops being worth
+# writing.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: "8.4"
+  NODE_VERSION: "22"
+
+jobs:
+  api-static:
+    name: API — lint & static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, redis, intl, bcmath
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: apps/api
+      - name: Code style
+        run: vendor/bin/pint --test
+        working-directory: apps/api
+      - name: Static analysis
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+        working-directory: apps/api
+      - name: Module boundaries
+        # A dependency cycle or a cross-module Infrastructure import fails here,
+        # before a human reads the diff (docs/04 §3).
+        run: vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress
+        working-directory: apps/api
+
+  api-tests:
+    name: API — tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workos
+          POSTGRES_PASSWORD: workos
+          POSTGRES_DB: workos_test
+        options: >-
+          --health-cmd "pg_isready -U workos"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["5432:5432"]
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, redis, intl, bcmath
+          coverage: xdebug
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: apps/api
+      - run: cp .env.example .env && php artisan key:generate
+        working-directory: apps/api
+      - run: php artisan migrate --force
+        working-directory: apps/api
+        env:
+          DB_DATABASE: workos_test
+      - name: Test suite
+        run: vendor/bin/pest --parallel --coverage --min=85
+        working-directory: apps/api
+        env:
+          DB_DATABASE: workos_test
+
+  # Isolated from the rest so a failure here is unmistakable in the checks list.
+  # This is the suite that stands between the product and a cross-tenant leak.
+  tenant-isolation:
+    name: API — tenant isolation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workos
+          POSTGRES_PASSWORD: workos
+          POSTGRES_DB: workos_test
+        options: >-
+          --health-cmd "pg_isready -U workos"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, redis, intl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: apps/api
+      - run: cp .env.example .env && php artisan key:generate && php artisan migrate --force
+        working-directory: apps/api
+        env:
+          DB_DATABASE: workos_test
+      - run: vendor/bin/pest tests/Feature/TenantIsolationTest.php
+        working-directory: apps/api
+        env:
+          DB_DATABASE: workos_test
+
+  schema:
+    name: Database — schema & constraint proofs
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workos
+          POSTGRES_PASSWORD: workos
+          POSTGRES_DB: workos_schema
+        options: >-
+          --health-cmd "pg_isready -U workos"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: "8.4", extensions: pdo_pgsql, coverage: none }
+      - name: Run migrations without the framework
+        run: php infra/docker/verify-schema.php "pgsql:host=127.0.0.1;dbname=workos_schema" workos workos
+        env: { PGPASSWORD: workos }
+      - name: Prove the constraints hold
+        # Append-only triggers, cross-tenant FK rejection, partial unique
+        # indexes, CHECK constraints — asserted against a real server.
+        run: psql -h 127.0.0.1 -U workos -d workos_schema -v ON_ERROR_STOP=1 -f infra/docker/verify-constraints.sql
+        env: { PGPASSWORD: workos }
+
+  web:
+    name: Web — typecheck, lint, build, a11y
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+        working-directory: apps/web
+      - name: Design token contrast
+        # Contrast cannot be judged by eye; this caught a 4.45:1 secondary text
+        # colour that looked fine (docs/09 §2).
+        run: node scripts/verify-contrast.mjs
+        working-directory: apps/web
+      - run: npx tsc --noEmit
+        working-directory: apps/web
+      - run: npm run lint
+        working-directory: apps/web
+      - run: npm run build
+        working-directory: apps/web
+      - name: Bundle budget
+        run: node scripts/verify-bundle-budget.mjs
+        working-directory: apps/web
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: "8.4", coverage: none }
+      - run: composer install --no-interaction --no-progress
+        working-directory: apps/api
+      - run: composer audit --abandoned=report
+        working-directory: apps/api
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: npm audit --audit-level=high
+        working-directory: apps/web

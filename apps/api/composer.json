@@ -1,0 +1,74 @@
+{
+    "name": "workos/api",
+    "type": "project",
+    "description": "Enterprise Work OS \u2014 API",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "dedoc/scramble": "^0.13",
+        "laravel/framework": "^13.0",
+        "laravel/horizon": "^5.30",
+        "laravel/sanctum": "^4.0",
+        "laravel/tinker": "^3.0",
+        "league/flysystem-aws-s3-v3": "^3.29",
+        "predis/predis": "^2.2",
+        "rlanvin/php-rrule": "^3.0",
+        "symfony/uid": "^7.4|^8.0"
+    },
+    "require-dev": {
+        "deptrac/deptrac": "^4.7",
+        "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.10",
+        "laravel/pint": "^1.18",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.9",
+        "pestphp/pest": "^5.0.1",
+        "pestphp/pest-plugin-laravel": "^5.0.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php artisan package:discover --ansi"
+        ],
+        "test": "@php artisan test",
+        "lint": "pint --test",
+        "stan": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpstan analyse --memory-limit=1G"
+        ],
+        "arch": "deptrac analyse --config-file=deptrac.yaml",
+        "check": [
+            "@lint",
+            "@stan",
+            "@arch",
+            "@test"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

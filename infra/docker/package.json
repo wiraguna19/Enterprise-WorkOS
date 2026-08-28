@@ -1,0 +1,18 @@
+{
+  "name": "workos-verification-harness",
+  "private": true,
+  "type": "module",
+  "description": "Verification harnesses. NOT part of the application — these exist so the schema, the renderer, and the UI can be proven in environments where the full stack cannot be installed.",
+  "scripts": {
+    "mock-api": "node mock-api.mjs",
+    "screenshots": "node capture-screenshots.mjs",
+    "a11y": "node verify-a11y.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "playwright": "^1.49.1"
+  }
+}
