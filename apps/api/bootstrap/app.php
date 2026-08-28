@@ -10,6 +10,7 @@ use App\Modules\Governance\Providers\GovernanceServiceProvider;
 use App\Modules\Identity\Http\Middleware\RequirePermission;
 use App\Modules\Identity\Http\Middleware\ResolveTenant;
 use App\Modules\Identity\Providers\IdentityServiceProvider;
+use App\Modules\Insights\Providers\InsightsServiceProvider;
 use App\Modules\Notification\Providers\NotificationServiceProvider;
 use App\Modules\Organization\Providers\OrganizationServiceProvider;
 use App\Modules\Platform\Domain\Exception\DomainException;
@@ -44,6 +45,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Phase 5. Both read what the modules above own; nothing reads them.
         SearchServiceProvider::class,
         CalendarServiceProvider::class,
+        // Phase 6. Reads what every other module owns and computes numbers from
+        // it; imported by none of them.
+        InsightsServiceProvider::class,
     ])
     ->withRouting(
         commands: __DIR__.'/../routes/console.php',

@@ -3,7 +3,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
 import { formatDate } from "@/lib/format";
-import type { PersonDetail, PersonRef } from "./types";
+import { WorkloadPanel } from "./WorkloadPanel";
+import type { PersonDetail, PersonRef, Workload } from "./types";
 
 /**
  * One person's profile (docs/08 §2).
@@ -23,10 +24,12 @@ import type { PersonDetail, PersonRef } from "./types";
 export function PersonProfile({
   person,
   openWork,
+  workload,
   timeZone,
 }: {
   person: PersonDetail;
   openWork: WorkItem[];
+  workload: Workload | null;
   timeZone: string;
 }) {
   return (
@@ -91,6 +94,12 @@ export function PersonProfile({
           </div>
         </dl>
       </Section>
+
+      {workload && (
+        <Section title="This week">
+          <WorkloadPanel workload={workload} />
+        </Section>
+      )}
 
       <Section title="Open work">
         {openWork.length === 0 ? (

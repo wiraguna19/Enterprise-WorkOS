@@ -36,3 +36,20 @@ export type PersonDetail = Person & {
   /** Only sent to someone who can edit the record; absent for everyone else. */
   employee_number?: string | null;
 };
+
+/** Mirrors WorkloadQuery (docs/02 §11). */
+export type Workload = {
+  membership_id: string;
+  week_start: string;
+  week_end: string;
+  capacity_hours: number;
+  /** Null, not zero: nothing in the schema records leave. */
+  time_off_hours: number | null;
+  committed_hours: number;
+  utilization: number | null;
+  item_count: number;
+  unestimated_count: number;
+  /** Committed work that carries no dates, so it lands in no week. */
+  undated_count: number;
+  default_estimate_hours: number;
+};

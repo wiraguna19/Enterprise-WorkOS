@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PersonProfile } from "@/features/people/PersonProfile";
-import type { PersonDetail } from "@/features/people/types";
+import type { PersonDetail, Workload } from "@/features/people/types";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -30,6 +30,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   // endpoint applies work item visibility before the assignee filter, so this
   // cannot become a way to enumerate work in a private project through the
   // profile of someone who is on it (docs/06 §2).
+  // Only asked for when the server already said this viewer may have it: the
+  // permissions block is the server's own decision, echoed (docs/06 §2).
+  const workload = person.permissions.view_workload
+    ? await api<Workload>(`/people/${id}/workload`)
+        .then((r) => r.data)
+        .catch(() => null)
+    : null;
+
   const { data: openWork } = await api<WorkItem[]>(
     `/work-items?filter[assignee_id]=${id}` +
       "&filter[state_category]=todo,in_progress,in_review,blocked" +
@@ -42,7 +50,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         ← People
       </Link>
 
-      <PersonProfile person={person} openWork={openWork} timeZone={me.user.timezone} />
+      <PersonProfile
+        person={person}
+        openWork={openWork}
+        workload={workload}
+        timeZone={me.user.timezone}
+      />
     </div>
   );
 }

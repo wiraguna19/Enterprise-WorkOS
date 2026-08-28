@@ -50,6 +50,10 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Search/.*
+    - name: Insights
+      collectors:
+        - type: directory
+          value: app/Modules/Insights/.*
     - name: Realtime
       collectors:
         - type: directory
@@ -141,6 +145,19 @@ parameters:
     # no records of its own beyond subscription tokens, and is imported by none
     # of them (docs/04 §3).
     Calendar:
+      - Platform
+      - Identity
+      - Organization
+      - Work
+      - Workflow
+      - Governance
+
+    # Insights computes numbers from records the other modules own — capacity,
+    # cycle time, throughput. Like Search and Calendar it holds nothing of its
+    # own and is imported by none of them, which is what keeps a metric
+    # definition from leaking into the module that happens to store the data
+    # (docs/04 §3, docs/02 §11).
+    Insights:
       - Platform
       - Identity
       - Organization

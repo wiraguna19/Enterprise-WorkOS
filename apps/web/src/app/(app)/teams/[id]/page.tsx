@@ -5,7 +5,8 @@ import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
 import { TeamMembers } from "@/features/teams/TeamMembers";
 import type { Team } from "@/features/teams/types";
-import type { Person } from "@/features/people/types";
+import type { Person, Workload } from "@/features/people/types";
+import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -47,6 +48,14 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       : Promise.resolve([]),
   ]);
 
+  // Rows, never one averaged number: an over-committed person beside an idle
+  // one averages to "fine", which is the one reading of this that helps nobody
+  // (docs/02 §11). Members whose workload this viewer may not see are omitted
+  // and counted by the API rather than shown as zero.
+  const { data: workload, meta: workloadMeta } = await api<Array<Workload & { name: string }>>(
+    `/teams/${id}/workload`,
+  ).catch(() => ({ data: [] as Array<Workload & { name: string }>, meta: undefined }));
+
   const memberIds = new Set((team.members ?? []).map((member) => member.membership_id));
 
   const candidates = directory
@@ -84,6 +93,41 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
           canManage={canManage}
         />
       </section>
+
+      {workload.length > 0 && (
+        <section aria-labelledby="load-heading" className="space-y-2">
+          <SectionLabel id="load-heading">This week</SectionLabel>
+
+          <ul className="divide-y divide-n-100 border-y border-n-100">
+            {workload.map((row) => (
+              <li key={row.membership_id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
+                <Link
+                  href={`/people/${row.membership_id}`}
+                  className="w-40 shrink-0 truncate text-body-sm text-n-900 hover:text-a-700"
+                >
+                  {row.name}
+                </Link>
+
+                <WorkloadBar
+                  committedHours={row.committed_hours}
+                  capacityHours={row.capacity_hours}
+                  itemCount={row.item_count}
+                  unestimatedCount={row.unestimated_count}
+                />
+              </li>
+            ))}
+          </ul>
+
+          {typeof workloadMeta?.withheld_count === "number" && workloadMeta.withheld_count > 0 && (
+            // Said out loud rather than left as a shorter list: a team view
+            // that quietly omits people misrepresents the team.
+            <p className="text-caption text-n-500">
+              {workloadMeta.withheld_count} member
+              {workloadMeta.withheld_count === 1 ? "'s" : "s'"} workload is not yours to see.
+            </p>
+          )}
+        </section>
+      )}
 
       <section aria-labelledby="work-heading" className="space-y-2">
         <SectionLabel id="work-heading">Open work</SectionLabel>
