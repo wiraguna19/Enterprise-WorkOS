@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Work\Http\Request;
 
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
+use App\Modules\Platform\Domain\Work\StateCategory;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
-use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -94,7 +94,7 @@ final class ListWorkItemsRequest extends FormRequest
         if (isset($filter['state_category'])) {
             $categories = array_intersect(
                 explode(',', (string) $filter['state_category']),
-                WorkflowStateModel::CATEGORIES,
+                StateCategory::ALL,
             );
 
             $query->whereIn('state_category', $categories ?: ['__none__']);

@@ -52,6 +52,17 @@ parameters:
             identifier: property.notFound
             message: '#Access to an undefined property .*MembershipModel::\$employeeProfile#'
 
+        # Same arrangement, same reason: `state` is contributed to WorkItemModel
+        # at boot by WorkflowServiceProvider, because the state is Workflow's
+        # and Work may not depend on Workflow — that import is what made the
+        # module graph a cycle (ADR 0002).
+        -
+            identifier: larastan.relationExistence
+            message: '#Relation .state. is not found#'
+        -
+            identifier: property.notFound
+            message: '#Access to an undefined property .*WorkItemModel::\$state#'
+
         # Partition creation builds its DDL with sprintf() from a table name and
         # a date, neither of which comes from a request. `literal-string` cannot
         # express "assembled from constants", and the alternative — hand-writing

@@ -9,6 +9,7 @@ use App\Modules\Platform\Application\Event\RecordsDomainEvents;
 use App\Modules\Platform\Domain\Contract\RealtimePublisher;
 use App\Modules\Platform\Domain\Exception\ConcurrencyConflict;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
+use App\Modules\Platform\Domain\Work\StateCategory;
 use App\Modules\Platform\Infrastructure\Realtime\Channel;
 use App\Modules\Work\Domain\Event\WorkItemCreated;
 use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
@@ -214,7 +215,7 @@ final class WorkItemService
             // reason, which is recorded. Real organisations need the override;
             // a SILENT violation is what destroys trust in the data
             // (docs/02 §4.2).
-            if (in_array($target->category, WorkflowStateModel::CLOSED_CATEGORIES, strict: true)) {
+            if (StateCategory::isClosed($target->category)) {
                 $blockers = $this->dependencies->openBlockersFor($locked);
 
                 if ($blockers !== [] && ($options['override_reason'] ?? null) === null) {

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Work\Infrastructure\Eloquent;
 
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
+use App\Modules\Platform\Domain\Work\StateCategory;
 use App\Modules\Platform\Infrastructure\Eloquent\TenantModel;
-use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -117,11 +117,16 @@ final class WorkItemModel extends TenantModel
         return $this->hasMany(self::class, 'parent_id')->orderBy('position');
     }
 
-    /** @return BelongsTo<WorkflowStateModel, $this> */
-    public function state(): BelongsTo
-    {
-        return $this->belongsTo(WorkflowStateModel::class, 'workflow_state_id');
-    }
+    /*
+     * `state` is declared from WorkflowServiceProvider, not here.
+     *
+     * The state belongs to Workflow, and Work may not depend on Workflow —
+     * that import is what made the module graph a cycle (ADR 0002). Attaching
+     * the relation from the owning module's provider keeps every existing
+     * `->with('state')` working while the arrow points the way docs/04 §3 says
+     * it must. Organization does the same thing to hang employeeProfile off
+     * Identity's membership.
+     */
 
     /** @return BelongsTo<MembershipModel, $this> */
     public function creator(): BelongsTo
@@ -181,7 +186,7 @@ final class WorkItemModel extends TenantModel
      */
     public function scopeOpen(Builder $query): Builder
     {
-        return $query->whereNotIn('state_category', WorkflowStateModel::CLOSED_CATEGORIES);
+        return $query->whereNotIn('state_category', StateCategory::CLOSED);
     }
 
     /** @param Builder<WorkItemModel> $query
@@ -195,7 +200,7 @@ final class WorkItemModel extends TenantModel
         return $query
             ->whereNotNull('due_at')
             ->where('due_at', '<', now())
-            ->whereNotIn('state_category', WorkflowStateModel::CLOSED_CATEGORIES);
+            ->whereNotIn('state_category', StateCategory::CLOSED);
     }
 
     /**
@@ -247,12 +252,12 @@ final class WorkItemModel extends TenantModel
     {
         return $this->due_at !== null
             && $this->due_at->isPast()
-            && ! in_array($this->state_category, WorkflowStateModel::CLOSED_CATEGORIES, strict: true);
+            && ! in_array($this->state_category, StateCategory::CLOSED, strict: true);
     }
 
     public function isClosed(): bool
     {
-        return in_array($this->state_category, WorkflowStateModel::CLOSED_CATEGORIES, strict: true);
+        return in_array($this->state_category, StateCategory::CLOSED, strict: true);
     }
 
     /** The person currently doing the work, if anyone. */

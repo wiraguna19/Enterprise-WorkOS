@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Workflow\Infrastructure\Eloquent;
 
+use App\Modules\Platform\Domain\Work\StateCategory;
 use App\Modules\Platform\Infrastructure\Eloquent\TenantModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,16 +39,20 @@ final class WorkflowStateModel extends TenantModel
 
     public $timestamps = false;
 
-    /** The seven fixed buckets every custom state must map to. */
-    public const CATEGORIES = [
-        'backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'cancelled',
-    ];
+    /**
+     * The category vocabulary lives in Platform (StateCategory).
+     *
+     * Aliased here rather than moved-and-forgotten because a workflow state IS
+     * the thing that carries a category, so this is where a reader looks for
+     * it. The list itself belongs lower down: everything in the product asks
+     * "is this finished", and nothing else needs to know a workflow engine
+     * exists.
+     */
+    public const CATEGORIES = StateCategory::ALL;
 
-    /** Categories that mean "this work is finished, stop counting it". */
-    public const CLOSED_CATEGORIES = ['done', 'cancelled'];
+    public const CLOSED_CATEGORIES = StateCategory::CLOSED;
 
-    /** Categories that consume capacity in the workload calculation (docs/02 §11). */
-    public const COMMITTED_CATEGORIES = ['todo', 'in_progress', 'in_review'];
+    public const COMMITTED_CATEGORIES = StateCategory::COMMITTED;
 
     /** @return array<string, string> */
     protected function casts(): array

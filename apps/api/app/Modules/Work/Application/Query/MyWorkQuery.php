@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Work\Application\Query;
 
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
+use App\Modules\Platform\Domain\Work\StateCategory;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
-use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -157,7 +157,7 @@ final class MyWorkQuery
         $query = WorkItemModel::query()
             ->with(['state', 'project:id,key,name'])
             ->whereNull('deleted_at')
-            ->whereNotIn('state_category', WorkflowStateModel::CLOSED_CATEGORIES)
+            ->whereNotIn('state_category', StateCategory::CLOSED)
             ->whereExists(fn ($sub) => $sub
                 ->from('work_item_assignments')
                 ->whereColumn('work_item_assignments.work_item_id', 'work_items.id')
