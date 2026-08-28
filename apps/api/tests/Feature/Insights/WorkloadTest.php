@@ -38,6 +38,7 @@ function assignWork(string $membershipId, array $attributes = []): string
         'workflow_id' => WORKFLOW,
         'workflow_state_id' => $attributes['workflow_state_id'] ?? TODO_STATE,
         'state_category' => $attributes['state_category'] ?? 'todo',
+        'project_id' => $attributes['project_id'] ?? null,
         'estimate_hours' => $attributes['estimate_hours'] ?? null,
         'start_date' => $attributes['start_date'] ?? null,
         'due_at' => $attributes['due_at'] ?? null,
@@ -188,4 +189,79 @@ it('gives a team rows, never one averaged number', function (): void {
     expect($team->json('data'))->not->toBeEmpty()
         ->and($team->json('data.0'))->toHaveKeys(['name', 'capacity_hours', 'committed_hours'])
         ->and($team->json('meta.withheld_count'))->toBe(0);
+});
+
+it('opens the number into the items that make it up', function (): void {
+    // docs/10, Phase 6: "a number a user cannot drill into does not ship."
+    $id = assignWork(SARAH_M, [
+        'estimate_hours' => 10,
+        'start_date' => now()->startOfWeek()->addDays(3)->toDateString(),
+        'due_at' => now()->startOfWeek()->addDays(12),
+    ]);
+
+    $response = $this->withToken($this->admin)
+        ->getJson('/api/v1/people/'.SARAH_M.'/workload/items?week='.$this->monday)
+        ->assertOk();
+
+    $row = collect($response->json('data'))->firstWhere('id', $id);
+
+    // The item says what it contributed, not merely that it exists.
+    expect((float) $row['share_hours'])->toBe(4.0)
+        ->and($row['counted_at_default'])->toBeFalse();
+});
+
+it('adds up to the figure it explains', function (): void {
+    // The drill-through is folded from the same computation as the summary, so
+    // a breakdown that did not sum to its own total would be a contradiction
+    // rather than a rounding difference. Asserted because two implementations
+    // of one number is the failure this design exists to prevent.
+    assignWork(SARAH_M, [
+        'estimate_hours' => 6,
+        'start_date' => now()->startOfWeek()->toDateString(),
+        'due_at' => now()->startOfWeek()->addDays(2),
+    ]);
+
+    $response = $this->withToken($this->admin)
+        ->getJson('/api/v1/people/'.SARAH_M.'/workload/items?week='.$this->monday)
+        ->assertOk();
+
+    $summed = collect($response->json('data'))
+        ->sum(fn (array $row): float => (float) ($row['share_hours'] ?? 0));
+
+    expect(round($summed, 2))
+        ->toBe(round((float) $response->json('meta.committed_hours'), 2))
+        // Nothing was hidden from an org admin, so the two agree exactly here.
+        ->and($response->json('meta.hidden_count'))->toBe(0);
+});
+
+it('hides items the reader may not open, and says how many', function (): void {
+    // Ahmad is a Manager: he holds person.view_workload, so Lisa's number is
+    // his to see. Lisa is in Marketing and reports to Rina, so she is not in
+    // his reporting line, and he is neither owner nor member of the private
+    // Finance project.
+    $lisa = '01900000-0000-7000-8000-000000000207';
+
+    $hidden = assignWork($lisa, [
+        'estimate_hours' => 5,
+        'project_id' => '01900003-0000-7000-8000-000000000005',
+        'start_date' => now()->startOfWeek()->toDateString(),
+        'due_at' => now()->startOfWeek()->addDay(),
+    ]);
+
+    $response = $this->withToken($this->loginAs('ahmad@acme.test'))
+        ->getJson('/api/v1/people/'.$lisa.'/workload/items?week='.$this->monday)
+        ->assertOk();
+
+    // Asserted by ID, not by project key: the seed already gives Lisa a FIN
+    // item that AHMAD CREATED, and clause 3 of the visibility rule lets a
+    // person see what they made. An assertion on the key would call that
+    // correct behaviour a leak.
+    expect(collect($response->json('data'))->pluck('id'))->not->toContain($hidden)
+        // The hours are still in the total — capacity is a fact about Lisa's
+        // week, and a number that changed with the reader would be useless for
+        // the staffing decision it exists to inform.
+        ->and((float) $response->json('meta.committed_hours'))->toBeGreaterThanOrEqual(5.0)
+        // And the omission is stated rather than left as a list that quietly
+        // does not add up to the figure printed above it.
+        ->and($response->json('meta.hidden_count'))->toBeGreaterThanOrEqual(1);
 });

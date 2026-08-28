@@ -17,5 +17,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('people/{membership}/workload', [WorkloadController::class, 'person'])
     ->middleware('permission:person.view');
 
+// The drill-through docs/10 requires: a number a user cannot open is a number
+// they have to take on trust, and this product does not ask for that.
+Route::get('people/{membership}/workload/items', [WorkloadController::class, 'personItems'])
+    ->middleware('permission:person.view');
+
 Route::get('teams/{team}/workload', [WorkloadController::class, 'team'])
     ->middleware('permission:team.view');

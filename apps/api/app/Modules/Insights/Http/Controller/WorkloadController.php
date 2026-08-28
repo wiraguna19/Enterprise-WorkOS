@@ -9,6 +9,8 @@ use App\Modules\Insights\Application\Query\WorkloadQuery;
 use App\Modules\Organization\Infrastructure\Eloquent\TeamModel;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
+use App\Modules\Work\Application\Query\WorkItemVisibility;
+use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 
@@ -23,7 +25,10 @@ use Illuminate\Http\Request;
  */
 final class WorkloadController extends ApiController
 {
-    public function __construct(private readonly WorkloadQuery $workload) {}
+    public function __construct(
+        private readonly WorkloadQuery $workload,
+        private readonly WorkItemVisibility $visibility,
+    ) {}
 
     public function person(Request $request, MembershipModel $membership): ApiResponse
     {
@@ -32,6 +37,65 @@ final class WorkloadController extends ApiController
         return $this->ok(
             $this->workload->forMembership((string) $membership->getKey(), $this->week($request))
         );
+    }
+
+    /**
+     * The items behind one person's number (docs/10, Phase 6 exit criteria).
+     *
+     * "A number a user cannot drill into does not ship." This is that drill,
+     * and it is folded from the same computation the summary is, so the two
+     * cannot disagree.
+     *
+     * The list is filtered by the CALLER's visibility even though the total is
+     * not. Those are different questions and both answers are honest: the total
+     * is a fact about the person's week, and what may be read is a fact about
+     * the reader. What is not honest is a shorter list with no explanation, so
+     * the hidden count is returned — and since the total is already there, the
+     * hours behind it are derivable anyway. Saying so plainly beats implying it.
+     */
+    public function personItems(Request $request, MembershipModel $membership): ApiResponse
+    {
+        $this->authorize('viewWorkload', $membership);
+
+        $week = $this->week($request);
+        $breakdown = $this->workload->breakdownFor((string) $membership->getKey(), $week);
+
+        /** @var array<string, array{share: float|null, estimated: bool}> $shares */
+        $shares = [];
+
+        foreach ($breakdown as $row) {
+            $shares[$row['item']->id] = ['share' => $row['share'], 'estimated' => $row['estimated']];
+        }
+
+        $query = WorkItemModel::query()
+            ->with(['project:id,key,name'])
+            ->whereIn('id', array_keys($shares));
+
+        $this->visibility->apply($query);
+
+        $visible = $query->get();
+
+        $items = $visible->map(fn (WorkItemModel $item): array => [
+            'id' => (string) $item->getKey(),
+            'reference' => (string) $item->reference,
+            'title' => (string) $item->title,
+            'state_category' => (string) $item->state_category,
+            'project' => $item->project?->key,
+            'start_date' => $item->start_date?->toDateString(),
+            'due_at' => $item->due_at?->toIso8601String(),
+            'estimate_hours' => $item->estimate_hours === null ? null : (float) $item->estimate_hours,
+            // What this item actually contributed to the figure — the number
+            // the drill-through exists to explain.
+            'share_hours' => $shares[(string) $item->getKey()]['share'] === null
+                ? null
+                : round((float) $shares[(string) $item->getKey()]['share'], 2),
+            'counted_at_default' => $shares[(string) $item->getKey()]['estimated'],
+        ])->values()->all();
+
+        return ApiResponse::collection($items, [
+            'week_start' => $week->toDateString(),
+            'hidden_count' => count($shares) - $visible->count(),
+        ] + $this->workload->forMembership((string) $membership->getKey(), $week));
     }
 
     /**

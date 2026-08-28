@@ -62,38 +62,31 @@ final class WorkloadQuery
     public function forMembership(string $membershipId, CarbonImmutable $weekStart): array
     {
         $weekEnd = $weekStart->addDays(6);
+        $defaultEstimate = (float) $this->settings->get('work.default_estimate_hours', 4);
 
         $capacity = (float) (DB::table('employee_profiles')
             ->where('organization_id', $this->tenant->organizationId())
             ->where('membership_id', $membershipId)
             ->value('weekly_capacity_hours') ?? 40.0);
 
-        $defaultEstimate = (float) $this->settings->get('work.default_estimate_hours', 4);
-
-        $items = $this->committedItems($membershipId);
-
         $committed = 0.0;
         $unestimated = 0;
         $undated = 0;
         $counted = 0;
 
-        foreach ($items as $item) {
-            $estimate = $item->estimateHours ?? $defaultEstimate;
-
-            if ($item->estimateHours === null) {
+        foreach ($this->breakdownFor($membershipId, $weekStart) as $row) {
+            if ($row['estimated']) {
                 $unestimated++;
             }
 
-            $share = $this->shareFallingIn($item, $weekStart, $weekEnd, $estimate);
-
-            if ($share === null) {
+            if ($row['share'] === null) {
                 $undated++;
 
                 continue;
             }
 
-            if ($share > 0.0) {
-                $committed += $share;
+            if ($row['share'] > 0.0) {
+                $committed += $row['share'];
                 $counted++;
             }
         }
@@ -120,6 +113,42 @@ final class WorkloadQuery
             'undated_count' => $undated,
             'default_estimate_hours' => $defaultEstimate,
         ];
+    }
+
+    /**
+     * The items behind the number, with what each contributed.
+     *
+     * The summary above is folded from THIS, rather than computed alongside it.
+     * That is the whole point: docs/10 requires every number to be clickable
+     * through to the records that make it up, and a breakdown produced by a
+     * second implementation is a breakdown that will one day disagree with the
+     * figure it explains — which is worse than no drill-through at all, because
+     * the user then has two numbers and no way to tell which is wrong.
+     *
+     * `share` is null for an item that carries no dates: it cannot be placed in
+     * any week, which is different from contributing zero to this one.
+     *
+     * @return list<array{item: CommittedItem, share: float|null, estimated: bool}>
+     */
+    public function breakdownFor(string $membershipId, CarbonImmutable $weekStart): array
+    {
+        $weekEnd = $weekStart->addDays(6);
+        $defaultEstimate = (float) $this->settings->get('work.default_estimate_hours', 4);
+
+        $rows = [];
+
+        foreach ($this->committedItems($membershipId) as $item) {
+            $estimated = $item->estimateHours === null;
+            $estimate = $item->estimateHours ?? $defaultEstimate;
+
+            $rows[] = [
+                'item' => $item,
+                'share' => $this->shareFallingIn($item, $weekStart, $weekEnd, $estimate),
+                'estimated' => $estimated,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
