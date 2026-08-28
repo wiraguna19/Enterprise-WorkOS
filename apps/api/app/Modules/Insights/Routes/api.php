@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Insights\Http\Controller\FlowController;
 use App\Modules\Insights\Http\Controller\WorkloadController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,3 +25,13 @@ Route::get('people/{membership}/workload/items', [WorkloadController::class, 'pe
 
 Route::get('teams/{team}/workload', [WorkloadController::class, 'team'])
     ->middleware('permission:team.view');
+
+// Flow: how work is moving, by period and by project — never by person
+// (ADR 0007). Gated on report.view rather than on seeing any one record: this
+// is an organization-level number, and the drill-through applies each reader's
+// own visibility to the records behind it.
+Route::get('insights/flow', [FlowController::class, 'index'])
+    ->middleware('permission:report.view');
+
+Route::get('insights/flow/items', [FlowController::class, 'items'])
+    ->middleware('permission:report.view');
