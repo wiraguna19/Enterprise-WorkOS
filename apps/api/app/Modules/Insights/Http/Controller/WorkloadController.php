@@ -6,7 +6,9 @@ namespace App\Modules\Insights\Http\Controller;
 
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Insights\Application\Query\WorkloadQuery;
+use App\Modules\Organization\Application\Query\ReportingLine;
 use App\Modules\Organization\Infrastructure\Eloquent\TeamModel;
+use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
@@ -28,7 +30,54 @@ final class WorkloadController extends ApiController
     public function __construct(
         private readonly WorkloadQuery $workload,
         private readonly WorkItemVisibility $visibility,
+        private readonly ReportingLine $reportingLine,
+        private readonly TenantContext $tenant,
     ) {}
+
+    /**
+     * The caller's own reporting line, person by person — Manager Home's
+     * capacity block (docs/08 §3, ADR 0009).
+     *
+     * By the reporting line rather than by team, because that is who a manager
+     * answers for: someone can manage four people who sit in three teams, and
+     * a capacity block organised around teams would show them three partial
+     * pictures and no whole one.
+     *
+     * Most-committed first. The question this block answers is "who is
+     * drowning", and the answer should not be somewhere in the middle of an
+     * alphabetical list.
+     */
+    public function reports(Request $request): ApiResponse
+    {
+        $week = $this->week($request);
+        $rows = [];
+        $withheld = 0;
+
+        $line = MembershipModel::query()
+            ->with('user')
+            ->whereIn('id', $this->reportingLine->below($this->tenant->membershipId()))
+            ->get();
+
+        foreach ($line as $membership) {
+            if (! $request->user()?->can('viewWorkload', $membership)) {
+                $withheld++;
+
+                continue;
+            }
+
+            $rows[] = [
+                'membership_id' => (string) $membership->getKey(),
+                'name' => $membership->user?->name,
+            ] + $this->workload->forMembership((string) $membership->getKey(), $week);
+        }
+
+        usort($rows, static fn (array $a, array $b): int => ($b['utilization'] ?? 0) <=> ($a['utilization'] ?? 0));
+
+        return ApiResponse::collection($rows, [
+            'week_start' => $week->toDateString(),
+            'withheld_count' => $withheld,
+        ]);
+    }
 
     public function person(Request $request, MembershipModel $membership): ApiResponse
     {

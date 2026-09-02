@@ -3,7 +3,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
-import type { WorkItem } from "@/features/work-item/types";
+import { AtRiskList } from "@/features/insights/AtRiskList";
+import { TeamCapacity } from "@/features/insights/TeamCapacity";
+import type { AtRiskItem } from "@/features/insights/types";
+import type { Workload } from "@/features/people/types";
+import type { Approval, WorkItem } from "@/features/work-item/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -21,12 +25,26 @@ type Attention = { unaccepted: WorkItem[]; overdue: WorkItem[] };
  * from "Total tasks: 847". The numbers that do appear are in the sentence under
  * the greeting, where they say what today looks like rather than sitting in
  * boxes.
+ *
+ * Role-adaptive means adaptive to the DATA (ADR 0009). The manager half appears
+ * because the risk query returned rows or the reader has reports — not because
+ * a role is called "manager", which is a per-organization string a customer can
+ * rename. Everyone's own work comes first either way: a manager opening this
+ * page still has their own overdue item.
+ *
+ * Four endpoints, fetched together. Manager Home is composed here rather than
+ * by one endpoint because approvals belong to a module Insights must not import
+ * (docs/04 §3) — the composition is the price of the seam, and it is one server
+ * render either way.
  */
 export default async function HomePage() {
   const me = await requireUser();
   const firstName = me.user.name.split(" ")[0];
 
-  const [attention, today, counts] = await Promise.all([
+  // Each read falls back to empty rather than failing the page: Home is the
+  // first screen after sign-in, and one unavailable section is not a reason to
+  // show somebody an error instead of their work.
+  const [attention, today, counts, atRisk, capacity, reviews] = await Promise.all([
     api<Attention>("/me/work/needs-attention")
       .then((r) => r.data)
       .catch(() => ({ unaccepted: [], overdue: [] })),
@@ -36,12 +54,26 @@ export default async function HomePage() {
     api<Record<string, number>>("/me/work/counts")
       .then((r) => r.data)
       .catch(() => ({}) as Record<string, number>),
+    api<AtRiskItem[]>("/insights/at-risk")
+      .then((r) => r.data)
+      .catch(() => [] as AtRiskItem[]),
+    api<Array<Workload & { name: string | null }>>("/insights/my-reports/workload")
+      .then((r) => ({ rows: r.data, withheld: Number(r.meta?.withheld_count ?? 0) }))
+      .catch(() => ({ rows: [] as Array<Workload & { name: string | null }>, withheld: 0 })),
+    api<Approval[]>("/approvals?role=reviewer&status=pending")
+      .then((r) => r.data)
+      .catch(() => [] as Approval[]),
   ]);
 
   // Overdue work is already an exception; an unaccepted assignment that is also
   // overdue should be named once, in the more urgent list.
   const overdueIds = new Set(attention.overdue.map((item) => item.id));
   const unaccepted = attention.unaccepted.filter((item) => !overdueIds.has(item.id));
+
+  // The manager half is shown because there is something to manage. Someone
+  // with reports but a quiet week still gets the capacity block; someone with
+  // neither gets the personal page they had before.
+  const managing = atRisk.length > 0 || capacity.rows.length > 0;
 
   const nothingToShow =
     attention.overdue.length === 0 && unaccepted.length === 0 && today.length === 0;
@@ -94,6 +126,54 @@ export default async function HomePage() {
             href="/my-work?view=today"
           />
         </>
+      )}
+
+      {managing && (
+        <div className="space-y-6 border-t border-n-200 pt-6">
+          {atRisk.length > 0 && (
+            <section aria-labelledby="at-risk" className="space-y-1">
+              <div className="flex items-baseline justify-between">
+                <h2
+                  id="at-risk"
+                  className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
+                >
+                  Where the risk is
+                </h2>
+                <span className="text-caption text-n-500">
+                  {atRisk.length} {atRisk.length === 1 ? "item" : "items"}
+                </span>
+              </div>
+
+              <AtRiskList items={atRisk} timeZone={me.user.timezone} />
+            </section>
+          )}
+
+          {reviews.length > 0 && (
+            // A count and a way through, rather than the queue itself: the
+            // Inbox already renders that queue, and two implementations of one
+            // list is how they start disagreeing about what is pending.
+            <p className="text-body-sm text-n-700">
+              {reviews.length} {reviews.length === 1 ? "item is" : "items are"} waiting on your
+              review.{" "}
+              <Link href="/inbox" className="text-a-700 hover:underline">
+                Open the inbox
+              </Link>
+            </p>
+          )}
+
+          {capacity.rows.length > 0 && (
+            <section aria-labelledby="capacity" className="space-y-3">
+              <h2
+                id="capacity"
+                className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
+              >
+                Your reports this week
+              </h2>
+
+              <TeamCapacity rows={capacity.rows} withheld={capacity.withheld} />
+            </section>
+          )}
+        </div>
       )}
     </div>
   );

@@ -181,3 +181,32 @@ it('lists the people directory without an N+1', function (): void {
     // binding would silently reintroduce.
     expect($queries)->toBeLessThan(12, "people directory ran {$queries} queries: ".queryBreakdown($log));
 });
+
+it('answers "where is the risk" in a bounded number of queries', function (): void {
+    // Ahmad manages four people and owns ENG, so this is the real Manager Home
+    // scope rather than an empty one (ADR 0009).
+    $token = $this->loginAs('ahmad@acme.test');
+
+    $log = queryLogFor(function () use ($token): void {
+        $this->withToken($token)->getJson('/api/v1/insights/at-risk')->assertOk();
+    });
+    $queries = count($log);
+
+    // 13 measured, and every one of them accounted for (docs/11 §3 — a bound is
+    // raised with its accounting, never because it failed):
+    //
+    //   sessions×2, users×2, memberships×2, membership_roles×1  authentication
+    //                                                           and the actor's
+    //                                                           permissions
+    //   employee_profiles×2   the reporting-line walk, once for the risk scope
+    //                         and once for visibility
+    //   work_items×2          the risk computation itself, then hydrating the
+    //                         rows it ranked
+    //   projects×1, work_item_assignments×1   the eager loads those rows render
+    //
+    // The risk computation is ONE statement: reasons are folded from a single
+    // scan rather than asked per item. A per-item "does anything depend on
+    // this" would be invisible in code review and linear in the size of a
+    // department, and it is what this bound exists to catch.
+    expect($queries)->toBeLessThan(15, "at-risk ran {$queries} queries: ".queryBreakdown($log));
+});

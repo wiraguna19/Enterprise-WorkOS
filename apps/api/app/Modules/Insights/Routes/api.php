@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Insights\Http\Controller\AtRiskController;
 use App\Modules\Insights\Http\Controller\FlowController;
 use App\Modules\Insights\Http\Controller\ProjectHealthController;
 use App\Modules\Insights\Http\Controller\WorkloadController;
@@ -27,6 +28,11 @@ Route::get('people/{membership}/workload/items', [WorkloadController::class, 'pe
 Route::get('teams/{team}/workload', [WorkloadController::class, 'team'])
     ->middleware('permission:team.view');
 
+// Manager Home's capacity block: the caller's own reporting line. Gated on
+// nothing org-wide — the scope IS the caller's line, and MembershipPolicy::
+// viewWorkload still decides each row (ADR 0009).
+Route::get('insights/my-reports/workload', [WorkloadController::class, 'reports']);
+
 // Flow: how work is moving, by period and by project — never by person
 // (ADR 0007). Gated on report.view rather than on seeing any one record: this
 // is an organization-level number, and the drill-through applies each reader's
@@ -47,3 +53,10 @@ Route::get('insights/projects/{key}/health', [ProjectHealthController::class, 's
 
 Route::get('insights/projects/{key}/health/items', [ProjectHealthController::class, 'items'])
     ->middleware('permission:project.view');
+
+// Manager Home's risk list (ADR 0009). No permission gates it and no role
+// selects it: the scope is the caller's own reporting line and the projects
+// they own or manage, so someone with neither gets an empty list — which is
+// how the page knows not to render Manager Home at all.
+Route::get('insights/at-risk', [AtRiskController::class, 'index'])
+    ->middleware('permission:work_item.view');

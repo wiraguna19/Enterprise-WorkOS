@@ -100,3 +100,21 @@ export type HealthItemsMeta = {
   total: number;
   hidden_count: number;
 };
+
+/** Manager Home's risk list (ADR 0009). A row states why it is here. */
+
+export type RiskReason = "overdue" | "blocking" | "unassigned" | "stalled" | "blocked";
+
+export type AtRiskItem = {
+  id: string;
+  reference: string;
+  title: string;
+  state_category: string;
+  project: string | null;
+  due_at: string | null;
+  assignee: string | null;
+  /** Every reason that applies, worst first. Never a score. */
+  reasons: RiskReason[];
+  blocking_count: number;
+  days_since_move: number;
+};
