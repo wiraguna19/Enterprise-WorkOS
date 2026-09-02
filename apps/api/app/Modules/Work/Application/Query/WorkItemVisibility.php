@@ -6,10 +6,10 @@ namespace App\Modules\Work\Application\Query;
 
 use App\Modules\Identity\Application\Service\ActingMembership;
 use App\Modules\Identity\Application\Service\PermissionResolver;
+use App\Modules\Organization\Application\Query\ReportingLine;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Who can see which work item (docs/06 §2).
@@ -32,6 +32,7 @@ final class WorkItemVisibility
         private readonly PermissionResolver $permissions,
         private readonly ActingMembership $acting,
         private readonly TenantContext $tenant,
+        private readonly ReportingLine $reportingLine,
     ) {}
 
     /**
@@ -101,41 +102,7 @@ final class WorkItemVisibility
                 ->from('work_item_assignments as a')
                 ->whereColumn('a.work_item_id', 'work_items.id')
                 ->whereNull('a.unassigned_at')
-                ->whereIn('a.membership_id', $this->reportingLineOf($membershipId)));
+                ->whereIn('a.membership_id', $this->reportingLine->below($membershipId)));
         });
-    }
-
-    /**
-     * Every membership beneath this one in the reporting hierarchy.
-     *
-     * A recursive CTE over employee_profiles, depth-capped so a cycle in the
-     * data (which the CHECK constraint prevents at one level but not at three)
-     * cannot hang the request.
-     *
-     * @return list<string>
-     */
-    private function reportingLineOf(string $membershipId): array
-    {
-        $rows = DB::select(<<<'SQL'
-            WITH RECURSIVE reports(profile_id, depth) AS (
-                SELECT ep.id, 0
-                  FROM employee_profiles ep
-                 WHERE ep.membership_id = ? AND ep.organization_id = ?
-                UNION ALL
-                SELECT child.id, r.depth + 1
-                  FROM employee_profiles child
-                  JOIN reports r ON child.manager_profile_id = r.profile_id
-                 WHERE r.depth < 6
-            )
-            SELECT ep.membership_id
-              FROM reports r
-              JOIN employee_profiles ep ON ep.id = r.profile_id
-             WHERE r.depth > 0
-        SQL, [$membershipId, $this->tenant->organizationId()]);
-
-        /** @var list<object{membership_id: string}> $rows */
-        return array_values(
-            array_map(static fn (object $row): string => (string) $row->membership_id, $rows)
-        );
     }
 }
