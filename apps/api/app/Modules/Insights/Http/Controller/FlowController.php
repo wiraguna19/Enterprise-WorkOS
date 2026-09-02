@@ -68,6 +68,15 @@ final class FlowController extends ApiController
 
         $visible = $query->get();
 
+        // `whereIn` promises no order at all, so without this the list arrives
+        // in whatever order Postgres found the rows — which changes between
+        // runs and makes a drill-through look like it is shuffling itself.
+        // Newest first: the question that brings someone here is "what went
+        // out", and the answer starts at the most recent.
+        $visible = $visible->sortByDesc(
+            fn (WorkItemModel $item): string => $byId[(string) $item->getKey()]['completed_at'],
+        );
+
         $items = $visible->map(fn (WorkItemModel $item): array => [
             'id' => (string) $item->getKey(),
             'reference' => (string) $item->reference,

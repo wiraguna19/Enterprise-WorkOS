@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { formatDate } from "@/lib/format";
+import { formatCycleHours, weekEnd } from "./format";
 import type { Flow } from "./types";
 
 /**
@@ -12,6 +14,11 @@ import type { Flow } from "./types";
  * Every figure carries its sample size. A quiet week and a fast week look
  * identical in a percentile until you can see how many items it was computed
  * from — and a p85 over two completions is not a fact about the process.
+ *
+ * The throughput count is a link, because it is the figure with records behind
+ * it: docs/10 requires every number to open onto what it was computed from. The
+ * percentiles are not linked separately — they are folded from the same
+ * completions, and a second link to the same list would only suggest otherwise.
  */
 export function FlowTable({ flow, timeZone }: { flow: Flow; timeZone: string }) {
   return (
@@ -33,13 +40,34 @@ export function FlowTable({ flow, timeZone }: { flow: Flow; timeZone: string }) 
 
         <tbody>
           {flow.weeks.map((week) => (
-            <tr key={week.week_start} className="border-b border-n-100">
+            <tr key={week.week_start} className="border-b border-n-100 hover:bg-n-25">
               <Td className="whitespace-nowrap text-n-700">
                 {formatDate(week.week_start, timeZone)}
               </Td>
-              <Td className="text-right tabular-nums text-n-900">{week.throughput}</Td>
-              <Td className="text-right tabular-nums">{hours(week.cycle_time_p50_hours)}</Td>
-              <Td className="text-right tabular-nums">{hours(week.cycle_time_p85_hours)}</Td>
+              <Td className="text-right tabular-nums text-n-900">
+                {week.throughput === 0 ? (
+                  0
+                ) : (
+                  <Link
+                    href={`/reports/completions?from=${week.week_start}&to=${weekEnd(
+                      week.week_start,
+                    )}`}
+                    aria-label={`The ${week.throughput} items completed in the week of ${formatDate(
+                      week.week_start,
+                      timeZone,
+                    )}`}
+                    className="text-a-700 hover:underline"
+                  >
+                    {week.throughput}
+                  </Link>
+                )}
+              </Td>
+              <Td className="text-right tabular-nums">
+                {formatCycleHours(week.cycle_time_p50_hours)}
+              </Td>
+              <Td className="text-right tabular-nums">
+                {formatCycleHours(week.cycle_time_p85_hours)}
+              </Td>
               <Td className="text-right tabular-nums text-n-500">
                 {week.measured}
                 {week.measured < week.throughput && (
@@ -54,19 +82,6 @@ export function FlowTable({ flow, timeZone }: { flow: Flow; timeZone: string }) 
       </table>
     </div>
   );
-}
-
-/**
- * Hours below two days, days above.
- *
- * "62 h" is a number somebody has to divide before it means anything, and the
- * dividing is where a reader stops reading.
- */
-function hours(value: number | null): string {
-  if (value === null) return "—";
-  if (value < 48) return `${Math.round(value)} h`;
-
-  return `${(value / 24).toFixed(1)} d`;
 }
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {

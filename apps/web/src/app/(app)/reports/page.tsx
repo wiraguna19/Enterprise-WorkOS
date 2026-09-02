@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FlowTable } from "@/features/insights/FlowTable";
+import { formatCycleHours } from "@/features/insights/format";
 import type { Flow } from "@/features/insights/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -82,6 +84,19 @@ export default async function ReportsPage({
 
           <FlowTable flow={flow} timeZone={me.user.timezone} />
 
+          {/*
+            docs/10: a number a user cannot drill into does not ship. The weekly
+            rows open onto their own week; this opens onto the whole window, so
+            the headline percentiles are reachable from the figures they were
+            computed from rather than only through a row.
+          */}
+          <Link
+            href={`/reports/completions?from=${flow.from}&to=${flow.to}`}
+            className="inline-block text-body-sm text-a-700 hover:underline"
+          >
+            All {flow.throughput} completions in this window →
+          </Link>
+
           <p className="max-w-[72ch] text-caption text-n-500">
             Cycle time is measured from the first time an item entered In Progress to the
             last time it reached Done. Time spent blocked is included — waiting is part of
@@ -107,9 +122,7 @@ function Figure({
   return (
     <div>
       <dt className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">{term}</dt>
-      <dd className="mt-0.5 text-h2 tabular-nums text-n-900">
-        {value === null ? "—" : value < 48 ? `${Math.round(value)} h` : `${(value / 24).toFixed(1)} d`}
-      </dd>
+      <dd className="mt-0.5 text-h2 tabular-nums text-n-900">{formatCycleHours(value)}</dd>
       <dd className="text-caption text-n-500">{note}</dd>
     </div>
   );

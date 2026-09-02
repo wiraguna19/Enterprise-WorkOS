@@ -184,6 +184,33 @@ it('opens the number into the completions behind it', function (): void {
         ->and($response->json('meta.hidden_count'))->toBe(0);
 });
 
+it('returns the completions newest first', function (): void {
+    // `whereIn` promises no order, so before this the drill-through came back
+    // in whatever order Postgres happened to find the rows — stable enough to
+    // pass by accident on a small table and not a property of the endpoint.
+    $older = itemFor();
+    transitioned($older, 'in_progress', '2026-03-02 09:00:00');
+    transitioned($older, 'done', '2026-03-03 09:00:00');
+
+    $newer = itemFor();
+    transitioned($newer, 'in_progress', '2026-03-02 09:00:00');
+    transitioned($newer, 'done', '2026-03-20 09:00:00');
+
+    $ids = collect(
+        $this->withToken($this->admin)
+            ->getJson('/api/v1/insights/flow/items?from=2026-03-01&to=2026-03-31')
+            ->assertOk()
+            ->json('data')
+    )->pluck('id')->all();
+
+    // Filtered to this test's own two rows: the window also contains seeded
+    // completions, and asserting on positions in the whole list would be
+    // asserting on the seed.
+    $ours = array_values(array_filter($ids, fn ($id): bool => in_array($id, [$newer, $older], true)));
+
+    expect($ours)->toBe([$newer, $older]);
+});
+
 it('is not available to someone without the reporting permission', function (): void {
     // Employees do not hold report.view. Delivery metrics are an
     // organization-level read, not a side effect of being able to see work.
