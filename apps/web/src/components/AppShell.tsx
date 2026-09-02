@@ -36,6 +36,7 @@ const SECONDARY: NavItem[] = [
   { href: "/projects", label: "Projects", permission: "project.view" },
   { href: "/calendar", label: "Calendar" },
   { href: "/time", label: "Timesheet" },
+  { href: "/reports", label: "Flow", permission: "report.view" },
 ];
 
 const ADMIN: NavItem[] = [
