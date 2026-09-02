@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { BoardColumn } from "@/features/board/BoardColumn";
+import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { BoardColumn as Column, Project } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -59,37 +59,7 @@ export default async function BoardPage({
         }
       />
 
-      <nav aria-label="Project views" className="flex gap-4 border-b border-n-100 text-body">
-        <Link
-          href={`/projects/${key}/board`}
-          aria-current="page"
-          className="border-b-2 border-a-500 pb-2 font-medium text-n-900"
-        >
-          Board
-        </Link>
-
-        {/* Views that do not exist yet are real disabled BUTTONS, not greyed
-            spans. Two reasons, and the first is not cosmetic:
-
-            a greyed span fails WCAG contrast — axe caught exactly that here,
-            because it was using the borders-only token as text (docs/09 §2).
-            A genuinely disabled control is exempt, and it is also what these
-            are: unavailable actions, announced as such by a screen reader.
-
-            They are shown rather than hidden so the board does not look like
-            the only view this product will ever have (docs/07 §4). */}
-        {["List", "Timeline", "Calendar"].map((view) => (
-          <button
-            key={view}
-            type="button"
-            disabled
-            title={`${view} view ships in a later phase`}
-            className="cursor-not-allowed pb-2 text-n-500/60"
-          >
-            {view}
-          </button>
-        ))}
-      </nav>
+      <ProjectTabs projectKey={board.project.key} active="board" />
 
       {/* Horizontal scroll is correct here and only here: a board IS a
           horizontal surface. On a phone the board is available but not the

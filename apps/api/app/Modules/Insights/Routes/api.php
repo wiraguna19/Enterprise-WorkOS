@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Insights\Http\Controller\FlowController;
+use App\Modules\Insights\Http\Controller\ProjectHealthController;
 use App\Modules\Insights\Http\Controller\WorkloadController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,3 +36,14 @@ Route::get('insights/flow', [FlowController::class, 'index'])
 
 Route::get('insights/flow/items', [FlowController::class, 'items'])
     ->middleware('permission:report.view');
+
+// Project health: five signals with their counts, and the records behind each
+// (ADR 0008). Gated on `project.view` — health is a fact about a project, and
+// who may see WHICH project is decided per record by the visibility scope and
+// ProjectPolicy, not by a reporting permission. Someone who can open the
+// project can see how it is doing.
+Route::get('insights/projects/{key}/health', [ProjectHealthController::class, 'show'])
+    ->middleware('permission:project.view');
+
+Route::get('insights/projects/{key}/health/items', [ProjectHealthController::class, 'items'])
+    ->middleware('permission:project.view');

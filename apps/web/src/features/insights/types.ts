@@ -40,3 +40,63 @@ export type FlowCompletionsMeta = {
   /** How many of those this reader may not see. Reconciles the list to the total. */
   hidden_count: number;
 };
+
+/** Project health (ADR 0008). Five signals, no composite score. */
+
+export type HealthStatus = "on_track" | "at_risk" | "off_track" | "unknown";
+
+type Signal = { status: HealthStatus };
+
+export type Health = {
+  status: HealthStatus;
+  /** Null when the project has no countable work — never a zero. */
+  progress_percent: number | null;
+  open_count: number;
+  done_count: number;
+  signals: {
+    schedule: Signal & {
+      end_date: string | null;
+      days_remaining: number | null;
+      open_count?: number;
+    };
+    overdue_work: Signal & { count: number; open_count: number; share: number };
+    blocked_work: Signal & { count: number; longest_days: number | null };
+    milestones: Signal & { count: number; past_due_count: number; missed_count: number };
+    activity: Signal & {
+      last_activity_at: string | null;
+      days_since: number | null;
+      stale_count: number;
+      open_count?: number;
+    };
+  };
+  past_due_milestones: Array<{
+    id: string;
+    name: string;
+    due_date: string | null;
+    status: string;
+  }>;
+  thresholds: {
+    schedule_warning_days: number;
+    overdue_off_track_share: number;
+    blocked_off_track_days: number;
+    activity_at_risk_days: number;
+    activity_off_track_days: number;
+  };
+};
+
+export type HealthItem = {
+  id: string;
+  reference: string;
+  title: string;
+  state_category: string;
+  project: string | null;
+  due_at: string | null;
+};
+
+export type HealthItemsMeta = {
+  signal: string;
+  project: string;
+  /** What the signal counted, before the reader's visibility narrowed it. */
+  total: number;
+  hidden_count: number;
+};

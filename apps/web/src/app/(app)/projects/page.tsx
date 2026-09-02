@@ -45,7 +45,7 @@ export default async function ProjectsPage() {
           {projects.map((project) => (
             <li key={project.id}>
               <Link
-                href={`/projects/${project.key}/board`}
+                href={`/projects/${project.key}/overview`}
                 className="flex items-center gap-4 py-3 transition-colors duration-[120ms] hover:bg-n-25"
               >
                 <span className="w-12 shrink-0 font-mono text-caption text-n-500">
