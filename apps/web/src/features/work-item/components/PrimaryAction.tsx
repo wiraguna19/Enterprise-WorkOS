@@ -1,4 +1,8 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { acceptAssignment, transitionTo } from "../actions";
 import type { Transition, WorkItem } from "../types";
 import { StatusPicker } from "./StatusPicker";
 
@@ -20,6 +24,12 @@ import { StatusPicker } from "./StatusPicker";
  *
  * Acceptance is the one thing still decided here, and legitimately: it is a
  * property of the assignment, not of the workflow state.
+ *
+ * It also, until now, did nothing. The button was rendered from the graph and
+ * wired to no action at all — on a 375px screen this sticky bar IS the way to
+ * move work, so the mobile flow docs/11 §4 asks for could not be completed by a
+ * real person however well the API behaved. The endpoints have existed since
+ * Phase 3; only the click was missing.
  */
 export function PrimaryAction({
   item,
@@ -28,6 +38,14 @@ export function PrimaryAction({
   item: WorkItem;
   transitions: Transition[];
 }) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startAction] = useTransition();
+
+  const run = (action: () => Promise<{ error: string | null }>): void => {
+    setError(null);
+    startAction(async () => setError((await action()).error));
+  };
+
   const unaccepted = item.assignees?.some((a) => a.role === "assignee" && !a.accepted);
 
   // The forward moves only. A transition reachable from ANY state is an escape
@@ -47,18 +65,25 @@ export function PrimaryAction({
 
   return (
     <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-n-200 bg-n-0/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
-      <p className="text-caption text-n-500">
-        {unaccepted
-          ? "This work is assigned to you but not yet acknowledged."
-          : primary
-            ? hintFor(primary)
-            : (blocked?.blocked_reason ?? "")}
+      <p className={error ? "text-caption text-s-danger" : "text-caption text-n-500"} role={error ? "alert" : undefined}>
+        {error ??
+          (unaccepted
+            ? "This work is assigned to you but not yet acknowledged."
+            : primary?.requires_comment
+              ? `${primary.label} needs a reason — use the status menu.`
+              : primary
+                ? hintFor(primary)
+                : (blocked?.blocked_reason ?? ""))}
       </p>
 
       <div className="flex items-center gap-2">
         {/* The full graph stays one click away, for the moves that are not the
-            happy path — blocking, cancelling, reopening. */}
-        {transitions.length > 1 && (
+            happy path — blocking, cancelling, reopening.
+
+            Also shown when the ONLY forward move needs a reason: that move is
+            not a one-tap action, so without the menu the button would be
+            disabled with nowhere to go. */}
+        {(transitions.length > 1 || primary?.requires_comment === true) && (
           <StatusPicker
             reference={item.reference}
             current={item.state ? { label: item.state.label, category: item.state.category } : null}
@@ -67,12 +92,25 @@ export function PrimaryAction({
         )}
 
         {unaccepted ? (
-          <Button variant="primary" size="lg">
-            Accept
+          <Button
+            variant="primary"
+            size="lg"
+            disabled={pending}
+            onClick={() => run(() => acceptAssignment(item.reference))}
+          >
+            {pending ? "Accepting…" : "Accept"}
           </Button>
         ) : (
-          <Button variant="primary" size="lg" disabled={primary === null}>
-            {(primary ?? blocked)?.label ?? "No action available"}
+          <Button
+            variant="primary"
+            size="lg"
+            // A move that needs a reason is not a one-tap action: it goes
+            // through the picker, which asks for the comment the API will
+            // require anyway.
+            disabled={primary === null || pending || primary.requires_comment}
+            onClick={() => primary && run(() => transitionTo(item.reference, primary.to_state.id))}
+          >
+            {pending ? "Moving…" : ((primary ?? blocked)?.label ?? "No action available")}
           </Button>
         )}
       </div>

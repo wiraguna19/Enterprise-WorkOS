@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { clsx } from "@/lib/clsx";
+import { transitionTo } from "../actions";
 import type { Transition } from "../types";
 
 /**
@@ -33,7 +34,25 @@ export function StatusPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<Transition | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [moving, startMoving] = useTransition();
   const menuId = useId();
+
+  // The move itself. Until this existed the menu closed and nothing happened —
+  // the endpoint had been there since Phase 3 and nothing in the interface
+  // called it.
+  const move = (transition: Transition, comment?: string): void => {
+    setError(null);
+
+    startMoving(async () => {
+      const result = await transitionTo(reference, transition.to_state.id, comment);
+
+      // The server's own refusal, shown where the click was. The rules that
+      // produce it — the edge, the permission, the required comment — live in
+      // the API and are not repeated here.
+      setError(result.error);
+    });
+  };
 
   if (transitions.length === 0) return null;
 
@@ -44,9 +63,10 @@ export function StatusPicker({
         aria-expanded={open}
         aria-controls={menuId}
         aria-haspopup="menu"
+        disabled={moving}
         onClick={() => setOpen((v) => !v)}
       >
-        {current?.label ?? "Status"}
+        {moving ? "Moving…" : (current?.label ?? "Status")}
         <span aria-hidden className="text-n-500">
           ▾
         </span>
@@ -70,7 +90,14 @@ export function StatusPicker({
               disabled={!transition.available}
               onClick={() => {
                 setOpen(false);
-                if (transition.requires_comment) setPending(transition);
+
+                if (transition.requires_comment) {
+                  setPending(transition);
+
+                  return;
+                }
+
+                move(transition);
               }}
               className={clsx(
                 "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left",
@@ -98,8 +125,17 @@ export function StatusPicker({
         <CommentPrompt
           transition={pending}
           onCancel={() => setPending(null)}
-          onSubmit={() => setPending(null)}
+          onSubmit={(comment) => {
+            setPending(null);
+            move(pending, comment);
+          }}
         />
+      )}
+
+      {error && (
+        <p role="alert" className="absolute right-0 z-20 mt-1 w-72 rounded-sm border border-s-danger/30 bg-s-danger/5 px-3 py-2 text-caption text-s-danger">
+          {error}
+        </p>
       )}
     </div>
   );
