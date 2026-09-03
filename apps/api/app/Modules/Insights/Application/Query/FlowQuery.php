@@ -41,8 +41,9 @@ final class FlowQuery
         CarbonImmutable $from,
         CarbonImmutable $to,
         ?string $projectId = null,
+        ?string $departmentId = null,
     ): array {
-        $completions = $this->completions($from, $to, $projectId);
+        $completions = $this->completions($from, $to, $projectId, $departmentId);
 
         $durations = array_values(array_filter(
             array_map(static fn (array $row): ?float => $row['hours'], $completions),
@@ -50,19 +51,59 @@ final class FlowQuery
         ));
 
         $weeks = [];
+        $departments = [];
+        $dated = 0;
+        $late = 0;
 
         foreach ($completions as $row) {
             $week = CarbonImmutable::parse($row['completed_at'])->startOfWeek()->toDateString();
 
-            $weeks[$week] ??= ['week_start' => $week, 'throughput' => 0, 'hours' => []];
+            $weeks[$week] ??= [
+                'week_start' => $week,
+                'throughput' => 0,
+                'hours' => [],
+                'dated' => 0,
+                'late' => 0,
+            ];
             $weeks[$week]['throughput']++;
 
             if ($row['hours'] !== null) {
                 $weeks[$week]['hours'][] = $row['hours'];
             }
+
+            // An item with no due date is neither late nor on time, so it is
+            // out of the rate's denominator and counted separately (ADR 0010).
+            if ($row['late'] !== null) {
+                $dated++;
+                $weeks[$week]['dated']++;
+
+                if ($row['late']) {
+                    $late++;
+                    $weeks[$week]['late']++;
+                }
+            }
+
+            // Work with no project, or in a project with no department, shares
+            // one null row. Dropping it would leave rows that do not add up to
+            // the throughput above them.
+            $key = $row['department_id'] ?? '';
+
+            $departments[$key] ??= [
+                'department_id' => $row['department_id'],
+                'name' => $row['department_name'],
+                'throughput' => 0,
+                'late' => 0,
+            ];
+            $departments[$key]['throughput']++;
+
+            if ($row['late'] === true) {
+                $departments[$key]['late']++;
+            }
         }
 
         ksort($weeks);
+
+        usort($departments, static fn (array $a, array $b): int => $b['throughput'] <=> $a['throughput']);
 
         return [
             'from' => $from->toDateString(),
@@ -80,13 +121,29 @@ final class FlowQuery
             'cycle_time_p50_hours' => self::percentile($durations, 0.50),
             'cycle_time_p85_hours' => self::percentile($durations, 0.85),
 
+            // Completions that HAD a due date, and how many of those missed it.
+            // The rate is late/dated, and it is null rather than 0 when nothing
+            // in the window carried a date — no denominator, no rate.
+            'dated' => $dated,
+            'completed_late' => $late,
+            'late_rate' => $dated === 0 ? null : round($late / $dated, 3),
+
             'weeks' => array_values(array_map(static fn (array $week): array => [
                 'week_start' => $week['week_start'],
                 'throughput' => $week['throughput'],
                 'measured' => count($week['hours']),
                 'cycle_time_p50_hours' => self::percentile($week['hours'], 0.50),
                 'cycle_time_p85_hours' => self::percentile($week['hours'], 0.85),
+                'dated' => $week['dated'],
+                'completed_late' => $week['late'],
+                'late_rate' => $week['dated'] === 0 ? null : round($week['late'] / $week['dated'], 3),
             ], $weeks)),
+
+            // Never by person: docs/02 §11 rules out reducing individual
+            // performance to a ranked number, and "throughput by assignee" is
+            // that number under a neutral name. A department is a unit of
+            // capacity and budget; a person is not.
+            'departments' => $departments,
         ];
     }
 
@@ -97,12 +154,13 @@ final class FlowQuery
      * headline figure and its breakdown cannot disagree — the same rule the
      * workload drill-through follows (docs/10, Phase 6).
      *
-     * @return list<array{work_item_id: string, reference: string, completed_at: string, hours: float|null}>
+     * @return list<array{work_item_id: string, reference: string, completed_at: string, hours: float|null, late: bool|null, department_id: string|null, department_name: string|null}>
      */
     public function completions(
         CarbonImmutable $from,
         CarbonImmutable $to,
         ?string $projectId = null,
+        ?string $departmentId = null,
     ): array {
         /**
          * Shape declared for the same reason WorkItemVisibility declares its
@@ -110,7 +168,7 @@ final class FlowQuery
          * PHPStan cannot tell a renamed column from a typo. `hours` arrives as
          * a string from EXTRACT, which is why the cast below is not decorative.
          *
-         * @var list<object{work_item_id: string, reference: string, completed_at: string, hours: string|float|null}> $rows
+         * @var list<object{work_item_id: string, reference: string, completed_at: string, hours: string|float|null, late: bool|null, department_id: string|null, department_name: string|null}> $rows
          */
         $rows = DB::select(<<<'SQL'
             WITH done AS (
@@ -147,10 +205,33 @@ final class FlowQuery
                    CASE
                        WHEN s.started_at IS NULL OR s.started_at > d.completed_at THEN NULL
                        ELSE EXTRACT(EPOCH FROM (d.completed_at - s.started_at)) / 3600.0
-                   END AS hours
+                   END AS hours,
+
+                   -- Null, not false, where the item had no due date: it cannot
+                   -- be late, and it is not on time either. Putting it in the
+                   -- denominator would make a team that dates nothing look
+                   -- reliable (ADR 0010).
+                   CASE
+                       WHEN w.due_at IS NULL THEN NULL
+                       ELSE d.completed_at > w.due_at
+                   END AS late,
+
+                   -- The project's department, or null for a project without
+                   -- one and for work with no project at all. Null is a ROW on
+                   -- the page, never a dropped count.
+                   dept.id AS department_id,
+                   dept.name AS department_name
+
               FROM done d
               JOIN work_items w ON w.id = d.work_item_id
          LEFT JOIN started s ON s.work_item_id = d.work_item_id
+         LEFT JOIN projects p
+                ON p.id = w.project_id
+               AND p.organization_id = w.organization_id
+         LEFT JOIN departments dept
+                ON dept.id = p.department_id
+               AND dept.organization_id = w.organization_id
+             WHERE (?::uuid IS NULL OR p.department_id = ?::uuid)
              ORDER BY d.completed_at
         SQL, [
             $this->tenant->organizationId(),
@@ -159,6 +240,8 @@ final class FlowQuery
             $projectId,
             $projectId,
             $this->tenant->organizationId(),
+            $departmentId,
+            $departmentId,
         ]);
 
         return array_values(array_map(static fn (object $row): array => [
@@ -166,6 +249,9 @@ final class FlowQuery
             'reference' => (string) $row->reference,
             'completed_at' => (string) $row->completed_at,
             'hours' => $row->hours === null ? null : round((float) $row->hours, 2),
+            'late' => $row->late === null ? null : (bool) $row->late,
+            'department_id' => $row->department_id === null ? null : (string) $row->department_id,
+            'department_name' => $row->department_name === null ? null : (string) $row->department_name,
         ], $rows));
     }
 

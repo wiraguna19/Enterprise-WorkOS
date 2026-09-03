@@ -51,6 +51,11 @@ export function CompletionsTable({
               <Td className="whitespace-nowrap text-n-500">{item.project ?? "—"}</Td>
               <Td className="whitespace-nowrap text-right tabular-nums text-n-700">
                 {formatDateTime(item.completed_at, timeZone)}
+                {item.late === true && (
+                  // Which rows missed their date, so the list explains the late
+                  // rate rather than merely being filtered by it.
+                  <span className="ml-1.5 text-caption text-s-active">late</span>
+                )}
               </Td>
               <Td className="text-right tabular-nums">
                 {item.cycle_time_hours === null ? (

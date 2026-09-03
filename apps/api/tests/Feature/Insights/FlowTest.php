@@ -28,12 +28,17 @@ beforeEach(function (): void {
     $this->admin = $this->loginAs('rina@acme.test');
 });
 
-/** A work item with no transition history of its own. */
-function itemFor(string $category = 'done'): string
+/**
+ * A work item with no transition history of its own.
+ *
+ * @param  array<string, mixed>  $attributes  overrides — a due date, or a null
+ *                                            project for the department bucket
+ */
+function itemFor(string $category = 'done', array $attributes = []): string
 {
     $id = (string) new UuidV7;
 
-    DB::table('work_items')->insert([
+    DB::table('work_items')->insert(array_merge([
         'id' => $id,
         'organization_id' => ORG,
         'reference' => 'FLW-'.random_int(1000, 9999),
@@ -44,7 +49,10 @@ function itemFor(string $category = 'done'): string
         'state_category' => $category,
         'completed_at' => $category === 'done' ? now() : null,
         'created_by_membership_id' => AUTHOR,
-    ]);
+        // array_merge, not `+`: the union operator keeps the LEFT value for a
+        // duplicate key, so `['project_id' => null]` would be silently ignored
+        // and the fixture would land in the default project.
+    ], $attributes));
 
     return $id;
 }
@@ -217,4 +225,157 @@ it('is not available to someone without the reporting permission', function (): 
     $this->withToken($this->loginAs('sarah@acme.test'))
         ->getJson('/api/v1/insights/flow')
         ->assertForbidden();
+});
+
+// ── overdue rate (ADR 0010) ─────────────────────────────────────────────────
+
+it('measures the late rate on the work that had a date to miss', function (): void {
+    $late = itemFor('done', ['due_at' => '2026-03-03 09:00:00']);
+    transitioned($late, 'in_progress', '2026-03-02 09:00:00');
+    transitioned($late, 'done', '2026-03-05 09:00:00');
+
+    $onTime = itemFor('done', ['due_at' => '2026-03-10 09:00:00']);
+    transitioned($onTime, 'in_progress', '2026-03-02 09:00:00');
+    transitioned($onTime, 'done', '2026-03-05 09:00:00');
+
+    $undated = itemFor();
+    transitioned($undated, 'in_progress', '2026-03-02 09:00:00');
+    transitioned($undated, 'done', '2026-03-05 09:00:00');
+
+    $data = flow($this->admin, '2026-03-01', '2026-03-31');
+
+    // Three completions, two of them dated, one of those late. The undated one
+    // is out of the denominator: it cannot be late, and counting it as on time
+    // would make a team that dates nothing look reliable (ADR 0010).
+    expect($data['throughput'])->toBe(3)
+        ->and($data['dated'])->toBe(2)
+        ->and($data['completed_late'])->toBe(1)
+        ->and((float) $data['late_rate'])->toBe(0.5);
+});
+
+it('has no late rate at all when nothing in the window carried a date', function (): void {
+    $item = itemFor();
+    transitioned($item, 'in_progress', '2026-03-02 09:00:00');
+    transitioned($item, 'done', '2026-03-05 09:00:00');
+
+    // No denominator, no rate. Zero would be a claim that everything landed on
+    // time, which is not what "nobody set a date" means.
+    expect(flow($this->admin, '2026-03-01', '2026-03-31')['late_rate'])->toBeNull();
+});
+
+it('opens the late rate onto the completions that missed their date', function (): void {
+    $late = itemFor('done', ['due_at' => '2026-03-03 09:00:00']);
+    transitioned($late, 'done', '2026-03-05 09:00:00');
+
+    $onTime = itemFor('done', ['due_at' => '2026-03-10 09:00:00']);
+    transitioned($onTime, 'done', '2026-03-05 09:00:00');
+
+    $ids = collect(
+        $this->withToken($this->admin)
+            ->getJson('/api/v1/insights/flow/items?from=2026-03-01&to=2026-03-31&late=1')
+            ->assertOk()
+            ->json('data')
+    )->pluck('id')->all();
+
+    expect($ids)->toContain($late)
+        ->and($ids)->not->toContain($onTime);
+});
+
+// ── departmental distribution (ADR 0010) ────────────────────────────────────
+
+it('attributes completions to the project department, and gives work with none its own row', function (): void {
+    $engineering = itemFor();
+    transitioned($engineering, 'done', '2026-03-05 09:00:00');
+
+    // Work with no project is private to the people involved in it (ADR 0004)
+    // and is still counted here: this is an aggregate about the organization's
+    // output, and the drill-through is what applies the reader's visibility.
+    $noProject = itemFor('done', ['project_id' => null]);
+    transitioned($noProject, 'done', '2026-03-06 09:00:00');
+
+    $data = flow($this->admin, '2026-03-01', '2026-03-31');
+
+    $rows = collect($data['departments']);
+
+    expect($rows->sum('throughput'))->toBe($data['throughput'])
+        ->and($rows->firstWhere('department_id', null)['throughput'])->toBe(1)
+        ->and($rows->where('department_id', '!=', null)->sum('throughput'))->toBe(1);
+});
+
+it('narrows the drill-through to one department', function (): void {
+    $engineering = itemFor();
+    transitioned($engineering, 'done', '2026-03-05 09:00:00');
+
+    $noProject = itemFor('done', ['project_id' => null]);
+    transitioned($noProject, 'done', '2026-03-06 09:00:00');
+
+    $department = collect(flow($this->admin, '2026-03-01', '2026-03-31')['departments'])
+        ->firstWhere('department_id', '!=', null)['department_id'];
+
+    $ids = collect(
+        $this->withToken($this->admin)
+            ->getJson("/api/v1/insights/flow/items?from=2026-03-01&to=2026-03-31&department_id={$department}")
+            ->assertOk()
+            ->json('data')
+    )->pluck('id')->all();
+
+    expect($ids)->toContain($engineering)
+        ->and($ids)->not->toContain($noProject);
+});
+
+// ── bottlenecks (ADR 0010) ──────────────────────────────────────────────────
+
+it('measures how long work waited in each category', function (): void {
+    $item = itemFor();
+    transitioned($item, 'todo', '2026-03-02 09:00:00');
+    transitioned($item, 'in_progress', '2026-03-04 09:00:00');
+    transitioned($item, 'done', '2026-03-05 09:00:00');
+
+    $rows = collect(
+        $this->withToken($this->admin)
+            ->getJson('/api/v1/insights/bottlenecks?from=2026-03-01&to=2026-03-31')
+            ->assertOk()
+            ->json('data')
+    )->keyBy('category');
+
+    // Two days in todo, one in progress. The `done` stay has no next
+    // transition, so it has no duration — and inventing one would be inventing
+    // a wait that has not finished (ADR 0010).
+    expect((float) $rows['todo']['median_hours'])->toBe(48.0)
+        ->and((float) $rows['in_progress']['median_hours'])->toBe(24.0)
+        ->and($rows['todo']['steps'])->toBe(1);
+});
+
+it('counts a wait when it ended, not when it started', function (): void {
+    $item = itemFor();
+    // Entered todo before the window and left inside it: the wait finished in
+    // this window, so this is the window it belongs to.
+    transitioned($item, 'todo', '2026-02-20 09:00:00');
+    transitioned($item, 'in_progress', '2026-03-02 09:00:00');
+    transitioned($item, 'done', '2026-03-03 09:00:00');
+
+    $rows = collect(
+        $this->withToken($this->admin)
+            ->getJson('/api/v1/insights/bottlenecks?from=2026-03-01&to=2026-03-31')
+            ->assertOk()
+            ->json('data')
+    )->keyBy('category');
+
+    expect($rows['todo']['steps'])->toBe(1)
+        ->and((float) $rows['todo']['median_hours'])->toBe(240.0);
+});
+
+it('lists a category work is sitting in even when nothing has left it', function (): void {
+    $rows = collect(
+        $this->withToken($this->admin)
+            ->getJson('/api/v1/insights/bottlenecks?from=2026-03-01&to=2026-03-31')
+            ->assertOk()
+            ->json('data')
+    )->keyBy('category');
+
+    // The seed has open work in categories nothing transitioned out of during
+    // March. A step things go into and never come out of is the worst
+    // bottleneck there is, and a median wait can never show it.
+    expect($rows->keys())->toContain('todo')
+        ->and($rows['todo']['waiting_now'])->toBeGreaterThan(0);
 });

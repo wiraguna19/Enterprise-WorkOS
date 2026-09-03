@@ -210,3 +210,19 @@ it('answers "where is the risk" in a bounded number of queries', function (): vo
     // department, and it is what this bound exists to catch.
     expect($queries)->toBeLessThan(15, "at-risk ran {$queries} queries: ".queryBreakdown($log));
 });
+
+it('measures where work waited in a bounded number of queries', function (): void {
+    $token = $this->loginAs('rina@acme.test');
+
+    $log = queryLogFor(function () use ($token): void {
+        $this->withToken($token)->getJson('/api/v1/insights/bottlenecks')->assertOk();
+    });
+    $queries = count($log);
+
+    // Two statements do the work — one window function over the transitions,
+    // one snapshot of what is sitting where — on top of authentication. The
+    // shape this bound exists to catch is a per-category query, which would
+    // grow with the number of state categories a customer defines and look
+    // perfectly reasonable in a diff (ADR 0010).
+    expect($queries)->toBeLessThan(12, "bottlenecks ran {$queries} queries: ".queryBreakdown($log));
+});

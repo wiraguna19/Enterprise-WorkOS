@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Insights\Http\Controller;
 
+use App\Modules\Insights\Application\Query\BottleneckQuery;
 use App\Modules\Insights\Application\Query\FlowQuery;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
@@ -26,14 +27,35 @@ final class FlowController extends ApiController
 
     public function __construct(
         private readonly FlowQuery $flow,
+        private readonly BottleneckQuery $bottlenecks,
         private readonly WorkItemVisibility $visibility,
     ) {}
+
+    /**
+     * Where work waited (ADR 0010).
+     *
+     * Its own endpoint rather than another key on the flow payload: this is
+     * computed from every transition in the window, not folded from the
+     * completions, so bundling the two would make one page load pay for a query
+     * it may not be showing.
+     */
+    public function bottlenecks(Request $request): ApiResponse
+    {
+        [$from, $to] = $this->window($request);
+
+        return $this->ok($this->bottlenecks->between($from, $to));
+    }
 
     public function index(Request $request): ApiResponse
     {
         [$from, $to] = $this->window($request);
 
-        return $this->ok($this->flow->between($from, $to, $this->project($request)));
+        return $this->ok($this->flow->between(
+            $from,
+            $to,
+            $this->project($request),
+            $this->department($request),
+        ));
     }
 
     /**
@@ -48,15 +70,31 @@ final class FlowController extends ApiController
     {
         [$from, $to] = $this->window($request);
 
-        $completions = $this->flow->completions($from, $to, $this->project($request));
+        $completions = $this->flow->completions(
+            $from,
+            $to,
+            $this->project($request),
+            $this->department($request),
+        );
 
-        /** @var array<string, array{completed_at: string, hours: float|null}> $byId */
+        // The same predicate the figure was computed from, applied to the same
+        // fold — not a second "what does late mean" written on this side
+        // (ADR 0010, and the rule the flow drill-through already follows).
+        if ($request->boolean('late')) {
+            $completions = array_values(array_filter(
+                $completions,
+                static fn (array $row): bool => $row['late'] === true,
+            ));
+        }
+
+        /** @var array<string, array{completed_at: string, hours: float|null, late: bool|null}> $byId */
         $byId = [];
 
         foreach ($completions as $row) {
             $byId[$row['work_item_id']] = [
                 'completed_at' => $row['completed_at'],
                 'hours' => $row['hours'],
+                'late' => $row['late'],
             ];
         }
 
@@ -86,12 +124,15 @@ final class FlowController extends ApiController
             // Null where the item has no `in_progress` transition to measure
             // from: nothing to measure is not the same as zero (ADR 0007).
             'cycle_time_hours' => $byId[(string) $item->getKey()]['hours'],
+            // Null where the item had no due date to miss.
+            'late' => $byId[(string) $item->getKey()]['late'],
         ])->values()->all();
 
         return ApiResponse::collection($items, [
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'throughput' => count($byId),
+            'late_only' => $request->boolean('late'),
             'hidden_count' => count($byId) - $visible->count(),
         ]);
     }
@@ -115,5 +156,12 @@ final class FlowController extends ApiController
         $validated = $request->validate(['project_id' => ['sometimes', 'uuid']]);
 
         return $validated['project_id'] ?? null;
+    }
+
+    private function department(Request $request): ?string
+    {
+        $validated = $request->validate(['department_id' => ['sometimes', 'uuid']]);
+
+        return $validated['department_id'] ?? null;
     }
 }

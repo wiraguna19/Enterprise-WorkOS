@@ -2,8 +2,10 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FlowTable } from "@/features/insights/FlowTable";
+import { DepartmentSplit } from "@/features/insights/DepartmentSplit";
+import { BottleneckTable } from "@/features/insights/BottleneckTable";
 import { formatCycleHours } from "@/features/insights/format";
-import type { Flow } from "@/features/insights/types";
+import type { Bottleneck, Flow } from "@/features/insights/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -30,7 +32,15 @@ export default async function ReportsPage({
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
 
-  const { data: flow } = await api<Flow>(`/insights/flow?${query}`);
+  // Two reads rather than one payload: the bottleneck figures come from every
+  // transition in the window, not from folding the completions, so bundling
+  // them would make this page pay for a query even when it is not shown.
+  const [{ data: flow }, { data: bottlenecks }] = await Promise.all([
+    api<Flow>(`/insights/flow?${query}`),
+    api<Bottleneck[]>(`/insights/bottlenecks?${query}`).catch(() => ({
+      data: [] as Bottleneck[],
+    })),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -64,6 +74,29 @@ export default async function ReportsPage({
               />
               <div>
                 <dt className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
+                  Finished late
+                </dt>
+                <dd className="mt-0.5 text-h2 tabular-nums text-n-900">
+                  {flow.late_rate === null ? (
+                    "—"
+                  ) : (
+                    <Link
+                      href={`/reports/completions?from=${flow.from}&to=${flow.to}&late=1`}
+                      className="text-a-700 hover:underline"
+                    >
+                      {Math.round(flow.late_rate * 100)}%
+                    </Link>
+                  )}
+                </dd>
+                <dd className="text-caption text-n-500">
+                  {flow.late_rate === null
+                    ? "nothing completed here carried a due date"
+                    : `${flow.completed_late} of ${flow.dated} that had a due date`}
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
                   Measured
                 </dt>
                 <dd className="mt-0.5 text-h2 tabular-nums text-n-900">
@@ -83,6 +116,44 @@ export default async function ReportsPage({
           </section>
 
           <FlowTable flow={flow} timeZone={me.user.timezone} />
+
+          {flow.departments.length > 0 && (
+            <section aria-labelledby="departments" className="space-y-2">
+              <h2
+                id="departments"
+                className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
+              >
+                Where it was delivered
+              </h2>
+
+              <DepartmentSplit
+                departments={flow.departments}
+                total={flow.throughput}
+                window={{ from: flow.from, to: flow.to }}
+              />
+            </section>
+          )}
+
+          {bottlenecks.length > 0 && (
+            <section aria-labelledby="bottlenecks" className="space-y-2">
+              <h2
+                id="bottlenecks"
+                className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
+              >
+                Where it waited
+              </h2>
+
+              <BottleneckTable rows={bottlenecks} />
+
+              <p className="max-w-[72ch] text-caption text-n-500">
+                A wait is counted in the window it ENDED in, and a wait still going has no
+                duration yet — so the median describes waits that finished, and
+                &ldquo;sitting there now&rdquo; is a snapshot that changes when time passes
+                rather than when work happens. Ordered by the wait, not by the queue: the
+                backlog is where work is supposed to sit.
+              </p>
+            </section>
+          )}
 
           {/*
             docs/10: a number a user cannot drill into does not ship. The weekly

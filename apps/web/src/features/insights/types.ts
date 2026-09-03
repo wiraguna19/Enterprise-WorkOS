@@ -7,6 +7,19 @@ export type FlowWeek = {
   measured: number;
   cycle_time_p50_hours: number | null;
   cycle_time_p85_hours: number | null;
+  /** Completions that carried a due date — the late rate's denominator. */
+  dated: number;
+  completed_late: number;
+  /** Null, not zero, when nothing in the week carried a date (ADR 0010). */
+  late_rate: number | null;
+};
+
+export type FlowDepartment = {
+  /** Null for work with no project, or a project with no department. */
+  department_id: string | null;
+  name: string | null;
+  throughput: number;
+  late: number;
 };
 
 export type Flow = {
@@ -18,7 +31,22 @@ export type Flow = {
   unmeasurable: number;
   cycle_time_p50_hours: number | null;
   cycle_time_p85_hours: number | null;
+  dated: number;
+  completed_late: number;
+  late_rate: number | null;
   weeks: FlowWeek[];
+  departments: FlowDepartment[];
+};
+
+/** Where work waited (ADR 0010). One row per state category. */
+export type Bottleneck = {
+  category: string;
+  /** Null where nothing left this category in the window. */
+  median_hours: number | null;
+  p85_hours: number | null;
+  steps: number;
+  /** A snapshot: it changes when time passes, not when work happens. */
+  waiting_now: number;
 };
 
 /** One completion behind the numbers above. Mirrors FlowController::items. */
@@ -30,6 +58,8 @@ export type FlowCompletion = {
   completed_at: string;
   /** Null where the item never entered In Progress. Never a zero (ADR 0007). */
   cycle_time_hours: number | null;
+  /** Null where the item had no due date to miss (ADR 0010). */
+  late: boolean | null;
 };
 
 export type FlowCompletionsMeta = {

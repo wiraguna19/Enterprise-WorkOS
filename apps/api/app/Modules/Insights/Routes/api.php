@@ -43,6 +43,11 @@ Route::get('insights/flow', [FlowController::class, 'index'])
 Route::get('insights/flow/items', [FlowController::class, 'items'])
     ->middleware('permission:report.view');
 
+// Where work waited, by state category (ADR 0010). Its own route because it
+// reads every transition in the window rather than folding the completions.
+Route::get('insights/bottlenecks', [FlowController::class, 'bottlenecks'])
+    ->middleware('permission:report.view');
+
 // Project health: five signals with their counts, and the records behind each
 // (ADR 0008). Gated on `project.view` — health is a fact about a project, and
 // who may see WHICH project is decided per record by the visibility scope and
