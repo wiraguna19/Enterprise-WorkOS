@@ -145,6 +145,14 @@ function minimalRowFor(string $table, string $organizationId): array
         ],
         'settings' => $base + ['scope_type' => 'organization', 'key' => 'probe.'.substr($id, 0, 8), 'value' => '1'],
 
+        'report_exports' => $base + [
+            // Who asked is NOT NULL on purpose: an export with no requester is
+            // an export whose contents nothing can explain (ADR 0011).
+            'requested_by_membership_id' => probeMembershipIn($organizationId),
+            'report_key' => 'organization',
+            'format' => 'csv',
+        ],
+
         // ── Phase 4 ─────────────────────────────────────────────────────────
         // These reference the GLOBEX fixtures deliberately. The isolation suite
         // inserts a probe row into the second tenant and then asserts Acme

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Insights\Http\Controller\AtRiskController;
 use App\Modules\Insights\Http\Controller\FlowController;
 use App\Modules\Insights\Http\Controller\ProjectHealthController;
+use App\Modules\Insights\Http\Controller\ReportController;
 use App\Modules\Insights\Http\Controller\WorkloadController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,3 +66,22 @@ Route::get('insights/projects/{key}/health/items', [ProjectHealthController::cla
 // how the page knows not to render Manager Home at all.
 Route::get('insights/at-risk', [AtRiskController::class, 'index'])
     ->middleware('permission:work_item.view');
+
+// The four reports and their exports (docs/05, ADR 0011). `report.view` reads
+// one; `report.export` asks for a file, and the file is built with the
+// requester's own visibility rather than the worker's.
+Route::get('reports/exports', [ReportController::class, 'index'])
+    ->middleware('permission:report.export');
+
+Route::get('reports/exports/{id}/download', [ReportController::class, 'download'])
+    ->middleware('permission:report.export');
+
+Route::get('reports/{key}', [ReportController::class, 'show'])
+    ->middleware('permission:report.view');
+
+// The five-per-hour limit docs/05 §6 asks for is enforced INSIDE the
+// controller, not with `throttle:` — the framework's throttle middleware runs
+// before this product's tenant resolver, so a per-organization key is not
+// available to it (see ReportController::withinRateLimit).
+Route::post('reports/{key}/export', [ReportController::class, 'export'])
+    ->middleware('permission:report.export');

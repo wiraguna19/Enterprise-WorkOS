@@ -164,6 +164,13 @@ parameters:
       - Work
       - Workflow
       - Governance
+      # Insights still holds no records of its own, but it now writes one kind
+      # of FILE — a report export — and reaches storage through Files' contract
+      # rather than learning what S3 is (docs/03 §5, ADR 0011). Files does not
+      # import Insights, so this adds an edge and no cycle. The alternative, a
+      # second storage contract in Platform, would put two names on one
+      # capability.
+      - Files
 
     # Realtime decides who may LISTEN, which is the same question as who may
     # read — so it reaches across the modules that own the answer, exactly as

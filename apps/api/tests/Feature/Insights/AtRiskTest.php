@@ -172,8 +172,14 @@ it('calls unassigned work risky only once its date is close', function (): void 
 });
 
 it('calls work that has not moved in a week stalled', function (): void {
+    // Ten days and two hours, not exactly ten. `days_since_move` is computed by
+    // Postgres with `now()`, which inside a transaction is the transaction's
+    // START time — and the suite wraps every test in one. The fixture is
+    // written by PHP a few milliseconds later, so an exactly-ten-day gap
+    // measures as 9.999… and floors to 9. Nudging the fixture keeps the
+    // assertion about the rule rather than about which clock ran first.
     $stalled = riskItem('in_progress');
-    riskMoved($stalled, 'in_progress', now()->subDays(10)->toDateTimeString());
+    riskMoved($stalled, 'in_progress', now()->subDays(10)->subHours(2)->toDateTimeString());
 
     $moving = riskItem('in_progress');
     riskMoved($moving, 'in_progress', now()->subDay()->toDateTimeString());

@@ -49,3 +49,10 @@ Schedule::command('work:roll-up-project-progress')
     ->hourly()
     ->onOneServer()
     ->withoutOverlapping();
+
+// Export files do not live forever, and the expiry column would be a lie
+// without something acting on it (ADR 0011). Daily: an export lives a week, so
+// an hour's imprecision at the end of it costs nobody anything.
+Schedule::command('insights:prune-expired-exports')
+    ->dailyAt('04:00')
+    ->onOneServer();
