@@ -29,6 +29,16 @@ interface FileStorage
      */
     public function presignedDownloadUrl(string $path, string $filename, int $expiresInSeconds = 300): string;
 
+    /**
+     * Write bytes the SERVER produced.
+     *
+     * Uploads never come through here — a browser PUTs those to a presigned URL
+     * (above) so a large file cannot occupy a PHP worker. This is the other
+     * direction: a report export is generated in a queued job, and the job has
+     * the bytes in hand and nobody to hand them to (ADR 0011).
+     */
+    public function put(string $path, string $contents, string $mimeType): void;
+
     /** Confirm the object actually landed, and how big it really is. */
     public function head(string $path): ?FileMetadata;
 

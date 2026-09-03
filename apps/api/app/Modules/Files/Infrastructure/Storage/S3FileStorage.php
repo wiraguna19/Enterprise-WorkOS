@@ -44,6 +44,13 @@ final class S3FileStorage implements FileStorage
         );
     }
 
+    public function put(string $path, string $contents, string $mimeType): void
+    {
+        Storage::disk($this->disk)->put($path, $contents, [
+            'ContentType' => $mimeType,
+        ]);
+    }
+
     public function head(string $path): ?FileMetadata
     {
         $disk = Storage::disk($this->disk);
