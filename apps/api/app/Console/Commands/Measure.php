@@ -12,6 +12,7 @@ use App\Modules\Search\Domain\Contract\SearchDriver;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Answers the performance questions this product has been asserting without
@@ -122,12 +123,121 @@ final class Measure extends Command
         $median = $timings[(int) floor(count($timings) / 2)];
         $worst = $timings[count($timings) - 1];
 
+        $this->line(sprintf('  %-24s median %7.1f ms   worst %7.1f ms', $label, $median, $worst));
+
+        $this->explainSlowestStatement($work);
+    }
+
+    /**
+     * Run it once more with the query log on, and explain whichever statement
+     * actually took the longest — as the database itself times it.
+     *
+     * Written this way after a hand-copied EXPLAIN misled me: the plan probe
+     * for the risk query described the shape the code USED to have, so it kept
+     * reporting a sequential scan after the query had been rewritten. A plan
+     * typed out beside the code it describes drifts from it exactly like every
+     * other duplicated definition in this codebase. Nothing is transcribed
+     * here; whatever the operation issued is what gets explained.
+     *
+     * `EXPLAIN ANALYZE`, not `EXPLAIN`: an estimated plan says which access
+     * paths were chosen and nothing about where the time went. "Sequential scan
+     * on a 50 000-row table" sounds like the answer and is worth about 20 ms —
+     * so a 317 ms statement that mentions one is still unexplained, and the
+     * node that actually cost the time is usually somewhere else.
+     */
+    private function explainSlowestStatement(callable $work): void
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $work();
+
+        $log = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        if ($log === []) {
+            return;
+        }
+
+        usort($log, static fn (array $a, array $b): int => ($b['time'] ?? 0) <=> ($a['time'] ?? 0));
+        $slowest = $log[0];
+
+        try {
+            $rows = DB::select(
+                'EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) '.$slowest['query'],
+                $slowest['bindings'],
+            );
+
+            /** @var list<array<string, mixed>> $plan */
+            $plan = json_decode((string) ($rows[0]->{'QUERY PLAN'} ?? '[]'), true, 32, JSON_THROW_ON_ERROR);
+        } catch (Throwable $e) {
+            $this->line('      (could not explain: '.$e->getMessage().')');
+
+            return;
+        }
+
+        $nodes = [];
+        $this->walk($plan[0]['Plan'] ?? [], $nodes);
+
+        // Sorted by the time a node cost IN TOTAL — its own time multiplied by
+        // how many times it ran. A node that takes 0.2 ms and runs fifty
+        // thousand times is the answer, and it looks harmless in every other
+        // view of a plan.
+        usort($nodes, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
+
         $this->line(sprintf(
-            '  %-24s median %7.1f ms   worst %7.1f ms',
-            $label,
-            $median,
-            $worst,
+            '      slowest statement %6.1f ms of %d',
+            (float) ($slowest['time'] ?? 0),
+            count($log),
         ));
+
+        foreach (array_slice($nodes, 0, 3) as $node) {
+            $this->line(sprintf(
+                '        %7.1f ms  %s%s%s%s',
+                $node['total'],
+                $node['type'],
+                $node['relation'] === null ? '' : ' on '.$node['relation'],
+                $node['loops'] > 1 ? sprintf('  ×%d loops', $node['loops']) : '',
+                $node['read'] + $node['hit'] > 0
+                    ? sprintf('  [%d pages, %d from disk]', $node['read'] + $node['hit'], $node['read'])
+                    : '',
+            ));
+        }
+    }
+
+    /**
+     * Flatten the plan tree, keeping what a person needs to read it.
+     *
+     * @param  array<string, mixed>  $node
+     * @param  list<array{type: string, relation: string|null, total: float, loops: int, read: int, hit: int}>  $into
+     */
+    private function walk(array $node, array &$into): void
+    {
+        if ($node === []) {
+            return;
+        }
+
+        $loops = (int) ($node['Actual Loops'] ?? 1);
+        $perLoop = (float) ($node['Actual Total Time'] ?? 0);
+
+        $into[] = [
+            'type' => (string) ($node['Node Type'] ?? 'unknown'),
+            'relation' => isset($node['Relation Name']) ? (string) $node['Relation Name'] : null,
+            'total' => $perLoop * max($loops, 1),
+            'loops' => $loops,
+            // Pages read from disk versus found in cache. The difference
+            // between "this scan is expensive" and "this scan is expensive the
+            // first time", which a timing alone cannot tell you.
+            'read' => (int) ($node['Shared Read Blocks'] ?? 0),
+            'hit' => (int) ($node['Shared Hit Blocks'] ?? 0),
+        ];
+
+        /** @var list<array<string, mixed>> $children */
+        $children = $node['Plans'] ?? [];
+
+        foreach ($children as $child) {
+            $this->walk($child, $into);
+        }
     }
 
     /**
@@ -144,7 +254,12 @@ final class Measure extends Command
     {
         $organizationId = (string) DB::table('work_items')->value('organization_id');
 
-        $this->line('<options=bold>Plans</> — what the planner actually chose:');
+        // These three are deliberate ISOLATION probes, not copies of a query
+        // the product runs: they take the search predicate apart to show which
+        // arm can use an index on its own. Anything measuring a real operation
+        // explains the statement that operation actually issued (see
+        // explainSlowestStatement).
+        $this->line('<options=bold>Probes</> — the search predicate, arm by arm:');
 
         $checks = [
             'search: full text alone' => "EXPLAIN SELECT id FROM work_items
@@ -161,18 +276,6 @@ final class Measure extends Command
                        search_vector @@ websearch_to_tsquery('english', 'migration')
                     OR upper(reference) = upper('migration')
                   )",
-
-            'at-risk: the scope scan' => "EXPLAIN SELECT w.id
-                FROM work_items w
-           LEFT JOIN projects p ON p.id = w.project_id AND p.organization_id = w.organization_id
-               WHERE w.organization_id = ?::uuid
-                 AND w.deleted_at IS NULL
-                 AND w.state_category NOT IN ('done','cancelled')
-                 AND EXISTS (SELECT 1 FROM work_item_assignments a
-                              WHERE a.work_item_id = w.id
-                                AND a.organization_id = w.organization_id
-                                AND a.unassigned_at IS NULL
-                                AND a.role = 'assignee')",
 
             'overdue work' => "EXPLAIN SELECT id FROM work_items
                 WHERE organization_id = ?::uuid AND due_at < now()
