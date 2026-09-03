@@ -86,7 +86,12 @@ final class WorkloadQuery
             }
 
             if ($row['share'] > 0.0) {
-                $committed += $row['share'];
+                // Rounded HERE, to the same two decimals the drill-through
+                // prints, before being added up. Summing full-precision shares
+                // and rounding the total afterwards leaves the two disagreeing
+                // by a cent — which is the "two numbers and no way to tell
+                // which is wrong" this fold exists to prevent, at small scale.
+                $committed += round($row['share'], 2);
                 $counted++;
             }
         }
