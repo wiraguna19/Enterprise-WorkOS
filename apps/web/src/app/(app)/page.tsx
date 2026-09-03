@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import { AtRiskList } from "@/features/insights/AtRiskList";
+import { WorkloadPanel } from "@/features/people/WorkloadPanel";
 import { TeamCapacity } from "@/features/insights/TeamCapacity";
 import type { AtRiskItem } from "@/features/insights/types";
 import type { Workload } from "@/features/people/types";
@@ -32,10 +33,15 @@ type Attention = { unaccepted: WorkItem[]; overdue: WorkItem[] };
  * rename. Everyone's own work comes first either way: a manager opening this
  * page still has their own overdue item.
  *
- * Four endpoints, fetched together. Manager Home is composed here rather than
- * by one endpoint because approvals belong to a module Insights must not import
- * (docs/04 §3) — the composition is the price of the seam, and it is one server
- * render either way.
+ * The personal half follows docs/08 §3's ordering exactly, and the ordering IS
+ * the design: exceptions first, then today's commitments, then the week ahead,
+ * then what is blocked on somebody else. "Waiting on others" earns its place
+ * because half of a person's frustration is work they cannot progress, and no
+ * todo list ever shows it.
+ *
+ * Composed here rather than by one endpoint because approvals belong to a
+ * module Insights must not import (docs/04 §3) — the composition is the price
+ * of the seam, and it is one server render either way.
  */
 export default async function HomePage() {
   const me = await requireUser();
@@ -44,26 +50,38 @@ export default async function HomePage() {
   // Each read falls back to empty rather than failing the page: Home is the
   // first screen after sign-in, and one unavailable section is not a reason to
   // show somebody an error instead of their work.
-  const [attention, today, counts, atRisk, capacity, reviews] = await Promise.all([
-    api<Attention>("/me/work/needs-attention")
-      .then((r) => r.data)
-      .catch(() => ({ unaccepted: [], overdue: [] })),
-    api<WorkItem[]>("/me/work?view=today&limit=5")
-      .then((r) => r.data)
-      .catch(() => [] as WorkItem[]),
-    api<Record<string, number>>("/me/work/counts")
-      .then((r) => r.data)
-      .catch(() => ({}) as Record<string, number>),
-    api<AtRiskItem[]>("/insights/at-risk")
-      .then((r) => r.data)
-      .catch(() => [] as AtRiskItem[]),
-    api<Array<Workload & { name: string | null }>>("/insights/my-reports/workload")
-      .then((r) => ({ rows: r.data, withheld: Number(r.meta?.withheld_count ?? 0) }))
-      .catch(() => ({ rows: [] as Array<Workload & { name: string | null }>, withheld: 0 })),
-    api<Approval[]>("/approvals?role=reviewer&status=pending")
-      .then((r) => r.data)
-      .catch(() => [] as Approval[]),
-  ]);
+  const [attention, today, upcoming, waiting, workload, counts, atRisk, capacity, reviews] =
+    await Promise.all([
+      api<Attention>("/me/work/needs-attention")
+        .then((r) => r.data)
+        .catch(() => ({ unaccepted: [], overdue: [] })),
+      api<WorkItem[]>("/me/work?view=today&limit=5")
+        .then((r) => r.data)
+        .catch(() => [] as WorkItem[]),
+      api<WorkItem[]>("/me/work?view=upcoming&limit=5")
+        .then((r) => r.data)
+        .catch(() => [] as WorkItem[]),
+      api<WorkItem[]>("/me/work?view=waiting_on_others&limit=5")
+        .then((r) => r.data)
+        .catch(() => [] as WorkItem[]),
+      // The same figure the person's own profile shows, from the same endpoint —
+      // a second computation of "your week" would eventually disagree with it.
+      api<Workload>(`/people/${me.membership.id}/workload`)
+        .then((r) => r.data)
+        .catch(() => null),
+      api<Record<string, number>>("/me/work/counts")
+        .then((r) => r.data)
+        .catch(() => ({}) as Record<string, number>),
+      api<AtRiskItem[]>("/insights/at-risk")
+        .then((r) => r.data)
+        .catch(() => [] as AtRiskItem[]),
+      api<Array<Workload & { name: string | null }>>("/insights/my-reports/workload")
+        .then((r) => ({ rows: r.data, withheld: Number(r.meta?.withheld_count ?? 0) }))
+        .catch(() => ({ rows: [] as Array<Workload & { name: string | null }>, withheld: 0 })),
+      api<Approval[]>("/approvals?role=reviewer&status=pending")
+        .then((r) => r.data)
+        .catch(() => [] as Approval[]),
+    ]);
 
   // Overdue work is already an exception; an unaccepted assignment that is also
   // overdue should be named once, in the more urgent list.
@@ -76,7 +94,11 @@ export default async function HomePage() {
   const managing = atRisk.length > 0 || capacity.rows.length > 0;
 
   const nothingToShow =
-    attention.overdue.length === 0 && unaccepted.length === 0 && today.length === 0;
+    attention.overdue.length === 0 &&
+    unaccepted.length === 0 &&
+    today.length === 0 &&
+    upcoming.length === 0 &&
+    waiting.length === 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -125,7 +147,35 @@ export default async function HomePage() {
             timeZone={me.user.timezone}
             href="/my-work?view=today"
           />
+
+          <Section
+            title="This week"
+            items={upcoming}
+            timeZone={me.user.timezone}
+            href="/my-work?view=upcoming"
+          />
+
+          <Section
+            title="Waiting on others"
+            items={waiting}
+            timeZone={me.user.timezone}
+            href="/my-work?view=waiting_on_others"
+            note="Submitted for review, or blocked by work somebody else holds. Nothing here moves because of you."
+          />
         </>
+      )}
+
+      {workload && (
+        <section aria-labelledby="your-week" className="space-y-1.5 border-t border-n-100 pt-5">
+          <h2
+            id="your-week"
+            className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
+          >
+            Your week
+          </h2>
+
+          <WorkloadPanel workload={workload} />
+        </section>
       )}
 
       {managing && (
@@ -184,11 +234,14 @@ function Section({
   items,
   timeZone,
   href,
+  note,
 }: {
   title: string;
   items: WorkItem[];
   timeZone: string;
   href: string;
+  /** One line saying what this section means, where the title does not say it. */
+  note?: string;
 }) {
   // An empty section is not rendered at all. A heading over nothing is a hole
   // in the page that the reader has to work out is not an error.
@@ -207,6 +260,8 @@ function Section({
           See all
         </Link>
       </div>
+
+      {note && <p className="max-w-[72ch] text-caption text-n-500">{note}</p>}
 
       <div className="border-t border-n-100">
         {items.slice(0, 5).map((item) => (
