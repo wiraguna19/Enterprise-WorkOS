@@ -8,18 +8,18 @@ use Symfony\Component\Uid\UuidV7;
 /**
  * Manager Home's risk list, asserted against ADR 0009.
  *
- * Ahmad is the seed's Engineering Manager: four direct reports and owner of the
- * ENG project, which is exactly the shape the screen is for. Sarah reports to
- * him and manages nobody, which is the other case worth proving — the screen is
- * selected by the data, not by a role name.
+ * Each test owns a project of its own and reads the list as that project's
+ * owner, so the list IS the fixtures. Reading Ahmad's list instead — the seed's
+ * Engineering Manager, four reports and owner of ENG — puts dozens of seeded
+ * rows in front of them, and a fixture that ranks last (nothing blocked carries
+ * a due date) falls off the end of a capped list. That is not a hypothetical:
+ * it is how these tests failed twice, and the second time it hid a real defect
+ * in the rule rather than a problem with the fixtures.
  *
- * Every assertion is **by work item id**. The seed deliberately contains work
- * that is overdue, blocked and stale, so asserting on counts or on the first
- * row would be asserting on the seed rather than on the rule.
+ * Every assertion is **by work item id**, never by count or position.
  */
 const R_ORG = '01900000-0000-7000-8000-0000000000ac';
 const R_WF = '01900001-0000-7000-8000-000000000001';
-const R_ENG = '01900003-0000-7000-8000-000000000001';
 const R_AHMAD = '01900000-0000-7000-8000-000000000202';
 const R_SARAH = '01900000-0000-7000-8000-000000000203';
 const R_S_TODO = '01900002-0000-7000-8000-000000000002';
@@ -27,21 +27,43 @@ const R_S_PROGRESS = '01900002-0000-7000-8000-000000000003';
 const R_S_BLOCKED = '01900002-0000-7000-8000-000000000007';
 
 beforeEach(function (): void {
-    // Ahmad owns ENG and manages four people; the risk list is his by data.
-    $this->manager = $this->loginAs('ahmad@acme.test');
+    // Sarah manages nobody and owns nothing in the seed. Given a project, she
+    // is a team lead with no title — which is the case ADR 0009 exists to
+    // handle: the screen is selected by the data, not by a role name.
+    $this->project = riskProject();
+    $this->manager = $this->loginAs('sarah@acme.test');
 });
+
+/** A project owned by the reader, so the risk list contains only this test's work. */
+function riskProject(): string
+{
+    $id = (string) new UuidV7;
+
+    DB::table('projects')->insert([
+        'id' => $id,
+        'organization_id' => R_ORG,
+        'key' => 'RK'.random_int(100, 999),
+        'name' => 'Risk fixture',
+        'workflow_id' => R_WF,
+        'status' => 'active',
+        'visibility' => 'internal',
+        'owner_membership_id' => R_SARAH,
+    ]);
+
+    return $id;
+}
 
 /** @param  array<string, mixed>  $attributes */
 function riskItem(string $category = 'todo', array $attributes = [], bool $assign = true): string
 {
     $id = (string) new UuidV7;
 
-    DB::table('work_items')->insert([
+    DB::table('work_items')->insert(array_merge([
         'id' => $id,
         'organization_id' => R_ORG,
         'reference' => 'RSK-'.random_int(10000, 99999),
         'title' => 'Risk fixture',
-        'project_id' => R_ENG,
+        'project_id' => test()->project,
         'workflow_id' => R_WF,
         'workflow_state_id' => match ($category) {
             'in_progress' => R_S_PROGRESS,
@@ -50,7 +72,9 @@ function riskItem(string $category = 'todo', array $attributes = [], bool $assig
         },
         'state_category' => $category,
         'created_by_membership_id' => R_AHMAD,
-    ] + $attributes);
+        // array_merge, not `+`: the union operator keeps the LEFT value for a
+        // duplicate key, so an override would be silently ignored.
+    ], $attributes));
 
     if ($assign) {
         DB::table('work_item_assignments')->insert([
@@ -226,9 +250,22 @@ it('carries every reason that applies, not only the worst', function (): void {
 });
 
 it('is empty for someone who manages nobody and owns no project', function (): void {
-    // Sarah has work, some of it overdue. None of it is HERS to manage, and an
+    // David has work, some of it overdue. None of it is HIS to manage, and an
     // empty list is how the page knows not to render Manager Home at all.
     riskItem('todo', ['due_at' => now()->subDays(2)]);
 
-    expect(atRisk($this->loginAs('sarah@acme.test')))->toBe([]);
+    expect(atRisk($this->loginAs('david@acme.test')))->toBe([]);
+});
+
+it('reaches work held by someone in the reader\'s reporting line', function (): void {
+    // Ahmad owns none of this: the item is in Sarah's project and assigned to
+    // her, and he manages her. A manager who cannot see their report's work
+    // cannot manage it.
+    //
+    // Dated far enough back to sort first among the seed's own overdue work —
+    // Ahmad's real list is long, and this test is about the scope rule, not
+    // about where a row lands in it.
+    $item = riskItem('todo', ['due_at' => now()->subYears(5)]);
+
+    expect(atRisk($this->loginAs('ahmad@acme.test')))->toHaveKey($item);
 });
