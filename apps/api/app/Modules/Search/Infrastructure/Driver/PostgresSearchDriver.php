@@ -11,7 +11,6 @@ use App\Modules\Search\Domain\Contract\SearchDriver;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -36,6 +35,15 @@ final class PostgresSearchDriver implements SearchDriver
      * whose title IS the phrase.
      */
     private const COMMENT_RANK_FACTOR = 0.4;
+
+    /**
+     * How many matching ids each arm may contribute before ranking.
+     *
+     * Ten times a palette page: large enough that visibility filtering still
+     * leaves a full page for any ordinary reader, small enough that a search
+     * for a common word does not rank fifty thousand rows on a keystroke.
+     */
+    private const CANDIDATE_POOL = 200;
 
     public function __construct(
         private readonly WorkItemVisibility $visibility,
@@ -70,33 +78,31 @@ final class PostgresSearchDriver implements SearchDriver
     }
 
     /**
-     * Title, description, reference — and comment text, through an EXISTS on
-     * the item's own comments rather than a join, so an item discussed twenty
-     * times is one row rather than twenty (docs/10, Phase 5 exit criteria).
+     * Title, description, reference and comment text, ranked together.
+     *
+     * The matching happens in `candidateIds()` and the ranking here, because
+     * the two want opposite query shapes — see that method for the measurement
+     * that forced the split.
      *
      * @return list<array<string, mixed>>
      */
     private function workItems(string $terms, int $limit): array
     {
+        $candidates = $this->candidateIds($terms);
+
+        if ($candidates === []) {
+            return [];
+        }
+
         $query = WorkItemModel::query()
             ->with(['project:id,key,name'])
-            ->whereNull('deleted_at');
+            ->whereNull('deleted_at')
+            ->whereIn('work_items.id', $candidates);
 
+        // Visibility is applied to the candidates rather than replaced by them:
+        // the shortlist is about which rows MATCH, and this is still the only
+        // thing deciding which rows this person may see.
         $this->visibility->apply($query);
-
-        $query->where(function (Builder $q) use ($terms): void {
-            $q->whereRaw("work_items.search_vector @@ websearch_to_tsquery('english', ?)", [$terms])
-                // The reference is what people paste from chat, and it is not
-                // in the tsvector: "ENG-142" tokenises into pieces that match
-                // every other ENG item.
-                ->orWhereRaw('upper(work_items.reference) = upper(?)', [$terms])
-                ->orWhereExists(fn ($sub) => $sub
-                    ->from('comments')
-                    ->whereColumn('comments.commentable_id', 'work_items.id')
-                    ->where('comments.commentable_type', 'work_item')
-                    ->whereNull('comments.deleted_at')
-                    ->whereRaw("comments.search_vector @@ websearch_to_tsquery('english', ?)", [$terms]));
-        });
 
         $query->selectRaw(
             "work_items.*,
@@ -138,6 +144,76 @@ final class PostgresSearchDriver implements SearchDriver
                 'rank' => (float) $item->getAttribute('search_rank'),
             ])
             ->all());
+    }
+
+    /**
+     * The ids that match, found by three index-driven lookups rather than one
+     * OR.
+     *
+     * This used to be a single `WHERE a OR b OR c` on `work_items`, which reads
+     * better and cannot use an index. Postgres builds a bitmap OR only when
+     * EVERY arm is indexable: the reference arm calls `upper()` on the column,
+     * and the comment arm is a correlated EXISTS, so the planner fell back to
+     * scanning `work_items` whole. Measured at 50 000 items, that was ~300 ms —
+     * and identical for a common word and for a single reference, which is the
+     * signature of a full scan and the reason this was found at all
+     * (`perf:seed-volume`, `perf:measure`).
+     *
+     * Each arm now runs against the index built for it: the GIN on
+     * `search_vector`, the functional index on `upper(reference)`, and the
+     * comments' own GIN — driven FROM comments rather than testing each work
+     * item, so the third arm reads the small matching set instead of the large
+     * candidate one.
+     *
+     * The pool is capped. A reader whose visibility excludes most of a very
+     * large match set could therefore see fewer than `limit` results where the
+     * old shape would have kept looking — the trade this makes for not scanning
+     * the table on every keystroke. The cap is ten times a palette page, so it
+     * takes an unusual combination to reach.
+     *
+     * @return list<string>
+     */
+    private function candidateIds(string $terms): array
+    {
+        $organizationId = $this->tenant->organizationId();
+
+        /** @var list<object{id: string}> $rows */
+        $rows = DB::select(<<<'SQL'
+            (SELECT id
+               FROM work_items
+              WHERE organization_id = ?
+                AND deleted_at IS NULL
+                AND search_vector @@ websearch_to_tsquery('english', ?)
+              ORDER BY ts_rank(search_vector, websearch_to_tsquery('english', ?)) DESC
+              LIMIT ?)
+            UNION
+            -- The reference is what people paste from chat, and it is not in
+            -- the tsvector: "ENG-142" tokenises into pieces that match every
+            -- other ENG item.
+            (SELECT id
+               FROM work_items
+              WHERE organization_id = ?
+                AND deleted_at IS NULL
+                AND upper(reference) = upper(?)
+              LIMIT ?)
+            UNION
+            -- Driven from the comments, so an item discussed twenty times still
+            -- arrives once and the scan is over the matches rather than over
+            -- every work item.
+            (SELECT DISTINCT c.commentable_id AS id
+               FROM comments c
+              WHERE c.organization_id = ?
+                AND c.commentable_type = 'work_item'
+                AND c.deleted_at IS NULL
+                AND c.search_vector @@ websearch_to_tsquery('english', ?)
+              LIMIT ?)
+        SQL, [
+            $organizationId, $terms, $terms, self::CANDIDATE_POOL,
+            $organizationId, $terms, self::CANDIDATE_POOL,
+            $organizationId, $terms, self::CANDIDATE_POOL,
+        ]);
+
+        return array_values(array_map(static fn (object $row): string => (string) $row->id, $rows));
     }
 
     /** @return list<array<string, mixed>> */
