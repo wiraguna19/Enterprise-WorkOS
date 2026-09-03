@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import type { Project } from "@/features/work-item/types";
+import { formatDateTime } from "@/lib/format";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { clsx } from "@/lib/clsx";
@@ -71,18 +72,36 @@ export default async function ProjectsPage() {
                   </span>
                 </span>
 
-                {/* Progress is derived and cached, so it is labelled as of a
-                    time rather than presented as live truth (docs/12 §8). */}
+                {/* Progress is derived and cached (docs/02 §5, docs/12 §8), so
+                    the row shows WHEN it was computed rather than implying it
+                    is live — and shows nothing at all until it has been.
+
+                    This bar rendered a confident 0% for every project from
+                    Phase 2 until the rollup was written: the column existed,
+                    the job did not, and a figure that looks computed and is not
+                    is worse than a blank, because nobody goes looking for the
+                    bug. */}
                 <span className="hidden w-40 shrink-0 items-center gap-2 sm:flex">
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-n-100">
-                    <span
-                      className="block h-full rounded-full bg-a-500"
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </span>
-                  <span className="w-8 text-right text-caption tabular-nums text-n-500">
-                    {Math.round(project.progress)}%
-                  </span>
+                  {project.progress_as_of === null ? (
+                    <span className="flex-1 text-right text-caption text-n-500">
+                      not computed yet
+                    </span>
+                  ) : (
+                    <>
+                      <span
+                        className="h-1.5 flex-1 overflow-hidden rounded-full bg-n-100"
+                        title={`As of ${formatDateTime(project.progress_as_of, me.user.timezone)}`}
+                      >
+                        <span
+                          className="block h-full rounded-full bg-a-500"
+                          style={{ width: `${project.progress}%` }}
+                        />
+                      </span>
+                      <span className="w-8 text-right text-caption tabular-nums text-n-500">
+                        {Math.round(project.progress)}%
+                      </span>
+                    </>
+                  )}
                 </span>
 
                 <span className="w-28 shrink-0 text-right text-caption tabular-nums">

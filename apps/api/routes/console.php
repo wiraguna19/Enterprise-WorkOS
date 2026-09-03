@@ -35,3 +35,17 @@ Schedule::command('workflow:materialize-recurrences')
     ->everyFifteenMinutes()
     ->onOneServer()
     ->withoutOverlapping();
+
+// The project directory's progress bar (docs/02 §5). Cached rather than
+// computed per row: the directory renders every project a person can see, and
+// a live percentage per row is one aggregate query per row.
+//
+// Hourly, because progress is a figure people glance at rather than act on
+// within the minute, and because the alternative — recomputing on every work
+// item transition — puts a table-wide aggregate on the hot path of the most
+// frequent write in the product. `progress_cached_at` travels with the number
+// so the interface can say how old it is instead of implying it is live.
+Schedule::command('work:roll-up-project-progress')
+    ->hourly()
+    ->onOneServer()
+    ->withoutOverlapping();
