@@ -53,6 +53,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/health/live',
     )
+    // Developer tooling that is not part of any module: the volume fixture and
+    // the measuring command reach across several at once, and deptrac covers
+    // app/Modules only. A module boundary should not be widened to accommodate
+    // a measuring tape. Module-owned commands stay registered by their own
+    // providers.
+    ->withCommands([__DIR__.'/../app/Console/Commands'])
     ->withMiddleware(function (Middleware $middleware): void {
         // Order matters. The request ID must exist before anything can log,
         // and the tenant must be resolved before any tenant-scoped query runs.
