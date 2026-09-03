@@ -59,107 +59,154 @@ final class AtRiskQuery
     public function forManager(string $membershipId, int $limit = 20): array
     {
         $line = $this->reportingLine->below($membershipId);
+        $projects = $this->managedProjectIds($membershipId);
 
         /**
          * @var list<object{work_item_id: string, is_overdue: bool, blocking_count: int|string, is_unassigned: bool, days_since_move: int|string, is_blocked: bool, due_within_window: bool, due_at: string|null, state_category: string}> $rows
          */
         $rows = DB::select(<<<'SQL'
-            WITH scope AS (
-                -- The work this person is responsible for. Two routes in, and
-                -- a person can reach the same item by both — hence DISTINCT.
-                SELECT DISTINCT w.id,
-                       w.state_category,
-                       w.due_at,
-                       w.created_at
+            -- The scope is a UNION of the two routes in, not an OR tested
+            -- against every open item in the organization.
+            --
+            -- The OR shape was measured at 50 000 items and cost 397 ms on a
+            -- sequential scan of `work_items` (perf:measure). It is the same
+            -- defect global search had: Postgres can only bitmap-OR arms it can
+            -- index, and "assigned to someone in my reporting line" is a
+            -- correlated EXISTS. Driving each route from its own index and
+            -- combining the ids afterwards is what makes both of them cheap.
+            WITH scope_ids AS (
+                -- Route one: work in a project I own or manage.
+                --
+                -- The project ids arrive as a bound ARRAY rather than as a
+                -- subquery, because the planner needs to know there are three
+                -- of them. Given a join against a subquery it guessed high,
+                -- chose a sequential scan of `work_items` and paid 300 ms for
+                -- it (perf:measure); given a short list it uses
+                -- (organization_id, project_id) as intended. Same lesson as the
+                -- search fix: give each route a shape its index can serve.
+                SELECT w.id
                   FROM work_items w
-             LEFT JOIN projects p
-                    ON p.id = w.project_id
-                   AND p.organization_id = w.organization_id
-                   AND p.deleted_at IS NULL
-             LEFT JOIN project_members pm
-                    ON pm.project_id = p.id
-                   AND pm.organization_id = p.organization_id
-                   AND pm.removed_at IS NULL
-                   AND pm.membership_id = ?
-                   AND pm.role IN ('owner','manager')
                  WHERE w.organization_id = ?
+                   AND w.project_id = ANY(?::uuid[])
                    AND w.deleted_at IS NULL
                    AND w.state_category NOT IN ('done','cancelled')
-                   AND (
-                        p.owner_membership_id = ?
-                     OR pm.id IS NOT NULL
-                     OR EXISTS (
-                            SELECT 1
-                              FROM work_item_assignments a
-                             WHERE a.work_item_id = w.id
-                               AND a.organization_id = w.organization_id
-                               AND a.unassigned_at IS NULL
-                               AND a.role = 'assignee'
-                               AND a.membership_id = ANY(?::uuid[])
-                        )
-                   )
+                UNION
+                -- Route two: work held by someone in my reporting line, read
+                -- FROM the assignments rather than by asking every open item
+                -- whether one of my reports holds it.
+                SELECT a.work_item_id
+                  FROM work_item_assignments a
+                  JOIN work_items w
+                    ON w.id = a.work_item_id
+                   AND w.organization_id = a.organization_id
+                 WHERE a.organization_id = ?
+                   AND a.unassigned_at IS NULL
+                   AND a.role = 'assignee'
+                   AND a.membership_id = ANY(?::uuid[])
+                   AND w.deleted_at IS NULL
+                   AND w.state_category NOT IN ('done','cancelled')
             ),
-            moves AS (
-                SELECT t.work_item_id, max(t.occurred_at) AS moved_at
-                  FROM work_item_transitions t
-                  JOIN scope s ON s.id = t.work_item_id
-                 WHERE t.organization_id = ?
-                 GROUP BY t.work_item_id
+            scope AS (
+                SELECT w.id, w.state_category, w.due_at, w.created_at
+                  FROM work_items w
+                  JOIN scope_ids s ON s.id = w.id
+                 WHERE w.organization_id = ?
+            ),
+            candidates AS (
+                SELECT s.id AS work_item_id,
+
+                       s.due_at,
+                       s.state_category,
+
+                       (s.due_at IS NOT NULL AND s.due_at < now()) AS is_overdue,
+
+                       -- How many OPEN items are waiting on this one. A
+                       -- dependency from finished work is history, not risk.
+                       (SELECT count(*)
+                          FROM work_item_dependencies d
+                          JOIN work_items blocked_item
+                            ON blocked_item.id = d.work_item_id
+                           AND blocked_item.organization_id = d.organization_id
+                         WHERE d.depends_on_work_item_id = s.id
+                           AND d.organization_id = ?
+                           AND d.type = 'blocks'
+                           AND blocked_item.deleted_at IS NULL
+                           AND blocked_item.state_category NOT IN ('done','cancelled')
+                       ) AS blocking_count,
+
+                       NOT EXISTS (
+                           SELECT 1
+                             FROM work_item_assignments a
+                            WHERE a.work_item_id = s.id
+                              AND a.organization_id = ?
+                              AND a.unassigned_at IS NULL
+                              AND a.role = 'assignee'
+                       ) AS is_unassigned,
+
+                       -- Measured from creation when the item has never moved
+                       -- at all, so a request nobody has touched since it
+                       -- arrived is stalled rather than invisible.
+                       floor(
+                           EXTRACT(EPOCH FROM (now() - coalesce(m.moved_at, s.created_at))) / 86400.0
+                       )::int AS days_since_move,
+
+                       (s.state_category = 'blocked') AS is_blocked,
+
+                       -- Close enough that nobody can still pick it up in time.
+                       (s.due_at IS NOT NULL
+                        AND s.due_at < now() + (? || ' days')::interval) AS due_within_window
+
+                  FROM scope s
+             -- LATERAL, per scope row, rather than one aggregate over the whole
+             -- transitions table joined back. Measured at 50 000 items: the
+             -- aggregate made the planner scan every partition of
+             -- `work_item_transitions` — 433 ms in a single statement — because
+             -- nothing in it constrains `occurred_at`, so there is no partition
+             -- to prune and no reason for it to prefer the per-item index.
+             --
+             -- This asks the question the index `idx_wit_item` was built for:
+             -- (organization_id, work_item_id, occurred_at DESC), one lookup
+             -- per item in scope. The scope is one person's projects and
+             -- reports, so that is a handful of lookups rather than a read of
+             -- the whole history of the organization.
+             LEFT JOIN LATERAL (
+                 -- Only the latest move of any kind: how long a BLOCK has
+                 -- lasted is project health's question (ADR 0008), not this
+                 -- one, and the old aggregate computed it here for nobody.
+                 SELECT max(t.occurred_at) AS moved_at
+                   FROM work_item_transitions t
+                  WHERE t.organization_id = ?
+                    AND t.work_item_id = s.id
+             ) m ON true
             )
-            SELECT s.id AS work_item_id,
-
-                   s.due_at,
-                   s.state_category,
-
-                   (s.due_at IS NOT NULL AND s.due_at < now()) AS is_overdue,
-
-                   -- How many OPEN items are waiting on this one. A dependency
-                   -- from finished work is history, not risk.
-                   (SELECT count(*)
-                      FROM work_item_dependencies d
-                      JOIN work_items blocked_item
-                        ON blocked_item.id = d.work_item_id
-                       AND blocked_item.organization_id = d.organization_id
-                     WHERE d.depends_on_work_item_id = s.id
-                       AND d.organization_id = ?
-                       AND d.type = 'blocks'
-                       AND blocked_item.deleted_at IS NULL
-                       AND blocked_item.state_category NOT IN ('done','cancelled')
-                   ) AS blocking_count,
-
-                   NOT EXISTS (
-                       SELECT 1
-                         FROM work_item_assignments a
-                        WHERE a.work_item_id = s.id
-                          AND a.organization_id = ?
-                          AND a.unassigned_at IS NULL
-                          AND a.role = 'assignee'
-                   ) AS is_unassigned,
-
-                   -- Measured from creation when the item has never moved at
-                   -- all, so a request nobody has touched since it arrived is
-                   -- stalled rather than invisible.
-                   floor(
-                       EXTRACT(EPOCH FROM (now() - coalesce(m.moved_at, s.created_at))) / 86400.0
-                   )::int AS days_since_move,
-
-                   (s.state_category = 'blocked') AS is_blocked,
-
-                   -- Close enough that nobody can still pick it up in time.
-                   (s.due_at IS NOT NULL
-                    AND s.due_at < now() + (? || ' days')::interval) AS due_within_window
-
-              FROM scope s
-         LEFT JOIN moves m ON m.work_item_id = s.id
+            SELECT *
+              FROM candidates
+             -- Only rows that will produce at least one reason come back. This
+             -- repeats the rules in reasonsFor(), which is a duplication with a
+             -- safe direction: this filter may only ever be LOOSER than the PHP
+             -- one. A row that arrives with no reason is skipped there; a row
+             -- filtered out here that should have had one would be invisible,
+             -- so nothing may be added to this WHERE that is not also in the
+             -- PHP.
+             WHERE is_overdue
+                OR blocking_count > 0
+                OR (is_unassigned AND due_within_window)
+                OR is_blocked
+                OR (state_category IN ('in_progress','in_review')
+                    AND days_since_move >= ?)
         SQL, [
-            $membershipId,
-            $this->tenant->organizationId(),
-            $membershipId,
-            '{'.implode(',', $line).'}',
-            $this->tenant->organizationId(),
-            $this->tenant->organizationId(),
-            $this->tenant->organizationId(),
-            self::UNASSIGNED_DUE_WITHIN_DAYS,
+            // Positional bindings, named here because their ORDER is the whole
+            // contract and moving one line of SQL silently reassigns them.
+            $this->tenant->organizationId(),   // scope route one: my projects
+            '{'.implode(',', $projects).'}',   // …the projects themselves
+            $this->tenant->organizationId(),   // scope route two: my line
+            '{'.implode(',', $line).'}',       // …the line itself
+            $this->tenant->organizationId(),   // scope hydration
+            $this->tenant->organizationId(),   // blocking_count
+            $this->tenant->organizationId(),   // is_unassigned
+            self::UNASSIGNED_DUE_WITHIN_DAYS,  // due_within_window
+            $this->tenant->organizationId(),   // the LATERAL move lookup
+            self::STALLED_DAYS,                // the final filter
         ]);
 
         $risky = [];
@@ -181,12 +228,14 @@ final class AtRiskQuery
         }
 
         // Sorted here rather than in SQL: the ordering is by the severity of a
-        // reason list, which is this class's definition and not the database's.
-        // The row count is bounded by the scope, which is one person's reports
-        // and projects — not the organization.
-        // Worst reason first, then the soonest date: two overdue items are
-        // not equally urgent, and a tie broken arbitrarily makes the list
-        // reshuffle between page loads for no reason the reader can see.
+        // reason LIST, which is this class's definition and not the database's.
+        // What the database now does is filter — only rows that will produce at
+        // least one reason come back — so this sorts a handful of rows rather
+        // than every open item in the scope.
+        //
+        // Worst reason first, then the soonest date: two overdue items are not
+        // equally urgent, and a tie broken arbitrarily makes the list reshuffle
+        // between page loads for no reason the reader can see.
         usort($risky, static fn (array $a, array $b): int => [
             self::rank($a['reasons']),
             $a['due_at'] ?? '9999',
@@ -196,6 +245,40 @@ final class AtRiskQuery
         ]);
 
         return array_slice($risky, 0, $limit);
+    }
+
+    /**
+     * The projects this person owns or manages, read once.
+     *
+     * In PHP rather than as a CTE so the ids can be BOUND into the scope query
+     * — see the comment there. It is one small indexed read either way; what
+     * changes is what the planner knows when it decides how to find the work.
+     *
+     * @return list<string>
+     */
+    private function managedProjectIds(string $membershipId): array
+    {
+        /** @var list<object{id: string}> $rows */
+        $rows = DB::select(<<<'SQL'
+            SELECT p.id
+              FROM projects p
+             WHERE p.organization_id = ?
+               AND p.deleted_at IS NULL
+               AND (
+                    p.owner_membership_id = ?
+                 OR EXISTS (
+                        SELECT 1
+                          FROM project_members pm
+                         WHERE pm.project_id = p.id
+                           AND pm.organization_id = p.organization_id
+                           AND pm.membership_id = ?
+                           AND pm.role IN ('owner','manager')
+                           AND pm.removed_at IS NULL
+                    )
+               )
+        SQL, [$this->tenant->organizationId(), $membershipId, $membershipId]);
+
+        return array_values(array_map(static fn (object $row): string => (string) $row->id, $rows));
     }
 
     /**
