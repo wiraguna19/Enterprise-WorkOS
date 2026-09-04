@@ -52,6 +52,13 @@ in Node under Playwright, it is the only thing here that needs
 `@playwright/test`, and `npm run typecheck` should stay green on a checkout that
 has not installed browsers.
 
+Written so far, of the fifteen in `docs/11` §4:
+
+| | flow | file |
+|---|---|---|
+| 14 | a Globex user cannot reach an Acme URL | `e2e/cross-tenant.spec.ts` |
+| 15 | a manager approves a submission at 375px | `e2e/mobile-approval.spec.ts` |
+
 Each flow arranges its starting position through the API, performs the steps
 under test **through the interface**, and asserts the resulting data through the
 API again. A test that drives the API and then checks the API proves the API

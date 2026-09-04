@@ -60,6 +60,26 @@ export async function call<T>(
 }
 
 /**
+ * The status code, when the status code IS the assertion.
+ *
+ * `call` throws on anything but 2xx, which is right when a flow needs the data
+ * and wrong when it needs to prove that a URL answers 404 rather than 403.
+ * That distinction is the entire content of flow 14: a 403 confirms the thing
+ * exists, and confirming existence across a tenant boundary is the leak
+ * (docs/05 §3).
+ */
+export async function status(session: Session, path: string): Promise<number> {
+  const response = await fetch(`${BASE}${path}`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${session.token}`,
+    },
+  });
+
+  return response.status;
+}
+
+/**
  * Wait for something that has not happened yet, and say what to check when it
  * never does.
  *
