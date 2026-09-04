@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Work\Http\Controller;
 
+use App\Modules\Identity\Application\Service\ActingMembership;
+use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Platform\Application\Query\CursorPage;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
@@ -21,6 +23,8 @@ final class WorkItemController extends ApiController
     public function __construct(
         private readonly WorkItemService $workItems,
         private readonly WorkItemVisibility $visibility,
+        private readonly PermissionResolver $permissions,
+        private readonly ActingMembership $acting,
     ) {}
 
     public function index(ListWorkItemsRequest $request): ApiResponse
@@ -126,6 +130,20 @@ final class WorkItemController extends ApiController
         return $this->ok(new WorkItemResource($updated));
     }
 
+    /**
+     * Reorder on the board, and optionally land in another column.
+     *
+     * The second half is why this needs two authorizations. A move carrying a
+     * `to_state_id` performs a real transition — `WorkItemService::move()`
+     * delegates to `transition()`, guards and all — so checking only `update`
+     * let anyone holding `work_item.update` change state without holding
+     * `work_item.transition`. The workflow guards still ran, which is why this
+     * never looked like a hole: the move was legal by the graph and merely
+     * taken by someone the policy would have refused at the endpoint next door.
+     *
+     * Two endpoints reaching one behaviour must ask the same question of the
+     * caller, or the weaker one becomes the way in.
+     */
     public function move(Request $request, string $reference): ApiResponse
     {
         $item = $this->findVisible($reference);
@@ -137,6 +155,24 @@ final class WorkItemController extends ApiController
             'after_id' => ['sometimes', 'nullable', 'uuid'],
             'to_state_id' => ['sometimes', 'nullable', 'uuid'],
         ]);
+
+        // Compared against the item's current state rather than merely being
+        // present: a board that posts the column it dropped into always sends
+        // one, and a same-column reorder is not a transition.
+        if (isset($validated['to_state_id']) && $validated['to_state_id'] !== $item->workflow_state_id) {
+            // Both layers, because both apply to the endpoint next door: the
+            // route's `permission:` middleware (layer 3, docs/06 §2) and the
+            // policy (layer 4). The route cannot declare the first — this same
+            // endpoint reorders a column, which needs no such permission — so
+            // the request body is what decides, and the check moves here.
+            $membership = $this->acting->get();
+
+            if ($membership === null || ! $this->permissions->has($membership, 'work_item.transition')) {
+                abort(403, 'You do not have permission to perform this action.');
+            }
+
+            $this->authorize('transition', $item);
+        }
 
         $moved = $this->workItems->move(
             $item,
