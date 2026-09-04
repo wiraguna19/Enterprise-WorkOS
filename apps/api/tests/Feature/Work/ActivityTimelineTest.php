@@ -46,6 +46,17 @@ it('shows what happened to a work item, newest first', function (): void {
         ->and($timeline[0]['actor'])->toBe($actor)
         ->and($item->fresh()->state_category)->toBe('in_review');
 
+    // The destination by the name the workflow gives it, not by its category.
+    // The log recorded only the category until now, so the timeline could say
+    // "moved it to in_review" — a vocabulary five states share, and not a
+    // sentence anyone recognises about their own board.
+    $move = collect($timeline)
+        ->flatMap(fn (array $group) => $group['entries'])
+        ->firstWhere('verb', 'status_changed');
+
+    expect($move['changes']['label']['to'])->toBe('In Review')
+        ->and($move['changes']['state']['to'])->toBe('in_review');
+});
 
 /**
  * One action, one row on the timeline.

@@ -193,6 +193,14 @@ final class WorkItemService
             $fromStateId = $locked->workflow_state_id;
             $fromCategory = $locked->state_category;
 
+            // The label people actually see on the board, kept for the
+            // narrative below. The category is the coarse vocabulary five
+            // states can share; "moved it to in_review" is not a sentence
+            // anyone recognises about their own workflow.
+            $fromLabel = $fromStateId === null ? null : WorkflowStateModel::query()
+                ->whereKey($fromStateId)
+                ->value('label');
+
             if ($fromStateId === $target->getKey()) {
                 return $locked;
             }
@@ -251,7 +259,13 @@ final class WorkItemService
             );
 
             $this->activity->record('work_item', (string) $locked->getKey(), 'status_changed', [
+                // Both, and they answer different questions. `state` is the
+                // category — the vocabulary reports and dashboards group by,
+                // and what every row written before this recorded. `label` is
+                // the state as the workflow names it, which is the only form a
+                // person can check against the board they are looking at.
                 'state' => ['from' => $fromCategory, 'to' => $target->category],
+                'label' => ['from' => $fromLabel, 'to' => $target->label],
             ]);
 
             $this->record(new WorkItemStatusChanged(
