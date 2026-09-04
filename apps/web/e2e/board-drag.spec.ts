@@ -16,10 +16,11 @@ import { signedInPhone } from "./support/auth";
  * Both ways of moving a card are exercised, because ADR 0012 §4 promises they
  * are one behaviour and not a real path plus a courtesy one.
  *
- * On the activity log: docs/11 asks this flow to verify it, and no endpoint
- * exposes it — `activity.view` exists as a permission with nothing behind it.
- * So the trail is asserted at the database by `BoardOrderingTest` instead, and
- * this says so rather than quietly dropping half the flow.
+ * docs/11 asks this flow to verify the activity log as well as the state, and
+ * for a while it could not: `activity.view` was a permission with no endpoint
+ * behind it. There is one now, so both halves are checked — and the trail is
+ * read through the item's page, because a log nobody can see is a log nobody
+ * can check.
  */
 const AHMAD = "ahmad@acme.test";
 
@@ -132,6 +133,23 @@ test.describe("board drag", () => {
         + 'not re-rendering after a move, which is a stale-screen defect and not a '
         + 'timing problem.',
     ).toBeHidden();
+
+    // ── and the trail it left ──────────────────────────────────────────────
+    //
+    // docs/11's other half. A drag between columns IS a status change, so it
+    // must leave the same history a move made from the status menu leaves —
+    // and that history has to be legible on the item's own page, not merely
+    // present in a table.
+    await page.goto(`/work/${item.reference}`);
+
+    const history = page.getByRole("region", { name: "History" });
+
+    await expect(
+      history.getByText(new RegExp(`moved it to ${destination.label}`, "i")),
+      'The card moved but its page does not say so. The timeline is read from '
+        + '/work-items/{ref}/activity, which is behind the `activity.view` '
+        + 'permission — a reader without it sees no history at all.',
+    ).toBeVisible();
 
     await context.close();
   });
