@@ -56,6 +56,7 @@ Written so far, of the fifteen in `docs/11` §4:
 
 | | flow | file |
 |---|---|---|
+| 10 | a card dragged between columns, and the same move by keyboard | `e2e/board-drag.spec.ts` |
 | 14 | a Globex user cannot reach an Acme URL | `e2e/cross-tenant.spec.ts` |
 | 15 | a manager approves a submission at 375px | `e2e/mobile-approval.spec.ts` |
 
