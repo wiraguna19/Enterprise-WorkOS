@@ -28,10 +28,11 @@ final class WriterRegistry
      */
     private array $writers;
 
-    public function __construct(CsvWriter $csv)
+    public function __construct(CsvWriter $csv, XlsxWriter $xlsx)
     {
         $this->writers = [
             $csv->extension() => $csv,
+            $xlsx->extension() => $xlsx,
         ];
     }
 
@@ -44,7 +45,7 @@ final class WriterRegistry
     {
         return $this->writers[$format]
             ?? throw new UnsupportedExportFormat(
-                "{$format} is not a format this can write.",
+                "Exports can be csv or xlsx; {$format} is not a format this can write.",
                 ['supported' => $this->formats()],
             );
     }

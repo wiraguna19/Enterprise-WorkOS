@@ -127,11 +127,55 @@ it('writes a byte-order mark so the file opens correctly elsewhere', function ()
         ->and(exportContents($export['id']))->toContain('reference,title');
 });
 
+/**
+ * The refusal outlives the thing it refused.
+ *
+ * `xlsx` was the example the 422 was written for and is now a real writer, so
+ * the assertion moves to a format that still has none. The rule ADR 0011 states
+ * is about mislabelling, not about a particular extension: an `.ods` answered
+ * with a CSV would open, look right, and lie in exactly the same way.
+ */
 it('refuses a format nothing can write rather than mislabelling a CSV', function (): void {
     $this->withToken($this->loginAs('rina@acme.test'))
-        ->postJson('/api/v1/reports/organization/export?format=xlsx')
+        ->postJson('/api/v1/reports/organization/export?format=ods')
         ->assertStatus(422)
         ->assertJsonPath('error.code', 'report.format_unsupported');
+});
+
+/**
+ * A real .xlsx, asserted by its bytes.
+ *
+ * An xlsx is a ZIP whose first entry is `[Content_Types].xml`. Checking the two
+ * magic bytes and that entry is the difference between "a file was produced"
+ * and "a spreadsheet was produced" — and a CSV renamed to `.xlsx` passes the
+ * first check and fails this one, which is the whole point of the format having
+ * been refused rather than faked.
+ */
+it('writes a real xlsx when one is asked for', function (): void {
+    completedItem(E_ENG, 'XLS-1', '2026-03-05 09:00:00');
+
+    $export = exportReport(
+        $this->loginAs('rina@acme.test'),
+        'organization',
+        'from=2026-03-01&to=2026-03-31&format=xlsx',
+    );
+
+    $contents = exportContents($export['id']);
+
+    expect($contents)->toStartWith('PK')
+        ->and($contents)->toContain('[Content_Types].xml')
+        // No BOM, and no comma-separated header: those belong to the other
+        // writer, and a downgrade would show up here first.
+        ->and($contents)->not->toStartWith("\u{FEFF}");
+
+    $row = DB::table('report_exports')->where('id', $export['id'])->first();
+
+    // The three facts that have to agree, and the reason a writer owns all
+    // three: a name, a stored object and a served type that disagree are how a
+    // file ends up being something other than what it says it is.
+    expect($row->format)->toBe('xlsx')
+        ->and($row->filename)->toEndWith('.xlsx')
+        ->and($row->storage_path)->toEndWith('.xlsx');
 });
 
 it('records what was asked for, so a file can be explained later', function (): void {
