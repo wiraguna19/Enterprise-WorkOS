@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Uid\UuidV7;
 
 /**
  * Fractional ordering: a board drag writes ONE row (docs/03 §3).
@@ -88,9 +89,67 @@ it('returns the board as columns rather than one query per column', function ():
         ->json('data');
 
     expect($board['columns'])->not->toBeEmpty()
-        ->and($board['columns'][0])->toHaveKeys(['state', 'items']);
+        ->and($board['columns'][0])->toHaveKeys(['state', 'total', 'hidden_count', 'items']);
 });
 
+/**
+ * A column is a window onto its state, and says so.
+ *
+ * The board used to hydrate every work item in the project. On the demo seed
+ * that is a few hundred and looks perfectly healthy; against the volume fixture
+ * it exhausted PHP's 128 MB limit and the board answered 500 — a defect with no
+ * visible cause in the code, because what was wrong was the absence of a bound.
+ *
+ * The count stays honest while the list is cut: `total` is a fact about the
+ * column and `items` is a list for the reader, which is the same rule every
+ * Insights list follows. Asserting they RECONCILE is the point — a truncated
+ * board that also reported a truncated count would look completely fine and
+ * quietly lie about how much work is in the project.
+ */
+it('caps the cards in a column and reports what it left out', function (): void {
+    $sample = WorkItemModel::query()
+        ->where('project_id', '01900003-0000-7000-8000-000000000001')
+        ->where('state_category', 'todo')
+        ->firstOrFail();
+
+    // Written straight in rather than through the API: this test is about a
+    // column that is too long, and fifty-five POSTs would spend the write rate
+    // limit proving nothing extra.
+    $rows = [];
+
+    foreach (range(1, 55) as $n) {
+        $id = (string) new UuidV7;
+
+        $rows[] = [
+            'id' => $id,
+            'organization_id' => $sample->organization_id,
+            'project_id' => $sample->project_id,
+            // Numbered, not derived from the id: a UUIDv7's leading characters
+            // are its timestamp, so fifty-five generated in one loop share
+            // them and collide on the reference's unique index.
+            'reference' => sprintf('VOL-%03d', $n),
+            'title' => "Volume card {$n}",
+            'workflow_id' => $sample->workflow_id,
+            'workflow_state_id' => $sample->workflow_state_id,
+            'state_category' => $sample->state_category,
+            'position' => 100000 + $n,
+        ];
+    }
+
+    DB::table('work_items')->insert($rows);
+
+    $board = $this->withToken($this->manager)
+        ->getJson('/api/v1/projects/ENG/board')
+        ->assertOk()
+        ->json('data');
+
+    $column = collect($board['columns'])->firstWhere('state.id', $sample->workflow_state_id);
+
+    expect($column)->not->toBeNull()
+        ->and(count($column['items']))->toBe(50)
+        ->and($column['total'])->toBeGreaterThan(50)
+        ->and($column['hidden_count'])->toBe($column['total'] - 50);
+});
 
 /**
  * The board's move endpoint reaches a transition, so it must ask what the

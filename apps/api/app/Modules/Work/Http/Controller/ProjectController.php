@@ -71,10 +71,31 @@ final class ProjectController extends ApiController
     }
 
     /**
-     * Board data: one query for the columns, one for the cards.
+     * How many cards a column hands over.
+     *
+     * A window, not a page: there is no "next" — a board is read from the top
+     * of each column, and someone who needs the hundredth card in Backlog is
+     * looking for a list, not a board (the project's item list is that list).
+     */
+    private const CARDS_PER_COLUMN = 50;
+
+    /**
+     * Board data: one query for the columns, one for the counts, one for the cards.
      *
      * Deliberately NOT one query per column — a seven-column board would then
      * cost seven round trips before a single card renders.
+     *
+     * And deliberately not every card, either. This method used to hydrate
+     * every work item in the project into Eloquent models; on the demo seed
+     * that is a few hundred and looks fine, and against the volume fixture it
+     * exhausts PHP's 128 MB and the board answers 500. Nothing about the code
+     * said "this scales with the project" — the bug was the absence of a bound,
+     * which is invisible until a project gets busy.
+     *
+     * So the column reports its TRUE total and hands over the first
+     * CARDS_PER_COLUMN cards. The count is a fact about the column; the cards
+     * are a list for the reader, and the two are allowed to differ as long as
+     * the difference is stated (the same rule the Insights lists follow).
      */
     public function board(string $key): ApiResponse
     {
@@ -87,22 +108,56 @@ final class ProjectController extends ApiController
             ->orderBy('position')
             ->get(['id', 'key', 'label', 'category', 'color', 'position']);
 
+        $totals = DB::table('work_items')
+            ->selectRaw('workflow_state_id, count(*) as total')
+            ->where('organization_id', $this->tenant->organizationId())
+            ->where('project_id', $project->id)
+            ->whereNull('deleted_at')
+            ->groupBy('workflow_state_id')
+            ->get()
+            ->keyBy('workflow_state_id');
+
+        // The top of each column in one pass. A window function ranks within
+        // the state rather than the query being run once per column, which is
+        // the round-trip cost this method was written to avoid in the first
+        // place.
+        /** @var list<string> $visible */
+        $visible = DB::query()
+            ->fromSub(
+                DB::table('work_items')
+                    ->selectRaw('id, row_number() over (partition by workflow_state_id order by position) as card_rank')
+                    ->where('organization_id', $this->tenant->organizationId())
+                    ->where('project_id', $project->id)
+                    ->whereNull('deleted_at'),
+                'ranked',
+            )
+            ->where('card_rank', '<=', self::CARDS_PER_COLUMN)
+            ->pluck('id')
+            ->all();
+
         $items = WorkItemModel::query()
             ->with(['state', 'assignments.membership.user:id,name,avatar_path'])
             ->withCount('children')
-            ->where('project_id', $project->id)
-            ->whereNull('deleted_at')
+            ->whereIn('id', $visible)
             ->orderBy('position')
             ->get();
 
         return $this->ok([
             'project' => new ProjectResource($project),
-            'columns' => $states->map(fn ($state) => [
-                'state' => $state,
-                'items' => WorkItemResource::collection(
-                    $items->where('workflow_state_id', $state->id)->values()
-                ),
-            ])->values(),
+            'columns' => $states->map(function ($state) use ($items, $totals): array {
+                $cards = $items->where('workflow_state_id', $state->id)->values();
+                $total = (int) ($totals[$state->id]->total ?? 0);
+
+                return [
+                    'state' => $state,
+                    'total' => $total,
+                    // Stated rather than left to be inferred from a length: a
+                    // reader who has to subtract two numbers to learn that the
+                    // column is truncated will not subtract them.
+                    'hidden_count' => max(0, $total - $cards->count()),
+                    'items' => WorkItemResource::collection($cards),
+                ];
+            })->values(),
         ]);
     }
 

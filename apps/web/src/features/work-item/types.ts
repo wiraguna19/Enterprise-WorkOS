@@ -158,5 +158,15 @@ export type BoardColumn = {
     color: string;
     position: number;
   };
+  /**
+   * Every card in this state, which is NOT `items.length`.
+   *
+   * The board hands over the top of each column and says how much it left; the
+   * count is a fact about the column and the cards are a list for the reader.
+   * Rendering `items.length` as the column count would understate a busy
+   * project and look entirely correct doing it.
+   */
+  total: number;
+  hidden_count: number;
   items: WorkItem[];
 };
