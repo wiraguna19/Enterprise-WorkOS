@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Insights\Infrastructure\Job;
 
 use App\Modules\Files\Domain\Contract\FileStorage;
-use App\Modules\Insights\Application\Report\CsvWriter;
 use App\Modules\Insights\Application\Report\ReportRegistry;
+use App\Modules\Insights\Application\Report\WriterRegistry;
 use App\Modules\Insights\Infrastructure\Eloquent\ReportExportModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Bus\Queueable;
@@ -56,12 +56,12 @@ final class BuildReportExport implements ShouldQueue
     public function handle(
         TenantContext $tenant,
         ReportRegistry $reports,
-        CsvWriter $csv,
+        WriterRegistry $writers,
         FileStorage $storage,
     ): void {
         $tenant->runForMembership($this->organizationId, $this->membershipId, function () use (
             $reports,
-            $csv,
+            $writers,
             $storage,
         ): void {
             $export = ReportExportModel::query()->find($this->exportId);
@@ -77,25 +77,36 @@ final class BuildReportExport implements ShouldQueue
                 $builder = $reports->get($export->report_key);
                 $built = $builder->build($export->parameters);
 
-                $contents = $csv->write($builder->columns(), $built['rows']);
+                // The format the REQUEST asked for, resolved here rather than
+                // injected: one job builds every format, and a writer chosen at
+                // construction would make the row's `format` column decorative.
+                $writer = $writers->get((string) $export->format);
+
+                $contents = $writer->write($builder->columns(), $built['rows']);
 
                 $filename = sprintf(
-                    '%s-report-%s.csv',
+                    '%s-report-%s.%s',
                     $export->report_key,
                     now()->format('Y-m-d'),
+                    $writer->extension(),
                 );
 
                 // Namespaced by organization AND by requester: the path is not
                 // a secret, but a bucket listing should not hand one tenant a
                 // map of another's files.
                 $path = sprintf(
-                    'exports/%s/%s/%s.csv',
+                    'exports/%s/%s/%s.%s',
                     $this->organizationId,
                     $this->membershipId,
                     $export->getKey(),
+                    $writer->extension(),
                 );
 
-                $storage->put($path, $contents, CsvWriter::MIME_TYPE);
+                // The MIME type comes from the same writer that produced the
+                // bytes. Naming it separately is how a file ends up served as
+                // something it is not — the exact failure the 422 this replaces
+                // existed to prevent.
+                $storage->put($path, $contents, $writer->mimeType());
 
                 $export->forceFill([
                     'status' => 'ready',

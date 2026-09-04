@@ -6,6 +6,7 @@ namespace App\Modules\Insights\Http\Controller;
 
 use App\Modules\Files\Domain\Contract\FileStorage;
 use App\Modules\Insights\Application\Report\ReportRegistry;
+use App\Modules\Insights\Application\Report\WriterRegistry;
 use App\Modules\Insights\Domain\Exception\ExportNotReady;
 use App\Modules\Insights\Domain\Exception\ExportRateLimited;
 use App\Modules\Insights\Domain\Exception\UnsupportedExportFormat;
@@ -28,14 +29,12 @@ use Symfony\Component\Uid\UuidV7;
  */
 final class ReportController extends ApiController
 {
-    /** Refused rather than faked: no writer is installed (ADR 0011). */
-    private const SUPPORTED_FORMATS = ['csv'];
-
     /** docs/05 §6: five per hour per organization. */
     private const EXPORTS_PER_HOUR = 5;
 
     public function __construct(
         private readonly ReportRegistry $reports,
+        private readonly WriterRegistry $writers,
         private readonly TenantContext $tenant,
         private readonly FileStorage $storage,
     ) {}
@@ -64,12 +63,16 @@ final class ReportController extends ApiController
 
         $format = mb_strtolower((string) ($validated['format'] ?? 'csv'));
 
-        if (! in_array($format, self::SUPPORTED_FORMATS, strict: true)) {
-            // Named, and not silently downgraded to CSV. An .xlsx that is
-            // really a CSV opens, looks right, and lies about what it is.
+        // Asked of the registry, not of a constant here. The job builds the
+        // file from the same list, and two lists that must agree are two lists
+        // that eventually will not — the drift would be a request accepted for
+        // a file nothing can write, which becomes an export stuck on `pending`.
+        if (! $this->writers->has($format)) {
+            // Named, and not silently downgraded. An .xlsx that is really a CSV
+            // opens, looks right, and lies about what it is.
             throw new UnsupportedExportFormat(
-                "Exports are CSV for now; {$format} needs a writer that is not installed yet.",
-                ['supported' => self::SUPPORTED_FORMATS],
+                "Exports can be {$this->supported()}; {$format} is not a format this can write.",
+                ['supported' => $this->writers->formats()],
             );
         }
 
@@ -206,5 +209,14 @@ final class ReportController extends ApiController
         abort_unless(in_array($key, $this->reports->keys(), strict: true), 404);
 
         return $key;
+    }
+
+    /** "csv or xlsx", for a message a person reads rather than parses. */
+    private function supported(): string
+    {
+        $formats = $this->writers->formats();
+        $last = array_pop($formats);
+
+        return $formats === [] ? $last : implode(', ', $formats).' or '.$last;
     }
 }

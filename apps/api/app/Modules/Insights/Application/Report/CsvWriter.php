@@ -18,7 +18,7 @@ namespace App\Modules\Insights\Application\Report;
  * ADRs on the difference between a zero and an absence; the export is not where
  * that distinction gets dropped.
  */
-final class CsvWriter
+final class CsvWriter implements ReportWriter
 {
     public const MIME_TYPE = 'text/csv; charset=utf-8';
 
@@ -45,6 +45,16 @@ final class CsvWriter
         fclose($handle);
 
         return "\u{FEFF}".$csv;
+    }
+
+    public function mimeType(): string
+    {
+        return self::MIME_TYPE;
+    }
+
+    public function extension(): string
+    {
+        return 'csv';
     }
 
     private static function cell(mixed $value): string
