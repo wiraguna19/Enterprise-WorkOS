@@ -1,0 +1,11 @@
+{
+  "//": "The end-to-end suite runs in Node under Playwright, not in the Next build, and it is the only thing here that needs @playwright/test installed. Kept out of the app's tsconfig so `npm run typecheck` stays green on a checkout that has not installed browsers — the app does not ship this code. `exclude` is reset because it is inherited, and the parent excludes exactly this directory.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "moduleResolution": "bundler",
+    "noEmit": true
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"],
+  "exclude": []
+}

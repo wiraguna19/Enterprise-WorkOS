@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web
 
-## Getting Started
+The Next.js app. `docs/07-frontend-architecture.md` is the design; this file is
+only what you need to run it.
 
-First, run the development server:
+## Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`apps/web/.env.local` must point at the API by IP, not by name:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+API_URL=http://127.0.0.1:8000/api/v1
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Node resolves `localhost` to `::1` and `php artisan serve` binds `127.0.0.1`
+only, so `localhost` here fails in a way that reads like the API being down.
 
-## Learn More
+## Gates
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run typecheck     # tsc --noEmit
+npm run lint          # eslint
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## End-to-end tests
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The flows in `docs/11-testing-strategy.md` §4, at both a desktop and a 375px
+viewport. Install once:
 
-## Deploy on Vercel
+```bash
+npm i -D @playwright/test
+npx playwright install chromium
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Then, with **three processes running** — and the third is the one people forget:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+php artisan serve                    # api
+php artisan queue:work --tries=1     # rules, notifications, exports
+npm run test:e2e:mobile              # web is started for you
+```
+
+Without the queue worker the rule engine is dormant: submitting for review never
+creates an approval, and the flow fails at a step that looks like a UI bug. The
+suite says so rather than timing out silently.
+
+The end-to-end suite is deliberately outside the app's `tsconfig.json`: it runs
+in Node under Playwright, it is the only thing here that needs
+`@playwright/test`, and `npm run typecheck` should stay green on a checkout that
+has not installed browsers.
+
+Each flow arranges its starting position through the API, performs the steps
+under test **through the interface**, and asserts the resulting data through the
+API again. A test that drives the API and then checks the API proves the API
+twice and the product not at all — which is not academic here: the button flow
+15 taps did nothing at all until `6d2d146`, while every API test passed.
