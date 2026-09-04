@@ -40,6 +40,11 @@ final class ListWorkItemsRequest extends FormRequest
             'filter.type' => ['sometimes', 'string', Rule::in(WorkItemModel::TYPES)],
             'filter.priority' => ['sometimes', 'string'],
             'filter.state_category' => ['sometimes', 'string'],
+            // The STATE, not its category. A board column is one state and five
+            // states can share a category, so filtering by category cannot
+            // reproduce a column — which is what a truncated column's "see the
+            // rest" needs (ADR 0012 §6).
+            'filter.state_id' => ['sometimes', 'uuid'],
             'filter.assignee_id' => ['sometimes', 'string'],
             'filter.team_id' => ['sometimes', 'uuid'],
             'filter.overdue' => ['sometimes', 'boolean'],
@@ -98,6 +103,10 @@ final class ListWorkItemsRequest extends FormRequest
             );
 
             $query->whereIn('state_category', $categories ?: ['__none__']);
+        }
+
+        if (isset($filter['state_id'])) {
+            $query->where('workflow_state_id', $filter['state_id']);
         }
 
         if (isset($filter['priority'])) {

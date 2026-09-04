@@ -224,3 +224,47 @@ function withoutTransitionPermission(string $roleId): void
         $resolver->invalidate((string) $membershipId);
     }
 }
+
+/**
+ * A column, in full.
+ *
+ * The board hands over the first fifty cards of each column (ADR 0012 §6), and
+ * the rest have to be reachable somewhere or the cap is just a disappearance.
+ * Filtering by STATE is what makes that possible: a column is one state, and
+ * five states can share a category, so `filter.state_category` cannot reproduce
+ * one.
+ */
+it('lists a single board column by state, in the board\'s own order', function (): void {
+    $sample = WorkItemModel::query()
+        ->where('project_id', '01900003-0000-7000-8000-000000000001')
+        ->where('state_category', 'todo')
+        ->firstOrFail();
+
+    $items = $this->withToken($this->manager)
+        ->getJson('/api/v1/work-items?'.http_build_query([
+            'filter' => [
+                'project_id' => $sample->project_id,
+                'state_id' => $sample->workflow_state_id,
+            ],
+            'limit' => 100,
+        ]))
+        ->assertOk()
+        ->json('data');
+
+    expect($items)->not->toBeEmpty();
+
+    // Every row really is in that column — a filter that quietly matched
+    // nothing, or everything, would pass a "not empty" check on its own.
+    $states = collect($items)->pluck('state.id')->unique()->values()->all();
+
+    expect($states)->toBe([$sample->workflow_state_id]);
+});
+
+it('refuses a state filter that is not a uuid rather than ignoring it', function (): void {
+    // docs/05 §4: an unknown or malformed filter is a 422, never silently
+    // dropped. A filter that is ignored returns the whole project and looks
+    // like a column with far too much in it.
+    $this->withToken($this->manager)
+        ->getJson('/api/v1/work-items?filter[state_id]=not-a-uuid')
+        ->assertStatus(422);
+});
