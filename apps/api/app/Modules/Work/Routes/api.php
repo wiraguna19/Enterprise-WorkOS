@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Work\Http\Controller\ActivityController;
 use App\Modules\Work\Http\Controller\AssignmentController;
 use App\Modules\Work\Http\Controller\MyTimeController;
 use App\Modules\Work\Http\Controller\MyWorkController;
@@ -77,6 +78,11 @@ Route::post('work-items/{reference}/accept', [AssignmentController::class, 'acce
     ->middleware('throttle:writes');
 Route::delete('work-items/{reference}/assignees/{assignment}', [AssignmentController::class, 'destroy'])
     ->middleware(['permission:work_item.assign', 'throttle:writes']);
+// The timeline. Behind `activity.view`, which until now was a permission with
+// nothing behind it — granted to every role since Phase 1 and unreachable.
+Route::get('work-items/{reference}/activity', [ActivityController::class, 'index'])
+    ->middleware('permission:activity.view');
+
 Route::get('work-items/{reference}/assignments', [AssignmentController::class, 'history'])
     ->middleware('permission:work_item.view');
 
