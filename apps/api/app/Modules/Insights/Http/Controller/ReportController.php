@@ -119,7 +119,14 @@ final class ReportController extends ApiController
             ->get();
 
         return ApiResponse::collection(
-            $exports->map(fn (ReportExportModel $export): array => $this->present($export))->all()
+            $exports->map(fn (ReportExportModel $export): array => $this->present($export))->all(),
+            // The formats travel with the list, so the screen that offers an
+            // export does not have to keep its own copy of what can be asked
+            // for. That copy is the two-lists problem one layer up: a client
+            // offering `xlsx` before a writer exists produces a 422 the user
+            // did nothing to deserve, and one still offering `csv` alone
+            // silently hides a format that shipped.
+            ['formats' => $this->writers->formats()],
         );
     }
 

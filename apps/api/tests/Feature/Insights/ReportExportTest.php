@@ -267,3 +267,21 @@ it('reports one person\'s own work without a way to ask about anybody else', fun
 
     expect($spoofed)->toBe($mine);
 });
+
+/**
+ * The list says what can be asked for.
+ *
+ * Without this the screen offering an export keeps its own copy of the format
+ * list — the same two-lists problem the registry solved on the server, moved
+ * one layer out. A client offering a format before its writer exists produces a
+ * 422 the reader did nothing to deserve; a client still offering only `csv`
+ * hides a format that shipped.
+ */
+it('tells the client which formats it may ask for', function (): void {
+    $formats = $this->withToken($this->loginAs('rina@acme.test'))
+        ->getJson('/api/v1/reports/exports')
+        ->assertOk()
+        ->json('meta.formats');
+
+    expect($formats)->toBe(['csv', 'xlsx']);
+});
