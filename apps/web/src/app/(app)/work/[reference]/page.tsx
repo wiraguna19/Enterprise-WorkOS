@@ -5,6 +5,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { DueDate } from "@/features/work-item/components/DueDate";
 import { AssignmentHistory } from "@/features/work-item/components/AssignmentHistory";
+import { ActivityTimeline, type ActivityEvent } from "@/features/work-item/components/ActivityTimeline";
 import { CommentThread } from "@/features/work-item/components/CommentThread";
 import { PrimaryAction } from "@/features/work-item/components/PrimaryAction";
 import { WorkItemChannel } from "@/features/realtime/WorkItemChannel";
@@ -64,7 +65,7 @@ export default async function WorkItemPage({
     throw error;
   }
 
-  const [comments, history, moves, time] = await Promise.all([
+  const [comments, history, moves, time, activity] = await Promise.all([
     api<Comment[]>(`/work-items/${reference}/comments`).then((r) => r.data).catch(() => []),
     api<HistoryEntry[]>(`/work-items/${reference}/assignments`).then((r) => r.data).catch(() => []),
     // The legal moves, from the workflow graph. Fetched here rather than in the
@@ -83,6 +84,11 @@ export default async function WorkItemPage({
         cached: Number(r.meta?.cached_total ?? 0),
       }))
       .catch(() => ({ entries: [] as TimeEntry[], total: 0, cached: 0 })),
+    // Behind `activity.view`, which not every role holds — a reader without it
+    // gets a 403 and simply sees no timeline, rather than a broken page.
+    api<ActivityEvent[]>(`/work-items/${reference}/activity`)
+      .then((r) => r.data)
+      .catch(() => [] as ActivityEvent[]),
   ]);
 
   const assignee = item.assignees?.find((a) => a.role === "assignee");
@@ -174,9 +180,12 @@ export default async function WorkItemPage({
         />
       </section>
 
+      {/* Was "Activity & comments" over a list of comments, because the
+          activity log had no endpoint to read it from. It has one now, and it
+          is the section below. */}
       <section aria-labelledby="comments-heading">
         <SectionLabel id="comments-heading">
-          Activity &amp; comments
+          Comments
           {comments.length > 0 && (
             <span className="ml-1 font-normal text-n-500">({comments.length})</span>
           )}
@@ -186,6 +195,11 @@ export default async function WorkItemPage({
           timeZone={me.user.timezone}
           canComment={item.permissions.comment ?? false}
         />
+      </section>
+
+      <section aria-labelledby="activity-heading">
+        <SectionLabel id="activity-heading">History</SectionLabel>
+        <ActivityTimeline events={activity} timeZone={me.user.timezone} />
       </section>
 
       {/* One primary action, always visible, always the next legal step. */}
