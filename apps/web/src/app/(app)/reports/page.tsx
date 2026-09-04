@@ -5,6 +5,8 @@ import { FlowTable } from "@/features/insights/FlowTable";
 import { DepartmentSplit } from "@/features/insights/DepartmentSplit";
 import { BottleneckTable } from "@/features/insights/BottleneckTable";
 import { formatCycleHours } from "@/features/insights/format";
+import { ExportPanel } from "@/features/report/ExportPanel";
+import { listExports } from "@/features/report/actions";
 import type { Bottleneck, Flow } from "@/features/insights/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -35,11 +37,14 @@ export default async function ReportsPage({
   // Two reads rather than one payload: the bottleneck figures come from every
   // transition in the window, not from folding the completions, so bundling
   // them would make this page pay for a query even when it is not shown.
-  const [{ data: flow }, { data: bottlenecks }] = await Promise.all([
+  const [{ data: flow }, { data: bottlenecks }, exports] = await Promise.all([
     api<Flow>(`/insights/flow?${query}`),
     api<Bottleneck[]>(`/insights/bottlenecks?${query}`).catch(() => ({
       data: [] as Bottleneck[],
     })),
+    // The export slice shipped in Phase 6 with nothing in the interface able to
+    // ask for a file (ADR 0011). This is the screen that asks.
+    listExports(),
   ]);
 
   return (
@@ -167,6 +172,16 @@ export default async function ReportsPage({
           >
             All {flow.throughput} completions in this window →
           </Link>
+
+          {/* The window this page is showing, handed to the export verbatim: a
+              file built from a different one would open, look right, and
+              disagree with the page it came from. */}
+          <ExportPanel
+            reportKey="organization"
+            parameters={{ from: flow.from, to: flow.to }}
+            exports={exports.exports}
+            formats={exports.formats}
+          />
 
           <p className="max-w-[72ch] text-caption text-n-500">
             Cycle time is measured from the first time an item entered In Progress to the
