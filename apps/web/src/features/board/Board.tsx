@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState, useTransition, type RefObject } from "react";
 import { Button } from "@/components/ui/Button";
 import { clsx } from "@/lib/clsx";
@@ -245,6 +246,7 @@ export function Board({
             <BoardColumnDropZone
               key={column.state.id}
               column={column}
+              projectKey={projectKey}
               timeZone={timeZone}
               picked={picked}
               draggingRef={draggingRef}
@@ -294,6 +296,7 @@ export function Board({
  */
 function BoardColumnDropZone({
   column,
+  projectKey,
   timeZone,
   picked,
   draggingRef,
@@ -305,6 +308,7 @@ function BoardColumnDropZone({
   onReorder,
 }: {
   column: Column;
+  projectKey: string;
   timeZone: string;
   picked: Picked | null;
   draggingRef: RefObject<{ item: WorkItem; fromStateId: string } | null>;
@@ -405,12 +409,16 @@ function BoardColumnDropZone({
         <p className="px-1 pt-2 text-caption text-n-500">
           {/* Said out loud rather than left as a silently short list. A board is
               read as "everything in this state", and a column that quietly
-              stopped at fifty would be read that way too.
-              There is deliberately no link here yet: no screen lists one
-              column's items, and pointing at a page that does not answer the
-              question is worse than admitting the limit. ADR 0012 carries it as
-              the follow-up. */}
-          {column.hidden_count} more in this column, not shown here
+              stopped at fifty would be read that way too — and a cap with
+              nowhere to go is a disappearance with a footnote, which is why
+              this now leads somewhere. */}
+          {column.hidden_count} more —{" "}
+          <Link
+            href={`/projects/${projectKey}/board/${column.state.key}`}
+            className="text-a-500 underline underline-offset-2"
+          >
+            see the whole column
+          </Link>
         </p>
       )}
     </section>

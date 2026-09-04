@@ -135,11 +135,13 @@ that came back.
 - The board is the only place in the product with a bespoke interaction, so it
   is also the only place where an E2E test is the only test that can prove the
   behaviour. Flow 10 is therefore not optional.
-- **A truncated column currently has no way to reach the rest.** No screen
-  lists one column's items, and the footer says so plainly rather than linking
-  to a page that does not answer the question. That is the follow-up this ADR
-  owes: either a per-column cursor on the board endpoint, or a project item
-  list filtered by state.
+- **A truncated column's footnote leads somewhere.** `/projects/{key}/board/
+  {state}` lists the whole column, filtered by STATE rather than category —
+  five states can share a category, so a category filter returns a superset
+  that looks like this column with far too much in it. The list is capped in
+  turn at 100 and says so; past that, a column is not what the reader wants.
+  A cap with nowhere to go is a disappearance with a footnote, which is why
+  this was owed rather than optional.
 - If a future phase adds dnd-kit — for nested boards or multi-select drag — the
   convergence point in §4 is the seam to build on, and this ADR is what should
   be revisited first.
