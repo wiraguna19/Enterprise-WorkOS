@@ -67,10 +67,13 @@ const NO_INTERFACE_BY_DESIGN = [
  */
 const INTERFACE_OWED = [
     // Phase 2 built department management; nothing in the product administers
-    // one. The org chart is rendered from departments the seed created.
-    'api/v1/departments' => 'No department admin screen exists.',
-    'api/v1/departments/{department}' => 'No department admin screen exists.',
-    'api/v1/departments/{department}/move' => 'No department admin screen exists.',
+    // one. The LIST is read now — the New project form offers departments — so
+    // only the writes are still owed, which is what the verb-scoped keys are
+    // for: exempting the whole path would stop watching a read the product
+    // depends on.
+    'POST api/v1/departments' => 'No department admin screen exists.',
+    'PATCH api/v1/departments/{department}' => 'No department admin screen exists.',
+    'POST api/v1/departments/{department}/move' => 'No department admin screen exists.',
 
     // The whole attachment feature. docs/11 §4 flow 6 is "comment with a
     // @mention, attach a file" — the second half has nothing to drive it.
@@ -104,7 +107,6 @@ const INTERFACE_OWED = [
     // is the other half: an item can be created and never corrected.
     'PATCH api/v1/work-items/{reference}' => 'A work item cannot be edited after it exists — not its title, dates or priority.',
     'DELETE api/v1/work-items/{reference}' => 'No delete, and no screen that offers one.',
-    'POST api/v1/projects' => 'The project directory lists projects and cannot create one.',
     'POST api/v1/teams' => 'Teams can gain and lose members; no team can be created.',
 
     // Assignment is offered everywhere in the vocabulary of the product — My
@@ -226,12 +228,12 @@ function patternForCall(string $uri, string $method): string
 /**
  * Is this endpoint exempt?
  *
- * An entry keys either a whole path (`api/v1/departments` — nothing about
- * departments is reachable) or one verb of it (`POST api/v1/projects` — the
- * list is read on every visit and nothing creates one). The second form exists
- * because the first would exempt the read as well, and then a screen that
- * quietly stopped loading would be covered by an entry about a missing create
- * button.
+ * An entry keys either a whole path (`api/v1/recurrences` — nothing about
+ * recurrence is reachable) or one verb of it (`POST api/v1/departments` — the
+ * list is read by the New project form, and nothing administers one). The
+ * second form exists because the first would exempt the read as well, and then
+ * a screen that quietly stopped loading would be covered by an entry about a
+ * missing admin button.
  */
 function isExempt(string $uri, string $method): bool
 {

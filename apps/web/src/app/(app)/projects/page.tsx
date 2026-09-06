@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import type { Project } from "@/features/work-item/types";
 import { formatDateTime } from "@/lib/format";
 import { api } from "@/lib/api";
@@ -26,7 +26,9 @@ export default async function ProjectsPage() {
         description={`${projects.length} active in ${me.organization.name}`}
         action={
           me.permissions.includes("project.create") ? (
-            <Button variant="primary">New project</Button>
+            <ButtonLink variant="primary" href="/projects/new">
+              New project
+            </ButtonLink>
           ) : undefined
         }
       />
@@ -37,7 +39,9 @@ export default async function ProjectsPage() {
           description="A project groups work, milestones, and the people doing it. Work does not have to live in one — requests and incidents exist on their own."
           action={
             me.permissions.includes("project.create") ? (
-              <Button variant="primary">Create the first project</Button>
+              <ButtonLink variant="primary" href="/projects/new">
+                Create the first project
+              </ButtonLink>
             ) : undefined
           }
         />
