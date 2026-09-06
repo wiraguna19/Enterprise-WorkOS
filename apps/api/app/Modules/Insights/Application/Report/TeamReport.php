@@ -28,6 +28,12 @@ final class TeamReport implements ReportBuilder
 {
     public function __construct(private readonly WorkloadQuery $workload) {}
 
+    /** @return list<string> */
+    public function requires(): array
+    {
+        return ['team'];
+    }
+
     public function columns(): array
     {
         return [

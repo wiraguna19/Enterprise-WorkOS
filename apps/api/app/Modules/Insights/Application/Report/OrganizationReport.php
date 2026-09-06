@@ -26,6 +26,12 @@ final class OrganizationReport implements ReportBuilder
         private readonly WorkItemVisibility $visibility,
     ) {}
 
+    /** @return list<string> */
+    public function requires(): array
+    {
+        return [];
+    }
+
     public function columns(): array
     {
         return ['reference', 'title', 'project', 'department', 'completed_at', 'cycle_time_hours', 'late'];

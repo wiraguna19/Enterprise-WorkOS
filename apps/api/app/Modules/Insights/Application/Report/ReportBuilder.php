@@ -29,6 +29,22 @@ interface ReportBuilder
     public function columns(): array;
 
     /**
+     * What this report cannot be built without.
+     *
+     * A screen offering the report has to know that `project` needs a project
+     * and `personal` needs nothing, and the only alternative to asking is
+     * keeping a copy of the answer — which is the two-lists problem that has
+     * already produced a request accepted for a file nothing could write. The
+     * builder that consumes a parameter is the thing that should name it.
+     *
+     * The window (`from`/`to`) is not listed: every report defaults it through
+     * `ReportWindow`, so it is an option rather than a requirement.
+     *
+     * @return list<string>
+     */
+    public function requires(): array;
+
+    /**
      * The rows this reader may see, and how many were withheld.
      *
      * `hidden_count` is not optional bookkeeping: a total is a fact about the

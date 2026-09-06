@@ -70,6 +70,11 @@ Route::get('insights/at-risk', [AtRiskController::class, 'index'])
 // The four reports and their exports (docs/05, ADR 0011). `report.view` reads
 // one; `report.export` asks for a file, and the file is built with the
 // requester's own visibility rather than the worker's.
+// The catalogue, ahead of the wildcard: `reports/{key}` would otherwise
+// swallow it and answer 404 for a report called "catalogue".
+Route::get('reports/catalogue', [ReportController::class, 'catalogue'])
+    ->middleware('permission:report.view');
+
 Route::get('reports/exports', [ReportController::class, 'index'])
     ->middleware('permission:report.export');
 

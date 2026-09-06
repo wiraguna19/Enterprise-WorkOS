@@ -30,6 +30,12 @@ final class ProjectReport implements ReportBuilder
         private readonly TenantContext $tenant,
     ) {}
 
+    /** @return list<string> */
+    public function requires(): array
+    {
+        return ['project'];
+    }
+
     public function columns(): array
     {
         return ['reference', 'title', 'state_category', 'due_at', 'assignee', 'completed_at'];

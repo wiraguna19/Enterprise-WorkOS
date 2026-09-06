@@ -39,6 +39,30 @@ final class ReportController extends ApiController
         private readonly FileStorage $storage,
     ) {}
 
+    /**
+     * The reports this product has, and what each one needs.
+     *
+     * There was no way to ask. The registry has held four reports since
+     * `1ae654d` and the only screen that could reach any of them was the one
+     * hard-coded to `organization` — the other three were complete, tested and
+     * unreachable, which is this codebase's most-repeated defect.
+     *
+     * Columns and required parameters come from the builders themselves. A
+     * screen that kept its own copy would be describing a report rather than
+     * reading it, and the copy is what drifts.
+     */
+    public function catalogue(): ApiResponse
+    {
+        return $this->ok(array_map(
+            fn (string $key): array => [
+                'key' => $key,
+                'columns' => $this->reports->get($key)->columns(),
+                'requires' => $this->reports->get($key)->requires(),
+            ],
+            $this->reports->keys(),
+        ));
+    }
+
     public function show(Request $request, string $key): ApiResponse
     {
         $builder = $this->reports->get($this->key($key));
@@ -47,6 +71,7 @@ final class ReportController extends ApiController
         return ApiResponse::collection($built['rows'], [
             'report' => $key,
             'columns' => $builder->columns(),
+            'requires' => $builder->requires(),
             'hidden_count' => $built['hidden_count'],
         ]);
     }

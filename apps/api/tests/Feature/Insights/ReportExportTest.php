@@ -285,3 +285,45 @@ it('tells the client which formats it may ask for', function (): void {
 
     expect($formats)->toBe(['csv', 'xlsx']);
 });
+
+/**
+ * The catalogue: every report, and what it cannot be built without.
+ *
+ * The registry has held four reports since exports shipped and only one screen
+ * could reach any of them. A screen that wants to offer the other three needs
+ * to know that `project` takes a project and `personal` takes nothing — and the
+ * only alternative to asking is keeping a copy, which is the two-lists problem
+ * that has already produced a request accepted for a file nothing could write.
+ */
+it('lists every report with its columns and what it requires', function (): void {
+    $catalogue = $this->withToken($this->loginAs('rina@acme.test'))
+        ->getJson('/api/v1/reports/catalogue')
+        ->assertOk()
+        ->json('data');
+
+    expect(collect($catalogue)->pluck('key')->all())
+        ->toBe(['project', 'team', 'personal', 'organization']);
+
+    $byKey = collect($catalogue)->keyBy('key');
+
+    expect($byKey['project']['requires'])->toBe(['project'])
+        ->and($byKey['team']['requires'])->toBe(['team'])
+        // Not "no parameters" — no REQUIRED ones. Every report takes a window,
+        // and every report defaults it, so a window is an option.
+        ->and($byKey['personal']['requires'])->toBe([])
+        ->and($byKey['organization']['requires'])->toBe([])
+        ->and($byKey['organization']['columns'])->toContain('cycle_time_hours');
+});
+
+/**
+ * `catalogue` is not a report.
+ *
+ * It sits on the same path segment as `reports/{key}`, and a wildcard declared
+ * first would answer 404 for it — the kind of routing accident that looks like
+ * a missing feature.
+ */
+it('does not let the report wildcard swallow the catalogue', function (): void {
+    $this->withToken($this->loginAs('rina@acme.test'))
+        ->getJson('/api/v1/reports/catalogue')
+        ->assertOk();
+});

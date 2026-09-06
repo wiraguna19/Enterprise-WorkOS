@@ -27,6 +27,12 @@ final class PersonalReport implements ReportBuilder
 {
     public function __construct(private readonly TenantContext $tenant) {}
 
+    /** @return list<string> */
+    public function requires(): array
+    {
+        return [];
+    }
+
     public function columns(): array
     {
         return ['reference', 'title', 'project', 'state_category', 'due_at', 'completed_at', 'actual_hours'];
