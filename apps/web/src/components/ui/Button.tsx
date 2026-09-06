@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { clsx } from "@/lib/clsx";
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 /**
  * One primary action per screen (docs/09 §5). A 48px button belongs on a
@@ -51,5 +52,44 @@ export function Button({
         className,
       )}
     />
+  );
+}
+
+/**
+ * A link that looks like a button.
+ *
+ * Not a `<Button>` with an `onClick` that navigates: the thing that goes
+ * somewhere should be an anchor, so it opens in a new tab, shows its
+ * destination in the status bar, and works before the JavaScript arrives. The
+ * board's "New work item" was a `<Button>` with no handler at all — a control
+ * that looked finished from every angle and did nothing — and a link cannot
+ * fail that way, because a link with no href does not render as one.
+ */
+export function ButtonLink({
+  href,
+  variant = "secondary",
+  size = "md",
+  className,
+  children,
+}: {
+  href: string;
+  variant?: keyof typeof VARIANTS;
+  size?: keyof typeof SIZES;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={clsx(
+        "inline-flex items-center justify-center gap-1.5 rounded-sm font-medium",
+        "transition-colors duration-[120ms] ease-standard",
+        VARIANTS[variant],
+        SIZES[size],
+        className,
+      )}
+    >
+      {children}
+    </Link>
   );
 }

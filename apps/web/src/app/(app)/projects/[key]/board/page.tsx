@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { Board } from "@/features/board/Board";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { BoardColumn as Column, Project } from "@/features/work-item/types";
@@ -65,7 +65,12 @@ export default async function BoardPage({
         }
         action={
           board.project.permissions.create_work ? (
-            <Button variant="primary">New work item</Button>
+            <ButtonLink
+              variant="primary"
+              href={`/work/new?project=${board.project.key}`}
+            >
+              New work item
+            </ButtonLink>
           ) : undefined
         }
       />

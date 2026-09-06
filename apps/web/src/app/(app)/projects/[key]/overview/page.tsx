@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { HealthSignals, StatusDot } from "@/features/insights/HealthSignals";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
@@ -52,6 +53,13 @@ export default async function ProjectOverviewPage({
             ? `${health.open_count} open`
             : `${Math.round(health.progress_percent)}% complete · ${health.open_count} open`
         }
+        action={
+          project.permissions.create_work ? (
+            <ButtonLink variant="primary" href={`/work/new?project=${project.key}`}>
+              New work item
+            </ButtonLink>
+          ) : undefined
+        }
       />
 
       <ProjectTabs projectKey={project.key} active="overview" />
@@ -60,7 +68,7 @@ export default async function ProjectOverviewPage({
           you came from has already answered. */}
       <p className="text-caption text-n-500">
         <Link
-          href="{`/reports/project?project=${project.key}`}"
+          href={`/reports/project?project=${project.key}`}
           className="text-a-500 underline underline-offset-2"
         >
           Project report

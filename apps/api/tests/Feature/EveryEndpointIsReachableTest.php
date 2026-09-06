@@ -99,10 +99,9 @@ const INTERFACE_OWED = [
     // They are listed, not fixed, deliberately. An inventory written down is a
     // bill; six features built in a hurry is how the last one got here.
 
-    // Nothing in the product creates work. `POST /work-items` has existed since
-    // Phase 3 and the only way to add an item is the API or the seed — which is
-    // why every demo starts from seeded data and nobody noticed.
-    'POST api/v1/work-items' => 'No create form anywhere: work items cannot be created from the product.',
+    // `POST /work-items` was here for one commit — it had existed since Phase 3
+    // with nothing calling it — and is now the New work item form. What is left
+    // is the other half: an item can be created and never corrected.
     'PATCH api/v1/work-items/{reference}' => 'A work item cannot be edited after it exists — not its title, dates or priority.',
     'DELETE api/v1/work-items/{reference}' => 'No delete, and no screen that offers one.',
     'POST api/v1/projects' => 'The project directory lists projects and cannot create one.',

@@ -152,3 +152,82 @@ export async function editComment(
 
   return { error: null };
 }
+
+/**
+ * What the create form sends. Every field but the title is optional, and
+ * `undefined` means "not sent" rather than "cleared": the API applies its own
+ * defaults for type, priority and state, and a client that posts its idea of
+ * them is a second copy of a rule that will drift.
+ */
+export type NewWorkItem = {
+  title: string;
+  description?: string;
+  type?: string;
+  project_id?: string | null;
+  priority?: string;
+  start_date?: string | null;
+  due_at?: string | null;
+  estimate_hours?: string;
+  assignee_id?: string | null;
+  reviewer_id?: string | null;
+};
+
+/**
+ * Create a work item.
+ *
+ * `POST /work-items` has existed since Phase 3 and nothing had ever called it:
+ * every work item in this product came from the seed or from curl. The
+ * reachability guard could not see it, because the same path is listed on My
+ * Work and in search — a write hiding behind its own read, the fourth variant
+ * of this project's oldest defect.
+ *
+ * **Assignment happens here, not afterwards.** The API accepts `assignee_id`
+ * and `reviewer_id` on create for the reason docs/08 §4 gives: making people
+ * create a thing and then assign it is the most common unnecessary click in
+ * tools of this kind — and an item created with nobody on it is a row that
+ * waits for someone to notice it.
+ *
+ * Empty strings are dropped rather than sent. A `<select>` with nothing chosen
+ * yields `""`, and `""` is not a uuid, not a date, and not "no value" to a
+ * validator — it is a 422 with a message about a field the person never
+ * touched.
+ */
+export async function createWorkItem(
+  input: NewWorkItem,
+  /** The project page this was started from, if it was — see below. */
+  projectKey?: string,
+): Promise<ActionState & { reference?: string }> {
+  const body: Record<string, unknown> = {};
+
+  for (const [field, value] of Object.entries(input)) {
+    if (value !== undefined && value !== "") body[field] = value;
+  }
+
+  let reference: string;
+
+  try {
+    const { data } = await api<{ reference: string }>("/work-items", {
+      method: "POST",
+      body,
+    });
+
+    reference = data.reference;
+  } catch (error) {
+    return failure(error);
+  }
+
+  // Everywhere the new item can already appear. The board and overview are
+  // keyed by the project's KEY and the form only knows its id, so the key comes
+  // from the page that opened the form — the one case where the caller knows
+  // something the payload does not.
+  revalidatePath("/my-work");
+  revalidatePath("/projects");
+  revalidatePath("/");
+
+  if (projectKey !== undefined) {
+    revalidatePath(`/projects/${projectKey}/board`);
+    revalidatePath(`/projects/${projectKey}/overview`);
+  }
+
+  return { error: null, reference };
+}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
@@ -49,6 +50,16 @@ export default async function MyWorkPage({
           counts.overdue > 0
             ? `${counts.overdue} overdue · ${counts.open} open`
             : `${counts.open} open`
+        }
+        // No project in the link, deliberately: work with no project is a
+        // first-class case (ADR 0004), and this is the screen where somebody
+        // notes down something they have to do rather than files it.
+        action={
+          me.permissions.includes("work_item.create") ? (
+            <ButtonLink variant="primary" href="/work/new">
+              New work item
+            </ButtonLink>
+          ) : undefined
         }
       />
 
