@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { MarkReadButton } from "@/features/inbox/MarkReadButton";
 import { NotificationList } from "@/features/inbox/NotificationList";
 import { ReviewQueue } from "@/features/inbox/ReviewQueue";
 import type { Approval, Notification } from "@/features/work-item/types";
@@ -56,6 +57,15 @@ export default async function InboxPage({
           reviews.length > 0
             ? `${reviews.length} waiting on you · ${unread} unread`
             : `${unread} unread`
+        }
+        // "All" is decided by the server, not by the rows this page happened to
+        // page in: the badge counts every unread notification, so a control
+        // that cleared only the visible ones would leave a number nobody could
+        // get to zero — which is how the badge got into this state.
+        action={
+          unread > 0 ? (
+            <MarkReadButton label="Mark all read" busyLabel="Marking…" variant="secondary" />
+          ) : undefined
         }
       />
 

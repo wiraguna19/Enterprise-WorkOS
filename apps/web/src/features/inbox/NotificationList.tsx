@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MarkReadButton } from "./MarkReadButton";
 import { clsx } from "@/lib/clsx";
 import { formatDateTime } from "@/lib/format";
 import type { Notification } from "@/features/work-item/types";
@@ -43,15 +44,21 @@ export function NotificationList({
 
           <ul className="divide-y divide-n-100 border-y border-n-100">
             {items.map((notification) => (
-              <li key={notification.id}>
+              <li
+                key={notification.id}
+                className={clsx(
+                  "flex items-baseline gap-1 pr-2 hover:bg-n-50",
+                  // Unread is marked by a rule on the leading edge, not by a
+                  // bold row: bolding half an inbox makes the whole thing
+                  // harder to read, which is the opposite of the point.
+                  !notification.read && "border-l-2 border-l-a-500",
+                )}
+              >
                 <Link
                   href={hrefFor(notification)}
                   className={clsx(
-                    "flex items-baseline gap-3 py-2.5 pl-3 pr-2 hover:bg-n-50",
-                    // Unread is marked by a rule on the leading edge, not by a
-                    // bold row: bolding half an inbox makes the whole thing
-                    // harder to read, which is the opposite of the point.
-                    !notification.read && "border-l-2 border-l-a-500 pl-[10px]",
+                    "flex min-w-0 flex-1 items-baseline gap-3 py-2.5 pl-3",
+                    !notification.read && "pl-[10px]",
                   )}
                 >
                   <span className="min-w-0 flex-1 text-body text-n-900">
@@ -65,6 +72,19 @@ export function NotificationList({
                     {formatDateTime(notification.created_at, timeZone)}
                   </time>
                 </Link>
+
+                {/* Only unread rows carry it: a control that does nothing on
+                    two-thirds of the rows is noise, and a disabled one is
+                    worse. Opening the item is not what clears it — a row you
+                    read from the list without clicking through is still read,
+                    and marking on navigation would clear things nobody saw. */}
+                {!notification.read && (
+                  <MarkReadButton
+                    ids={[notification.id]}
+                    label="Mark read"
+                    busyLabel="Marking…"
+                  />
+                )}
               </li>
             ))}
           </ul>

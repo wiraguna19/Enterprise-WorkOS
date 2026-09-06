@@ -77,17 +77,10 @@ const INTERFACE_OWED = [
     'api/v1/recurrences' => 'Recurring work can be created by API only.',
     'api/v1/recurrences/{id}' => 'Recurring work can be created by API only.',
 
-    // The badge counts up and never down: `unread-count` is read on every page
-    // and nothing has ever marked anything read. This is not a missing feature
-    // so much as a broken one — the smallest bill on this list and the one a
-    // user notices first.
-    'api/v1/notifications/read' => 'Notifications can never be marked read.',
-
-    // Removing an assignee, editing a comment, withdrawing your own submission:
-    // three undo paths, none reachable. Every one of them is the second half of
-    // an action the product already offers.
+    // Removing an assignee and withdrawing your own submission: two undo paths,
+    // each the second half of an action the product already offers. (Editing a
+    // comment was the third, and is now built.)
     'api/v1/work-items/{reference}/assignees/{assignment}' => 'No way to remove an assignee.',
-    'api/v1/comments/{id}' => 'No way to edit a comment after posting it.',
     'api/v1/approvals/{id}/withdraw' => 'A requester cannot withdraw their own submission.',
 
     // A number without its drill-through, which is exactly what Phase 6 house

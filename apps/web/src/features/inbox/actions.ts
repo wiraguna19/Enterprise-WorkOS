@@ -43,3 +43,37 @@ export async function decide(
 
   return { error: null };
 }
+
+/**
+ * Mark notifications read.
+ *
+ * `ids` omitted means everything unread, which is what the API's own contract
+ * says (`ids` is `sometimes`) — the client does not enumerate a list it would
+ * then have to keep in step with what the server considers unread.
+ *
+ * The badge is the reason this exists. `unread-count` is read on every page
+ * load and, until now, nothing had ever called this endpoint: the number could
+ * only ever go up. A counter that cannot reach zero is a counter people stop
+ * reading, and then stop believing.
+ */
+export async function markRead(ids?: string[]): Promise<{ error: string | null }> {
+  try {
+    await api("/notifications/read", {
+      method: "POST",
+      body: ids === undefined ? {} : { ids },
+    });
+  } catch (error) {
+    if (error instanceof ApiRequestError) {
+      return { error: error.error.message };
+    }
+
+    return { error: "We could not reach the server. Please try again." };
+  }
+
+  // The badge lives in the shell layout, not on this page, so revalidating
+  // `/inbox` alone would leave the number stale on every other screen. The
+  // layout is what re-reads `unread-count`.
+  revalidatePath("/", "layout");
+
+  return { error: null };
+}

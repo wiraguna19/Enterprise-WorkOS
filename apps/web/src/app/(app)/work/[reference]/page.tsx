@@ -11,17 +11,9 @@ import { PrimaryAction } from "@/features/work-item/components/PrimaryAction";
 import { WorkItemChannel } from "@/features/realtime/WorkItemChannel";
 import { TimePanel } from "@/features/time/TimePanel";
 import type { TimeEntry } from "@/features/time/types";
-import type { Transition, WorkItem } from "@/features/work-item/types";
+import type { Comment, Transition, WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-
-type Comment = {
-  id: string;
-  author: { membership_id: string; name: string | null; avatar_url: string | null };
-  body_html: string;
-  created_at: string;
-  edited: boolean;
-};
 
 type HistoryEntry = {
   id: string;
@@ -191,9 +183,11 @@ export default async function WorkItemPage({
           )}
         </SectionLabel>
         <CommentThread
+          reference={reference}
           comments={comments}
           timeZone={me.user.timezone}
           canComment={item.permissions.comment ?? false}
+          membershipId={me.membership.id}
         />
       </section>
 

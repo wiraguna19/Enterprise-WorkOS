@@ -82,3 +82,73 @@ function failure(error: unknown): ActionState {
 
   return { error: "We could not reach the server. Please try again." };
 }
+
+/**
+ * Post a comment.
+ *
+ * The composer had no action at all: a textarea, a Send button, and a bare
+ * `<form>` — so submitting it navigated the page back to itself and threw the
+ * text away. Third time this shape has appeared (the sign-out button, the
+ * status picker, now this), and the first one the reachability guard could not
+ * see: `POST /work-items/{reference}/comments` has the same path as the GET the
+ * page already makes, so the grep found a caller and asked no further.
+ *
+ * `parent_id` is not sent. Replies exist in the API and there is no thread UI
+ * yet; sending a field the interface cannot set is how a half-built feature
+ * starts pretending.
+ */
+export async function postComment(reference: string, body: string): Promise<ActionState> {
+  const text = body.trim();
+
+  // The only rule enforced here, and only because an empty POST is a round trip
+  // that can only fail. Length, mentions and markdown are the API's business.
+  if (text === "") {
+    return { error: "Write something first." };
+  }
+
+  try {
+    await api(`/work-items/${reference}/comments`, {
+      method: "POST",
+      body: { body: text },
+    });
+  } catch (error) {
+    return failure(error);
+  }
+
+  // A comment can @mention someone, which sends a notification: the inbox and
+  // the badge change too, not just this page.
+  revalidatePath(`/work/${reference}`);
+  revalidatePath("/", "layout");
+
+  return { error: null };
+}
+
+/**
+ * Edit your own comment.
+ *
+ * Authorship is not re-checked here — the API refuses anyone but the author
+ * with a 403 naming the rule, and a copy of a rule is a copy that drifts. The
+ * interface only decides who is OFFERED the control, which is a different
+ * question from who is allowed to use it.
+ */
+export async function editComment(
+  reference: string,
+  commentId: string,
+  body: string,
+): Promise<ActionState> {
+  const text = body.trim();
+
+  if (text === "") {
+    return { error: "A comment cannot be emptied. Say something else instead." };
+  }
+
+  try {
+    await api(`/comments/${commentId}`, { method: "PATCH", body: { body: text } });
+  } catch (error) {
+    return failure(error);
+  }
+
+  revalidatePath(`/work/${reference}`);
+
+  return { error: null };
+}

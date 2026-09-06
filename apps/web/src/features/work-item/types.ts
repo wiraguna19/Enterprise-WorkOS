@@ -119,6 +119,25 @@ export type Approval = {
   permissions: Record<string, boolean>;
 };
 
+/**
+ * A comment, as the API returns it.
+ *
+ * `body_markdown` is the source and `body_html` is what renders: an editor
+ * seeded from the HTML would rewrite the comment into whatever the renderer
+ * produced, which never round-trips. The page and the thread component read the
+ * same type on purpose — this file existed while the page kept a private copy
+ * of it, which is the drift this file is here to prevent.
+ */
+export type Comment = {
+  id: string;
+  author: { membership_id: string; name: string | null; avatar_url: string | null };
+  body_markdown: string;
+  body_html: string;
+  parent_id: string | null;
+  created_at: string;
+  edited: boolean;
+};
+
 export type Notification = {
   id: string;
   type: string;
