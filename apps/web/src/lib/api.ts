@@ -28,7 +28,11 @@ export class ApiRequestError extends Error {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  // PUT was missing until the notification preferences screen was wired: the
+  // one PUT route in the API was, literally, uncallable from this client. A
+  // hand-written contract drifts in both directions — a field the API stopped
+  // sending, and a verb the client never learned.
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Cache tags so a mutation can revalidate exactly what it invalidated. */
   tags?: string[];

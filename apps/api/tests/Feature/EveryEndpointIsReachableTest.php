@@ -115,11 +115,6 @@ const INTERFACE_OWED = [
     // history endpoint a page does fetch: a prefix is not a caller.
     'POST api/v1/work-items/{reference}/assign' => 'Nothing in the product assigns work to anyone.',
 
-    // The whole settings screen is a dead control: three toggles per type,
-    // rendered from saved preferences, wired to nothing. It reads its own
-    // state, which is what makes it convincing.
-    'PUT api/v1/notifications/preferences' => 'The notification settings screen saves nothing.',
-
     // Hidden behind `/approvals/{id}/decide`. The queue row is the whole
     // interface an approval has; there is no page for one.
     'GET api/v1/approvals/{id}' => 'An approval has no detail screen.',

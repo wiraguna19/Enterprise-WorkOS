@@ -53,14 +53,31 @@ const GROUPS: Array<{
 export default async function NotificationPreferencesPage() {
   await requireUser();
 
-  const saved = await api<Preference[]>("/notifications/preferences")
+  // The endpoint answers with BOTH the saved rows and the defaults, in one
+  // object — not a bare array. This page read it as an array and called
+  // `.find()` on it, which throws: the screen has been an error boundary, not a
+  // settings page. A hand-written contract drifts, and TypeScript believes
+  // whatever the `api<T>` call claims (docs/07 §3).
+  const { preferences, defaults } = await api<{
+    preferences: Preference[];
+    defaults: Omit<Preference, "type">;
+  }>("/notifications/preferences")
     .then((r) => r.data)
-    .catch(() => [] as Preference[]);
+    .catch(() => ({
+      preferences: [] as Preference[],
+      // Only reached when the endpoint itself failed. It is the API's list that
+      // decides; this is the shape to render while it is unreachable, and the
+      // screen says nothing was loaded rather than pretending these are yours.
+      defaults: { in_app: true, email: false, digest: "off" } as Omit<Preference, "type">,
+    }));
 
   // An absent row means the default for that type, so a new notification type
   // never requires backfilling a row for every member of every organization.
+  // The defaults come from the API rather than a copy kept here — the second
+  // copy was already in this file, one edit away from disagreeing with the
+  // server about what "unset" means.
   const preferenceFor = (key: string): Preference =>
-    saved.find((p) => p.type === key) ?? { type: key, in_app: true, email: false, digest: "off" };
+    preferences.find((p) => p.type === key) ?? { type: key, ...defaults };
 
   return (
     <div className="max-w-3xl space-y-6">
