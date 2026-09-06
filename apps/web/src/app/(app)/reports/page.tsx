@@ -176,6 +176,16 @@ export default async function ReportsPage({
           {/* The window this page is showing, handed to the export verbatim: a
               file built from a different one would open, look right, and
               disagree with the page it came from. */}
+          <p className="text-caption text-n-500">
+            <Link
+              href={`/reports/organization?from=${flow.from}&to=${flow.to}`}
+              className="text-a-500 underline underline-offset-2"
+            >
+              Organization report
+            </Link>{" "}
+            — the completions behind these figures, row by row.
+          </p>
+
           <ExportPanel
             reportKey="organization"
             parameters={{ from: flow.from, to: flow.to }}

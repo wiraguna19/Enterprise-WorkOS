@@ -52,6 +52,17 @@ export default async function MyWorkPage({
         }
       />
 
+      <p className="text-caption text-n-500">
+        <Link
+          href="/reports/personal"
+          className="text-a-500 underline underline-offset-2"
+        >
+          Your work report
+        </Link>{" "}
+        — what you held in a window, finished or not, and exportable.
+      </p>
+
+
       <nav aria-label="Work views" className="flex gap-1 overflow-x-auto border-b border-n-100">
         {VIEWS.map((v) => {
           const active = v.key === view;

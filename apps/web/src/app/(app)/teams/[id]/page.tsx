@@ -78,6 +78,18 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
         />
       </div>
 
+      {/* Reached from the team, not from an index of reports: "which team?" is
+          a question this page has already answered. */}
+      <p className="text-caption text-n-500">
+        <Link
+          href={`/reports/team?team=${team.id}`}
+          className="text-a-500 underline underline-offset-2"
+        >
+          Team report
+        </Link>{" "}
+        — the same work as a table, and exportable.
+      </p>
+
       <section aria-labelledby="members-heading" className="space-y-2">
         <SectionLabel id="members-heading">
           Members

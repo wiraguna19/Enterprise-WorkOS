@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { HealthSignals, StatusDot } from "@/features/insights/HealthSignals";
@@ -54,6 +55,19 @@ export default async function ProjectOverviewPage({
       />
 
       <ProjectTabs projectKey={project.key} active="overview" />
+      {/* A report about a subject is reached from the subject. There is no
+          index of reports, on purpose: "which project?" is a question the page
+          you came from has already answered. */}
+      <p className="text-caption text-n-500">
+        <Link
+          href="{`/reports/project?project=${project.key}`}"
+          className="text-a-500 underline underline-offset-2"
+        >
+          Project report
+        </Link>{" "}
+        — the same figures as a table, and exportable.
+      </p>
+
 
       <div className="flex items-baseline gap-3">
         <StatusDot status={health.status} />
