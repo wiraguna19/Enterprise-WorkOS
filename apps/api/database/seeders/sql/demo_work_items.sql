@@ -200,9 +200,18 @@ $seed$;
 -- ── David is over-committed this week ────────────────────────────────────────
 -- Not an accident of the generator: the manager dashboard's most important job
 -- is surfacing this, so the seed guarantees it exists.
+--
+-- The due date is FRIDAY of the current week (`date_trunc('week')` is the ISO
+-- Monday), so from Saturday onward it is in the past while an item's
+-- start_date can be as late as today. Pulling `due_at` back without pulling
+-- `start_date` with it produces start > due, and `ck_work_items_dates` refuses
+-- the row — which takes the whole seed and every test with it. This statement
+-- and the one below are the only two that move a due date; they clamp
+-- identically, and anything added here must too.
 UPDATE work_items SET
     estimate_hours = 12,
     due_at = date_trunc('week', now()) + interval '4 days 17 hours',
+    start_date = LEAST(start_date, (date_trunc('week', now()) + interval '4 days')::date),
     state_category = 'in_progress',
     workflow_state_id = '01900002-0000-7000-8000-000000000003',
     completed_at = NULL
@@ -270,9 +279,17 @@ SELECT ('0190001b-0000-7000-8000-' || lpad(row_number() OVER (ORDER BY a.work_it
 -- of this week — so shortening the span is what actually creates the
 -- over-commitment, and getting that wrong in the seed would have hidden a
 -- calculation this dashboard depends on.
+--
+-- The LEAST is not belt-and-braces: on a weekday GREATEST alone is harmless,
+-- and on a Saturday or Sunday it moves start_date past the Friday due date
+-- this statement sets. See the sibling UPDATE above — both move a due date,
+-- and both have to clamp.
 UPDATE work_items SET
     estimate_hours = 11,
-    start_date = GREATEST(date_trunc('week', now())::date, start_date),
+    start_date = LEAST(
+        GREATEST(date_trunc('week', now())::date, start_date),
+        (date_trunc('week', now()) + interval '4 days')::date
+    ),
     due_at = date_trunc('week', now()) + interval '4 days 17 hours'
 WHERE id IN (
     SELECT wi.id FROM work_items wi
