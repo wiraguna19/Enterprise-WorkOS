@@ -58,6 +58,11 @@ const NO_INTERFACE_BY_DESIGN = [
  * Twenty endpoints answered nothing — which is the honest size of a defect this
  * project had been finding one instance at a time, by accident, for six phases.
  *
+ * Then the question got sharper the same day — the path must END where the
+ * route ends, and a write must be called with its own verb — and seven more
+ * appeared, including creating a work item. **When a check finds nine things,
+ * the next question to ask is what the check cannot see.**
+ *
  * @var array<string, string>
  */
 const INTERFACE_OWED = [
@@ -82,6 +87,41 @@ const INTERFACE_OWED = [
     // comment was the third, and is now built.)
     'api/v1/work-items/{reference}/assignees/{assignment}' => 'No way to remove an assignee.',
     'api/v1/approvals/{id}/withdraw' => 'A requester cannot withdraw their own submission.',
+
+    // ── Found 2026-09-06, when this test learned to ask about the VERB ──────
+    //
+    // Everything below was counted as reached until the day the path stopped
+    // being enough evidence: a write hiding behind the read on its own path, or
+    // a route hiding behind a longer one that starts the same way. Together
+    // they say something the phase reports did not: **this product can read
+    // almost everything and create almost nothing.**
+    //
+    // They are listed, not fixed, deliberately. An inventory written down is a
+    // bill; six features built in a hurry is how the last one got here.
+
+    // Nothing in the product creates work. `POST /work-items` has existed since
+    // Phase 3 and the only way to add an item is the API or the seed — which is
+    // why every demo starts from seeded data and nobody noticed.
+    'POST api/v1/work-items' => 'No create form anywhere: work items cannot be created from the product.',
+    'PATCH api/v1/work-items/{reference}' => 'A work item cannot be edited after it exists — not its title, dates or priority.',
+    'DELETE api/v1/work-items/{reference}' => 'No delete, and no screen that offers one.',
+    'POST api/v1/projects' => 'The project directory lists projects and cannot create one.',
+    'POST api/v1/teams' => 'Teams can gain and lose members; no team can be created.',
+
+    // Assignment is offered everywhere in the vocabulary of the product — My
+    // Work, the workload bar, the assignee column — and performed nowhere.
+    // Hidden until now behind `/work-items/{reference}/assignments`, the
+    // history endpoint a page does fetch: a prefix is not a caller.
+    'POST api/v1/work-items/{reference}/assign' => 'Nothing in the product assigns work to anyone.',
+
+    // The whole settings screen is a dead control: three toggles per type,
+    // rendered from saved preferences, wired to nothing. It reads its own
+    // state, which is what makes it convincing.
+    'PUT api/v1/notifications/preferences' => 'The notification settings screen saves nothing.',
+
+    // Hidden behind `/approvals/{id}/decide`. The queue row is the whole
+    // interface an approval has; there is no page for one.
+    'GET api/v1/approvals/{id}' => 'An approval has no detail screen.',
 
     // A number without its drill-through, which is exactly what Phase 6 house
     // rule 1 forbids — the workload bar shows the hours and cannot show the work.
@@ -142,6 +182,13 @@ function webSource(): string
  * made every pattern `//…`, which matches nothing, and the test then reported
  * the ENTIRE API as unreachable. A result too large to be true is the
  * instrument failing, not the subject.
+ *
+ * **The path must END where the route ends.** Without the lookahead,
+ * `work-items/{reference}/assign` was satisfied by the
+ * `/work-items/${reference}/assignments` a page already fetched, and
+ * `approvals/{id}` by `/approvals/${id}/decide`. A prefix is not a caller, and
+ * this test reporting a false green is worse than not existing: it is consulted
+ * and believed.
  */
 function patternFor(string $uri): string
 {
@@ -151,7 +198,65 @@ function patternFor(string $uri): string
         '/\\\\\{[^}]+\\\\\}/',
         '[^"\'`/]+',
         preg_quote(substr($uri, strlen('api/v1')), '#'),
-    ).'#';
+    ).'(?=["\'`?])#';
+}
+
+/**
+ * The same path, called with the verb the route actually answers.
+ *
+ * A write that shares its path with a read hides behind it. `POST
+ * /work-items/{reference}/comments` was counted as reached for three phases by
+ * the GET the page makes on the same path — while the comment box was a bare
+ * `<form>` with no action, so posting a comment reloaded the page and threw the
+ * text away. The endpoint was perfect, tested, and unreachable.
+ *
+ * So a write must be proved by a call that NAMES it: `api(path, { method:
+ * "POST" … })`, the one shape this client has. 300 characters is the window
+ * between the path and its options object — generous enough for a formatted
+ * body, short enough that the next call in the file cannot vouch for this one.
+ *
+ * Crude, like the rest of this test, and for the same reason: it runs on every
+ * commit.
+ */
+function patternForCall(string $uri, string $method): string
+{
+    return '#'.substr(patternFor($uri), 1, -1)
+        .'[\s\S]{0,300}?method:\s*"'.$method.'"#';
+}
+
+/**
+ * Is this endpoint exempt?
+ *
+ * An entry keys either a whole path (`api/v1/departments` — nothing about
+ * departments is reachable) or one verb of it (`POST api/v1/projects` — the
+ * list is read on every visit and nothing creates one). The second form exists
+ * because the first would exempt the read as well, and then a screen that
+ * quietly stopped loading would be covered by an entry about a missing create
+ * button.
+ */
+function isExempt(string $uri, string $method): bool
+{
+    foreach ([$uri, $method.' '.$uri] as $key) {
+        if (array_key_exists($key, NO_INTERFACE_BY_DESIGN)
+            || array_key_exists($key, INTERFACE_OWED)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/** Does anything in the web app call this endpoint, with this verb? */
+function isReached(string $source, string $uri, string $method): bool
+{
+    if (preg_match(patternFor($uri), $source) !== 1) {
+        return false;
+    }
+
+    // A GET is the client's default and is written without a `method` option,
+    // so the path is all the evidence there is. Everything else must say so.
+    return $method === 'GET' || preg_match(patternForCall($uri, $method), $source) === 1;
 }
 
 it('has something in the web app calling every API route', function (): void {
@@ -168,15 +273,23 @@ it('has something in the web app calling every API route', function (): void {
     foreach (Route::getRoutes()->getRoutes() as $route) {
         $uri = $route->uri();
 
-        if (! str_starts_with($uri, 'api/v1/')
-            || array_key_exists($uri, NO_INTERFACE_BY_DESIGN)
-            || array_key_exists($uri, INTERFACE_OWED)
-        ) {
+        if (! str_starts_with($uri, 'api/v1/')) {
             continue;
         }
 
-        if (preg_match(patternFor($uri), $source) !== 1) {
-            $unreached[] = strtoupper(implode('|', $route->methods())).' '.$uri;
+        // Per METHOD, not per route. A path can be a read the app makes daily
+        // and a write nothing has ever called, and the two answer different
+        // questions about whether the product can do the thing.
+        foreach ($route->methods() as $method) {
+            if ($method === 'HEAD' || $method === 'OPTIONS') {
+                continue;
+            }
+
+            if (isExempt($uri, $method) || isReached($source, $uri, $method)) {
+                continue;
+            }
+
+            $unreached[] = $method.' '.$uri;
         }
     }
 
@@ -214,9 +327,21 @@ it('has no stale exemptions', function (): void {
     $source = webSource();
     $stale = [];
 
-    foreach ([...array_keys(NO_INTERFACE_BY_DESIGN), ...array_keys(INTERFACE_OWED)] as $uri) {
-        if (preg_match(patternFor($uri), $source) === 1) {
-            $stale[] = $uri;
+    foreach ([...array_keys(NO_INTERFACE_BY_DESIGN), ...array_keys(INTERFACE_OWED)] as $key) {
+        // A key is either "api/v1/thing" or "POST api/v1/thing", and the
+        // question has to be asked in the same terms the entry was written in —
+        // otherwise a verb-scoped entry is judged by whether the path is
+        // fetched at all, which it always is.
+        // Written out rather than destructured from `explode`: level 8 cannot
+        // see that a two-part explode of a string containing a space has an
+        // index 1, and patching the caller for a case that cannot happen is
+        // the habit this codebase avoids.
+        $parts = explode(' ', $key, 2);
+        $method = count($parts) === 2 ? $parts[0] : 'GET';
+        $uri = $parts[count($parts) - 1];
+
+        if (isReached($source, $uri, $method)) {
+            $stale[] = $key;
         }
     }
 
