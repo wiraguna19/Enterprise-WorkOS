@@ -105,6 +105,14 @@ final class WorkItemService
                     $attributes['project_id'] ?? null,
                     $initial->category,
                 ),
+                // Written here rather than left to the column default, because
+                // the model in memory is what the response is built from: the
+                // row was version 0 and the created resource said `null`. A
+                // client that creates an item and then edits it would send
+                // that null back, and `assertNotStale` treats null as "no
+                // version sent" — optimistic locking silently off for the
+                // first edit of everything the product creates (docs/03 §8).
+                'lock_version' => 0,
             ]);
 
             if ($parent !== null) {

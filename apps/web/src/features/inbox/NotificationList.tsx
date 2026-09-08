@@ -62,7 +62,10 @@ export function NotificationList({
                   )}
                 >
                   <span className="min-w-0 flex-1 text-body text-n-900">
-                    {describe(notification)}
+                    {notification.message}
+                    {notification.subject.title !== null && (
+                      <span className="text-n-500"> · {notification.subject.title}</span>
+                    )}
                   </span>
 
                   <time
@@ -95,77 +98,21 @@ export function NotificationList({
 }
 
 /**
- * One sentence per type, in the active voice, naming the person.
+ * Every row goes to the thing it is about.
  *
- * "Approval requested" is a category label; "Sarah asked you to review ENG-142"
- * is something you can act on without opening it.
- *
- * Two cases are easy to get wrong and both showed up the first time this
- * rendered against the seeded rows:
- *
- *   - A notification with no actor was reading "Someone · work escalated". No
- *     actor means a RULE did it, not a mystery person, and the sentence should
- *     say what happened rather than invent an anonymous human.
- *   - Any type not listed fell through to the raw event key. The fallback is
- *     kept — a blank row is worse than an awkward one — but every type the
- *     system actually sends now has a sentence, and this list is the place to
- *     add one when a new type is introduced.
+ * The reference comes from the SUBJECT block the API sends, not from a payload
+ * the API does not. Reading the wrong field meant every row fell through to
+ * "/inbox" — a list whose every entry linked back to itself, which reads as a
+ * broken product rather than a missing one.
  */
-function describe(notification: Notification): string {
-  const actor = notification.actor?.name ?? notification.payload?.actor_name ?? null;
-  const reference = notification.payload?.reference ?? "";
-  const title = notification.payload?.title ?? "";
-  const subject = reference ? `${reference} · ${title}` : title || "an item";
-
-  // Rule-caused notifications. Impersonal on purpose: attributing an automated
-  // escalation to a person makes people ask that person about it.
-  if (actor === null) {
-    switch (notification.type) {
-      case "work.escalated":
-        return `${subject} is overdue and has been escalated to you`;
-      case "work.needs_assignee":
-        return `${subject} is urgent and has nobody on it`;
-      case "work.due_soon":
-        return `${subject} is due soon`;
-      default:
-        return `${subject} · ${notification.type.replace(/[._]/g, " ")}`;
-    }
-  }
-
-  switch (notification.type) {
-    case "approval.requested":
-      return `${actor} asked you to review ${subject}`;
-    case "approval.approved":
-      return `${actor} approved ${subject}`;
-    case "approval.changes_requested":
-      return `${actor} asked for changes on ${subject}`;
-    case "approval.rejected":
-      return `${actor} rejected ${subject}`;
-    case "work.assigned":
-      return `${actor} assigned you ${subject}`;
-    case "work.reassigned_away":
-      return `${actor} moved ${subject} to someone else`;
-    case "work.completed":
-      return `${actor} completed ${subject}`;
-    case "work.blocked":
-      return `${actor} marked ${subject} blocked`;
-    case "comment.mentioned":
-      return `${actor} mentioned you on ${subject}`;
-    case "comment.replied":
-      return `${actor} replied to you on ${subject}`;
-    default:
-      return `${actor} · ${notification.type.replace(/[._]/g, " ")} · ${subject}`;
-  }
-}
-
 function hrefFor(notification: Notification): string {
-  const reference = notification.payload?.reference;
+  const reference = notification.subject.reference;
 
   if (notification.type.startsWith("approval.")) {
-    return reference ? `/work/${reference}` : "/inbox?tab=reviews";
+    return reference === null ? "/inbox?tab=reviews" : `/work/${reference}`;
   }
 
-  return reference ? `/work/${reference}` : "/inbox";
+  return reference === null ? "/inbox" : `/work/${reference}`;
 }
 
 function groupByDay(

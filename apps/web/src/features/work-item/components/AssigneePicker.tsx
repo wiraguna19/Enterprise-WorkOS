@@ -68,8 +68,13 @@ export function AssigneePicker({
           <PersonLabel membershipId={current.membership_id} name={current.name} />
         )}
 
+        {/* The visible word is short because the row already says which field
+            it belongs to. The accessible name says the role out loud: two
+            buttons called "Change" on one screen are two buttons a screen
+            reader cannot tell apart. */}
         <button
           type="button"
+          aria-label={`${current === null ? "Assign" : "Change"} ${role}`}
           onClick={() => {
             setError(null);
             setOpen(true);
@@ -121,6 +126,7 @@ export function AssigneePicker({
         <Button
           size="sm"
           variant="ghost"
+          aria-label={`Clear ${role}`}
           disabled={saving}
           onClick={() => act(() => unassign(reference, current.assignment_id))}
         >
@@ -128,7 +134,13 @@ export function AssigneePicker({
         </Button>
       )}
 
-      <Button size="sm" variant="ghost" disabled={saving} onClick={() => setOpen(false)}>
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={`Stop changing the ${role}`}
+        disabled={saving}
+        onClick={() => setOpen(false)}
+      >
         Cancel
       </Button>
 

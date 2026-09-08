@@ -51,8 +51,28 @@ final class NotificationResource extends BaseResource
      */
     private function message(array $payload): string
     {
-        $actor = $payload['actor_name'] ?? 'Someone';
         $reference = $payload['reference'] ?? 'work';
+
+        /*
+         * No actor means a RULE did this, not a mystery person.
+         *
+         * "Someone escalated ENG-142" sends people asking each other who did
+         * it. The web app learned this in Phase 4 and fixed it in its own copy
+         * of this sentence table — a copy that could never run, because this
+         * resource does not emit the payload that copy read. So the lesson
+         * lived in dead code while the sentence people actually saw still
+         * invented a colleague.
+         */
+        if (! isset($payload['actor_name'])) {
+            return match ($this->resource->type) {
+                'work.escalated' => "{$reference} is overdue and has been escalated to you",
+                'work.needs_assignee' => "{$reference} is urgent and has nobody on it",
+                'work.due_soon' => "{$reference} is due soon",
+                default => (string) ($payload['message'] ?? "Update on {$reference}"),
+            };
+        }
+
+        $actor = $payload['actor_name'];
 
         return match ($this->resource->type) {
             'work.assigned' => isset($payload['handover'])

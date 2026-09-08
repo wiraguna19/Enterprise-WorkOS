@@ -57,7 +57,16 @@ final class WorkItemController extends ApiController
 
         $item->load([
             'state', 'project', 'milestone', 'parent:id,reference,title',
-            'children.state', 'assignmentHistory.membership.user',
+            // BOTH, and the difference is not cosmetic. `assignmentHistory` is
+            // every row ever, closed ones included, and it is what the history
+            // section reads; `assignments` is who holds a role NOW, and it is
+            // what `assignees` is built from. This was the one endpoint in the
+            // controller loading the first and not the second, so the detail
+            // page — the only screen that names the assignee — reported
+            // "Unassigned" for every item in the product while the history
+            // directly below it named the holder. A field built with
+            // `whenLoaded` is ABSENT, not null, and absent renders as nobody.
+            'children.state', 'assignments.membership.user', 'assignmentHistory.membership.user',
             'dependencies.dependsOn:id,reference,title,state_category',
             'dependents.workItem:id,reference,title,state_category',
         ]);

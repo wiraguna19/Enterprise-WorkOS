@@ -138,13 +138,30 @@ export type Comment = {
   edited: boolean;
 };
 
+/**
+ * A notification, as the API actually returns it.
+ *
+ * This type used to declare `payload`, `subject_type` and `subject_id` — none
+ * of which `NotificationResource` emits. TypeScript believed it, the inbox read
+ * `payload.reference` on every row, got `undefined` on every row, and so every
+ * notification in the product read "… an item" and linked back to the inbox
+ * instead of to the work. It looked plausible enough to survive four phases.
+ *
+ * `message` is composed server-side on purpose, so the inbox, a future email
+ * and a future push cannot drift apart. The client renders it rather than
+ * rebuilding it — the copy it used to keep was both a duplicate and dead.
+ */
 export type Notification = {
   id: string;
   type: string;
-  subject_type: string;
-  subject_id: string;
-  payload: Record<string, string | null> | null;
-  actor: { name: string | null } | null;
+  subject: {
+    type: string;
+    id: string;
+    reference: string | null;
+    title: string | null;
+  };
+  actor: { membership_id: string | null; name: string | null };
+  message: string;
   read: boolean;
   created_at: string;
 };
