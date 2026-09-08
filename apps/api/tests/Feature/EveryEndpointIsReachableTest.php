@@ -85,10 +85,9 @@ const INTERFACE_OWED = [
     'api/v1/recurrences' => 'Recurring work can be created by API only.',
     'api/v1/recurrences/{id}' => 'Recurring work can be created by API only.',
 
-    // Removing an assignee and withdrawing your own submission: two undo paths,
-    // each the second half of an action the product already offers. (Editing a
-    // comment was the third, and is now built.)
-    'api/v1/work-items/{reference}/assignees/{assignment}' => 'No way to remove an assignee.',
+    // One undo path left, and it is the second half of an action the product
+    // already offers. (Editing a comment and removing an assignee were the
+    // other two, and are now built.)
     'api/v1/approvals/{id}/withdraw' => 'A requester cannot withdraw their own submission.',
 
     // ── Found 2026-09-06, when this test learned to ask about the VERB ──────
@@ -106,12 +105,6 @@ const INTERFACE_OWED = [
     // with nothing calling it — and is now the New work item form. What is left
     // is the other half: an item can be created and never corrected.
     'POST api/v1/teams' => 'Teams can gain and lose members; no team can be created.',
-
-    // Assignment is offered everywhere in the vocabulary of the product — My
-    // Work, the workload bar, the assignee column — and performed nowhere.
-    // Hidden until now behind `/work-items/{reference}/assignments`, the
-    // history endpoint a page does fetch: a prefix is not a caller.
-    'POST api/v1/work-items/{reference}/assign' => 'Nothing in the product assigns work to anyone.',
 
     // Hidden behind `/approvals/{id}/decide`. The queue row is the whole
     // interface an approval has; there is no page for one.

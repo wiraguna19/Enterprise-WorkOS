@@ -327,3 +327,69 @@ export async function deleteWorkItem(reference: string): Promise<ActionState> {
 
   return { error: null };
 }
+
+/**
+ * Give a role on this item to somebody.
+ *
+ * `POST /work-items/{reference}/assign` shipped in Phase 3 and nothing called
+ * it: the create form could name an assignee, and after that the only way to
+ * change one was the API. It hid from the reachability guard behind
+ * `/work-items/${reference}/assignments` — the history endpoint a page does
+ * fetch — because a prefix used to count as a caller.
+ *
+ * The API decides what happens to whoever held the role: reassigning is one
+ * call, not "unassign then assign", so there is no window in which the item
+ * belongs to nobody and no pair of activity rows to read as two decisions.
+ * Sending both would also be racing another person's edit at half speed.
+ *
+ * A `reason` is not collected. The activity log records who did it and when,
+ * and asking for a sentence before every reassignment is how people learn to
+ * type "." into a box.
+ */
+export async function assignTo(
+  reference: string,
+  membershipId: string,
+  role: "assignee" | "reviewer",
+): Promise<ActionState> {
+  try {
+    await api(`/work-items/${reference}/assign`, {
+      method: "POST",
+      body: { membership_id: membershipId, role },
+    });
+  } catch (error) {
+    return failure(error);
+  }
+
+  // My Work is somebody ELSE's list now, or was until a moment ago — both
+  // people's lists change, and the badge with them.
+  revalidatePath(`/work/${reference}`);
+  revalidatePath("/my-work");
+  revalidatePath("/", "layout");
+
+  return { error: null };
+}
+
+/**
+ * Take a role away without giving it to anyone.
+ *
+ * The second half of assigning, and one of the undo paths that had no way in.
+ * The row is closed rather than deleted — `unassigned_at` with a reason — so
+ * the history still says who held it and for how long.
+ *
+ * Deliberately NOT offered as "reassign to nobody" inside the picker: leaving
+ * an item unowned is a decision, and it should cost a different click from
+ * choosing a colleague.
+ */
+export async function unassign(reference: string, assignmentId: string): Promise<ActionState> {
+  try {
+    await api(`/work-items/${reference}/assignees/${assignmentId}`, { method: "DELETE" });
+  } catch (error) {
+    return failure(error);
+  }
+
+  revalidatePath(`/work/${reference}`);
+  revalidatePath("/my-work");
+  revalidatePath("/", "layout");
+
+  return { error: null };
+}

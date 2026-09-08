@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Avatar } from "@/components/ui/Avatar";
 import { ButtonLink } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { DueDate } from "@/features/work-item/components/DueDate";
 import { AssignmentHistory } from "@/features/work-item/components/AssignmentHistory";
 import { ActivityTimeline, type ActivityEvent } from "@/features/work-item/components/ActivityTimeline";
+import { AssigneePicker } from "@/features/work-item/components/AssigneePicker";
 import { CommentThread } from "@/features/work-item/components/CommentThread";
 import { PrimaryAction } from "@/features/work-item/components/PrimaryAction";
 import { WorkItemChannel } from "@/features/realtime/WorkItemChannel";
@@ -87,6 +87,15 @@ export default async function WorkItemPage({
   const assignee = item.assignees?.find((a) => a.role === "assignee");
   const reviewer = item.assignees?.find((a) => a.role === "reviewer");
 
+  // Only when the picker will be offered. Two hundred names on every view of
+  // every item, for a control most readers of an item never touch, is a cost
+  // paid by everybody for a few.
+  const people = (item.permissions.assign ?? false)
+    ? await api<Array<{ id: string; name: string | null }>>("/people?limit=200")
+        .then((r) => r.data.map((person) => ({ id: person.id, name: person.name ?? "Unnamed" })))
+        .catch(() => [] as Array<{ id: string; name: string }>)
+    : [];
+
   return (
     <article className="mx-auto max-w-4xl space-y-6">
       <header className="space-y-3 border-b border-n-100 pb-4">
@@ -126,21 +135,31 @@ export default async function WorkItemPage({
           )}
 
           <Field label="Assignee">
-            {assignee ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Avatar id={assignee.membership_id} name={assignee.name ?? "?"} size="sm" />
-                {assignee.name}
-                {!assignee.accepted && (
-                  <span className="text-caption text-s-active">· not accepted</span>
-                )}
-              </span>
-            ) : (
-              <span className="text-s-active">Unassigned</span>
-            )}
+            <span className="inline-flex items-center gap-1.5">
+              <AssigneePicker
+                reference={item.reference}
+                role="assignee"
+                current={assignee ?? null}
+                people={people}
+                canAssign={item.permissions.assign ?? false}
+              />
+              {/* Kept beside the control, not inside it: "not accepted" is a
+                  fact about the person's answer, not about who holds the role,
+                  and it must survive whatever the picker is doing. */}
+              {assignee && !assignee.accepted && (
+                <span className="text-caption text-s-active">· not accepted</span>
+              )}
+            </span>
           </Field>
 
           <Field label="Reviewer">
-            {reviewer ? reviewer.name : <span className="text-n-500">—</span>}
+            <AssigneePicker
+              reference={item.reference}
+              role="reviewer"
+              current={reviewer ?? null}
+              people={people}
+              canAssign={item.permissions.assign ?? false}
+            />
           </Field>
 
           <Field label="Due">
