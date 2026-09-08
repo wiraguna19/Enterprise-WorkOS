@@ -61,7 +61,12 @@ cp .env.example .env && php artisan key:generate
 php artisan migrate --seed
 php artisan serve            # http://localhost:8000
 
-php artisan queue:work       # notifications, workflow rules, scans, rollups
+# --queue names BOTH, and the order is the priority. `queue:work` with no
+# --queue takes the default queue only, so the malware scan — which runs on
+# `low` — never ran, and every attachment stayed "being checked" forever:
+# an unscanned file is deliberately not downloadable, so a missing low worker
+# presents as a broken attachment feature rather than as a dormant queue.
+php artisan queue:work --queue=default,low   # notifications, workflow rules, scans, rollups
 
 cd ../web
 npm install
