@@ -231,3 +231,99 @@ export async function createWorkItem(
 
   return { error: null, reference };
 }
+
+/** What the edit form may change. Status is not here: it moves through /transition. */
+export type WorkItemEdit = {
+  title?: string;
+  description?: string;
+  priority?: string;
+  start_date?: string | null;
+  due_at?: string | null;
+  estimate_hours?: string | null;
+};
+
+export type EditState = ActionState & {
+  /** Set when the item moved on while somebody was editing it. */
+  conflict?: { yours: number; current: number };
+};
+
+/**
+ * Edit a work item.
+ *
+ * An item could be created and never corrected: `PATCH /work-items/{reference}`
+ * has existed since Phase 3 and nothing called it, which made a typo in a title
+ * permanent and a moved deadline a job for curl.
+ *
+ * **Only what changed is sent.** That is PATCH's contract here, and it is also
+ * what makes the activity log's diff mean anything (docs/05 §5) — a full
+ * document PUT would record every field as touched on every save, and a history
+ * where everything changed every time is a history nobody reads.
+ *
+ * **`lock_version` is always sent.** The API answers 409 with both versions
+ * rather than overwriting somebody (docs/03 §8), and this carries that back as
+ * a named result instead of a message: a conflict is not a validation error,
+ * and the screen owes the person a different sentence and a different next
+ * step. `error.code` is what it branches on — stable and machine-readable —
+ * never the message, which is localised.
+ */
+export async function updateWorkItem(
+  reference: string,
+  changes: WorkItemEdit,
+  lockVersion: number,
+): Promise<EditState> {
+  if (Object.keys(changes).length === 0) {
+    return { error: null };
+  }
+
+  try {
+    await api(`/work-items/${reference}`, {
+      method: "PATCH",
+      body: { ...changes, lock_version: lockVersion },
+    });
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.error.code === "concurrency.conflict") {
+      const details = error.error.details ?? {};
+
+      return {
+        error: error.error.message,
+        requestId: error.error.request_id,
+        conflict: {
+          yours: Number(details.your_version ?? lockVersion),
+          current: Number(details.current_version ?? lockVersion),
+        },
+      };
+    }
+
+    return failure(error);
+  }
+
+  revalidatePath(`/work/${reference}`);
+  revalidatePath("/my-work");
+  revalidatePath("/");
+
+  return { error: null };
+}
+
+/**
+ * Delete a work item.
+ *
+ * Soft, on the server: the row and its trail survive, because restoring work
+ * somebody removed by mistake is a real support request (docs/03 §0). The
+ * interface says so rather than promising an erasure that does not happen —
+ * and does not promise a restore button either, because there is not one.
+ */
+export async function deleteWorkItem(reference: string): Promise<ActionState> {
+  try {
+    await api(`/work-items/${reference}`, { method: "DELETE" });
+  } catch (error) {
+    return failure(error);
+  }
+
+  // Not the item's own page: it is gone, and revalidating a route the caller is
+  // about to leave for good is how a deleted item flashes back into view.
+  revalidatePath("/my-work");
+  revalidatePath("/projects");
+  revalidatePath("/");
+
+  return { error: null };
+}

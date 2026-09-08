@@ -105,8 +105,6 @@ const INTERFACE_OWED = [
     // `POST /work-items` was here for one commit — it had existed since Phase 3
     // with nothing calling it — and is now the New work item form. What is left
     // is the other half: an item can be created and never corrected.
-    'PATCH api/v1/work-items/{reference}' => 'A work item cannot be edited after it exists — not its title, dates or priority.',
-    'DELETE api/v1/work-items/{reference}' => 'No delete, and no screen that offers one.',
     'POST api/v1/teams' => 'Teams can gain and lose members; no team can be created.',
 
     // Assignment is offered everywhere in the vocabulary of the product — My

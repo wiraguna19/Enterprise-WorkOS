@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
+import { ButtonLink } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { DueDate } from "@/features/work-item/components/DueDate";
@@ -106,7 +107,18 @@ export default async function WorkItemPage({
           <PriorityIcon priority={item.priority} withLabel />
         </div>
 
-        <h1 className="text-display font-semibold text-n-900">{item.title}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-display font-semibold text-n-900">{item.title}</h1>
+
+          {/* Not a primary action — the sticky one at the bottom is the next
+              step in the workflow, and editing a title is never that. Offered
+              only where the API would allow it, which it re-decides anyway. */}
+          {(item.permissions.update ?? false) && (
+            <ButtonLink href={`/work/${item.reference}/edit`} size="sm">
+              Edit
+            </ButtonLink>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-body-sm">
           {item.state && (
