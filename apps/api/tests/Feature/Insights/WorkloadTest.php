@@ -105,7 +105,15 @@ it('spreads an estimate across the days it spans', function (): void {
 
     // Days 3,4,5,6 of ten → 4 hours. Counted where the work actually is, not
     // dropped whole into whichever week is being looked at.
-    expect((float) $after['committed_hours'] - (float) $before['committed_hours'])->toBe(4.0)
+    //
+    // Compared with a delta, and it has to be: `committed_hours` is rounded to
+    // two places by the query, and the DIFFERENCE of two rounded floats is not
+    // exact — this asserted 4.0 against 4.0000000000000036 the first day the
+    // baseline drifted onto values whose binary forms do not cancel. A tenth
+    // of a second of a person's week is not a difference this product can
+    // express, let alone one worth failing a build over.
+    expect((float) $after['committed_hours'] - (float) $before['committed_hours'])
+        ->toEqualWithDelta(4.0, 0.001)
         ->and($after['item_count'] - $before['item_count'])->toBe(1);
 });
 
@@ -114,8 +122,11 @@ it('counts an unestimated item at the default and says that it did', function ()
         'due_at' => now()->startOfWeek()->addDay(),
     ]));
 
-    // The seeded organization default is 4 hours.
-    expect((float) $after['committed_hours'] - (float) $before['committed_hours'])->toBe(4.0)
+    // The seeded organization default is 4 hours. The difference is compared
+    // with a delta for the reason above; `default_estimate_hours` is a value
+    // read straight back, not a difference, so it is compared exactly.
+    expect((float) $after['committed_hours'] - (float) $before['committed_hours'])
+        ->toEqualWithDelta(4.0, 0.001)
         ->and((float) $after['default_estimate_hours'])->toBe(4.0)
         // A bar built on unestimated work is a lie unless it admits it.
         ->and($after['unestimated_count'] - $before['unestimated_count'])->toBe(1);
