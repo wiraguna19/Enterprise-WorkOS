@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Files\Infrastructure\Eloquent;
 
+use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Platform\Infrastructure\Eloquent\TenantModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,5 +43,20 @@ final class AttachmentModel extends TenantModel
     public function file(): BelongsTo
     {
         return $this->belongsTo(FileModel::class, 'file_id');
+    }
+
+    /**
+     * Who attached it — which is not always who uploaded it.
+     *
+     * The file carries `uploaded_by_membership_id` and the attachment carries
+     * `attached_by`, and the same file can be attached to several subjects by
+     * different people. The list reads THIS one, because the question a reader
+     * has is "who put this here".
+     *
+     * @return BelongsTo<MembershipModel, $this>
+     */
+    public function attachedBy(): BelongsTo
+    {
+        return $this->belongsTo(MembershipModel::class, 'attached_by');
     }
 }

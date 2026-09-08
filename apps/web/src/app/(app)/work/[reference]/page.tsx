@@ -7,6 +7,10 @@ import { DueDate } from "@/features/work-item/components/DueDate";
 import { AssignmentHistory } from "@/features/work-item/components/AssignmentHistory";
 import { ActivityTimeline, type ActivityEvent } from "@/features/work-item/components/ActivityTimeline";
 import { AssigneePicker } from "@/features/work-item/components/AssigneePicker";
+import {
+  AttachmentPanel,
+  type Attachment,
+} from "@/features/work-item/components/AttachmentPanel";
 import { CommentThread } from "@/features/work-item/components/CommentThread";
 import { PrimaryAction } from "@/features/work-item/components/PrimaryAction";
 import { WorkItemChannel } from "@/features/realtime/WorkItemChannel";
@@ -58,7 +62,7 @@ export default async function WorkItemPage({
     throw error;
   }
 
-  const [comments, history, moves, time, activity] = await Promise.all([
+  const [comments, history, moves, time, activity, attachments] = await Promise.all([
     api<Comment[]>(`/work-items/${reference}/comments`).then((r) => r.data).catch(() => []),
     api<HistoryEntry[]>(`/work-items/${reference}/assignments`).then((r) => r.data).catch(() => []),
     // The legal moves, from the workflow graph. Fetched here rather than in the
@@ -82,6 +86,11 @@ export default async function WorkItemPage({
     api<ActivityEvent[]>(`/work-items/${reference}/activity`)
       .then((r) => r.data)
       .catch(() => [] as ActivityEvent[]),
+    // The read path that did not exist until now: `attach` had written rows
+    // since Phase 2 and nothing listed them.
+    api<Attachment[]>(`/work-items/${reference}/attachments`)
+      .then((r) => r.data)
+      .catch(() => [] as Attachment[]),
   ]);
 
   const assignee = item.assignees?.find((a) => a.role === "assignee");
@@ -206,6 +215,23 @@ export default async function WorkItemPage({
       {/* Was "Activity & comments" over a list of comments, because the
           activity log had no endpoint to read it from. It has one now, and it
           is the section below. */}
+      <section aria-labelledby="attachments-heading">
+        <SectionLabel id="attachments-heading">
+          Attachments
+          {attachments.length > 0 && (
+            <span className="ml-1 font-normal text-n-500">({attachments.length})</span>
+          )}
+        </SectionLabel>
+        <AttachmentPanel
+          reference={item.reference}
+          attachments={attachments}
+          // The same right the API asks for: uploading is a permission, not a
+          // consequence of being able to comment.
+          canAttach={me.permissions.includes("file.upload")}
+          timeZone={me.user.timezone}
+        />
+      </section>
+
       <section aria-labelledby="comments-heading">
         <SectionLabel id="comments-heading">
           Comments

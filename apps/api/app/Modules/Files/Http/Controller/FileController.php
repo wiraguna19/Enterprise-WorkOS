@@ -59,6 +59,45 @@ final class FileController extends ApiController
         return $this->ok(['url' => $this->uploads->downloadUrl($model)]);
     }
 
+    /**
+     * What is attached to this work item.
+     *
+     * Ordered oldest first, like the comments: an attachment list is a record
+     * of what was added as the work went on, and reversing it puts the
+     * specification under the screenshot of the bug it caused.
+     *
+     * `available` is the file's own answer — uploaded AND scanned — and it is
+     * rendered rather than filtered on. A file that is still being scanned
+     * exists and the person who just uploaded it knows it exists; hiding it
+     * reads as a failed upload, which is the one thing it is not.
+     */
+    public function index(string $reference): ApiResponse
+    {
+        $item = $this->findVisibleWorkItem($reference);
+
+        $attachments = AttachmentModel::query()
+            ->with(['file', 'attachedBy.user:id,name'])
+            ->where('attachable_type', 'work_item')
+            ->where('attachable_id', $item->getKey())
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        return $this->ok($attachments->map(fn (AttachmentModel $attachment) => [
+            'id' => $attachment->id,
+            'attached_at' => $attachment->created_at->toIso8601String(),
+            'attached_by' => $attachment->attachedBy?->user?->name,
+            'file' => [
+                'id' => $attachment->file?->id,
+                'name' => $attachment->file?->original_name,
+                'size_bytes' => $attachment->file?->size_bytes,
+                'mime_type' => $attachment->file?->mime_type,
+                'available' => $attachment->file?->isAvailable() ?? false,
+                'scan_status' => $attachment->file?->scan_status,
+            ],
+        ])->values()->all());
+    }
+
     public function attach(Request $request, string $reference): ApiResponse
     {
         $item = $this->findVisibleWorkItem($reference);

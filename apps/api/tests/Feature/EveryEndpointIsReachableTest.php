@@ -44,7 +44,6 @@ use Symfony\Component\Finder\Finder;
  */
 const NO_INTERFACE_BY_DESIGN = [
     'api/v1/calendar/{token}.ics' => 'Fetched by calendar clients over the subscription URL, not by this app.',
-    'api/v1/files/{file}/download' => 'Reached by the presigned URL the browser is handed, never by path.',
 ];
 
 /**
@@ -74,12 +73,6 @@ const INTERFACE_OWED = [
     'POST api/v1/departments' => 'No department admin screen exists.',
     'PATCH api/v1/departments/{department}' => 'No department admin screen exists.',
     'POST api/v1/departments/{department}/move' => 'No department admin screen exists.',
-
-    // The whole attachment feature. docs/11 §4 flow 6 is "comment with a
-    // @mention, attach a file" — the second half has nothing to drive it.
-    'api/v1/files/upload-url' => 'No file picker anywhere in the product.',
-    'api/v1/files/{file}/complete' => 'No file picker anywhere in the product.',
-    'api/v1/work-items/{reference}/attachments' => 'No file picker anywhere in the product.',
 
     // Phase 5 shipped RRULE recurrence end to end and no way to create one.
     'api/v1/recurrences' => 'Recurring work can be created by API only.',

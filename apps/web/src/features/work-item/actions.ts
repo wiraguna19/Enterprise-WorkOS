@@ -393,3 +393,92 @@ export async function unassign(reference: string, assignmentId: string): Promise
 
   return { error: null };
 }
+
+export type Reservation = { fileId: string; uploadUrl: string; error: null } | {
+  fileId: null;
+  uploadUrl: null;
+  error: string;
+};
+
+/**
+ * Reserve a place in storage for a file that is about to be uploaded.
+ *
+ * The bytes do NOT come through here. The API signs a URL and the browser PUTs
+ * straight to storage (docs/05 §6) — a 200 MB file through a Server Action
+ * would mean the whole thing in a Node process's memory and again in a PHP
+ * worker's, to arrive where the signed URL would have put it directly.
+ *
+ * So this is the one place the product hands the browser something to talk to
+ * other than its own API, and the reason it is safe is that the URL is
+ * short-lived, scoped to one object, and issued only after the API has decided
+ * this person may upload and that this type and size are allowed. The type and
+ * size rules are NOT restated here: the API refuses, and this carries the
+ * refusal back with the list of what it does accept.
+ */
+export async function reserveUpload(
+  name: string,
+  mimeType: string,
+  sizeBytes: number,
+): Promise<Reservation> {
+  try {
+    const { data } = await api<{ file_id: string; upload_url: string }>("/files/upload-url", {
+      method: "POST",
+      body: { name, mime_type: mimeType, size_bytes: sizeBytes },
+    });
+
+    return { fileId: data.file_id, uploadUrl: data.upload_url, error: null };
+  } catch (error) {
+    const failed = failure(error);
+
+    return { fileId: null, uploadUrl: null, error: failed.error ?? "Upload could not start." };
+  }
+}
+
+/**
+ * Tell the API the bytes are there, then hang the file on the work item.
+ *
+ * Two calls, deliberately not one: `complete` is about the FILE (it is
+ * uploaded, it may be scanned), and `attach` is about this work item (it is
+ * part of this conversation). The same file can be attached to more than one
+ * subject, and collapsing the pair would mean a file cannot exist without a
+ * subject — which is exactly what breaks the moment somebody attaches an
+ * existing file to a second item.
+ */
+export async function attachUploadedFile(
+  reference: string,
+  fileId: string,
+): Promise<ActionState> {
+  try {
+    await api(`/files/${fileId}/complete`, { method: "POST" });
+    await api(`/work-items/${reference}/attachments`, {
+      method: "POST",
+      body: { file_id: fileId },
+    });
+  } catch (error) {
+    return failure(error);
+  }
+
+  revalidatePath(`/work/${reference}`);
+
+  return { error: null };
+}
+
+/**
+ * A short-lived URL for reading one attachment.
+ *
+ * Fetched at the moment of the click rather than rendered into the list: the
+ * URL expires in minutes, so a page left open for an afternoon would hand out
+ * links that fail — and a list of thirty attachments would sign thirty URLs
+ * nobody asked for, each one a credential sitting in the HTML.
+ */
+export async function attachmentUrl(fileId: string): Promise<{ url: string | null; error: string | null }> {
+  try {
+    const { data } = await api<{ url: string }>(`/files/${fileId}/download`);
+
+    return { url: data.url, error: null };
+  } catch (error) {
+    const failed = failure(error);
+
+    return { url: null, error: failed.error ?? "That file could not be opened." };
+  }
+}
