@@ -8,6 +8,7 @@ use App\Modules\Collaboration\Infrastructure\Eloquent\CommentModel;
 use App\Modules\Collaboration\Infrastructure\Eloquent\MentionModel;
 use App\Modules\Governance\Application\Service\ActivityLogger;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
+use App\Modules\Notification\Application\Service\NotificationDispatcher;
 use App\Modules\Platform\Application\Event\RecordsDomainEvents;
 use App\Modules\Platform\Domain\Contract\RealtimePublisher;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
@@ -35,6 +36,7 @@ final class CommentService
         private readonly ActivityLogger $activity,
         private readonly TenantContext $tenant,
         private readonly RealtimePublisher $realtime,
+        private readonly NotificationDispatcher $notifications,
     ) {}
 
     public function create(
@@ -119,6 +121,9 @@ final class CommentService
             return;
         }
 
+        /** @var list<string> $mentioned */
+        $mentioned = [];
+
         $memberships = MembershipModel::query()
             ->with('user:id,name')
             ->where('status', 'active')
@@ -140,6 +145,41 @@ final class CommentService
                 'comment_id' => $comment->getKey(),
                 'mentioned_membership_id' => $membership->getKey(),
             ])->save();
+
+            $mentioned[] = (string) $membership->getKey();
         }
+
+        if ($mentioned === []) {
+            return;
+        }
+
+        /*
+         * Told, not just recorded.
+         *
+         * The mention rows have been written since Phase 2 and nothing ever
+         * read them: `comment.mentioned` had a sentence in the resource, a
+         * toggle on the settings screen, and no code path that produced one.
+         * A write with no reader (docs/11 §7) — and the quiet half of docs/11
+         * §4 flow 6.
+         *
+         * Dispatched here rather than through an event a listener picks up,
+         * because Collaboration and Notification are siblings and the sideways
+         * subscription would close a cycle through Workflow (ADR 0013). This is
+         * the same call Workflow's NotifyAction makes.
+         *
+         * All recipients in ONE dispatch: the dedupe key is per membership, so
+         * a person named twice in one comment is notified once, and the
+         * dispatcher's own rule about not telling people what they just did
+         * still applies — though `recordMentions` has already skipped the
+         * author above, because a self-mention should not even be a row.
+         */
+        $this->notifications->dispatch(
+            type: 'comment.mentioned',
+            subjectType: $comment->commentable_type,
+            subjectId: $comment->commentable_id,
+            recipients: $mentioned,
+            payload: ['comment_id' => $comment->getKey()],
+            dedupeSeed: (string) $comment->getKey(),
+        );
     }
 }

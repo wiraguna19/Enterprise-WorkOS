@@ -98,10 +98,17 @@ parameters:
       - Governance
 
     # Collaboration and Files hang off Work's subjects.
+    # Notification, because a @mention has to reach somebody: CommentService
+    # calls NotificationDispatcher exactly as Workflow's NotifyAction does
+    # (ADR 0013). The direction matters — nothing Notification depends on
+    # reaches Collaboration, so this closes no cycle. Reading a Collaboration
+    # event FROM Notification would have: Work → Workflow → Notification →
+    # Collaboration → Work.
     Collaboration:
       - Platform
       - Identity
       - Work
+      - Notification
       - Governance
 
     Files:

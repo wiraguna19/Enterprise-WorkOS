@@ -36,7 +36,12 @@ const GROUPS: Array<{
     description: "Changes to what you are responsible for.",
     types: [
       { key: "work.assigned", label: "Work is assigned to you", alwaysInApp: true },
-      { key: "work.mentioned", label: "You are mentioned in a comment" },
+      // `comment.mentioned`, which is what the product sends. This said
+      // `work.mentioned` — a key nothing dispatches — so the toggle wrote a
+      // preference row no dispatcher would ever read. A control for a type
+      // that does not exist cannot fail visibly, which is how it survived
+      // beside a mention feature that notified nobody at all.
+      { key: "comment.mentioned", label: "You are mentioned in a comment" },
       { key: "work.due_soon", label: "Your work is due soon" },
     ],
   },

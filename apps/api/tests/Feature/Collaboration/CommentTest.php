@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\DB;
+
 /**
  * Comments are a security boundary as much as a feature: the body is untrusted
  * input rendered back to every other user (docs/06 §3).
@@ -59,6 +61,63 @@ it('extracts mentions server-side rather than trusting the client', function ():
         'comment_id' => $response->json('data.id'),
         'mentioned_membership_id' => '01900000-0000-7000-8000-000000000201',
     ]);
+});
+
+it('tells the person who was mentioned', function (): void {
+    // The half of docs/11 §4 flow 6 that did nothing. `mentions` rows have been
+    // written since Phase 2 and nothing read them: `comment.mentioned` had a
+    // sentence in the resource and a toggle on the settings screen, and no code
+    // path anywhere produced one (ADR 0013).
+    $response = $this->withToken($this->employee)
+        ->postJson('/api/v1/work-items/ENG-144/comments', [
+            'body' => '@Ahmad Rizal the rollback plan is attached.',
+        ])->assertCreated();
+
+    $this->assertDatabaseHas('notifications', [
+        'membership_id' => '01900000-0000-7000-8000-000000000202',
+        'type' => 'comment.mentioned',
+        'subject_type' => 'work_item',
+    ]);
+
+    // The payload carries what the inbox renders from, and the reference is
+    // what turns a row into a link. A notification that cannot name its subject
+    // reads "an item" and goes nowhere — which is what every row in this
+    // product did until `da26a7a`.
+    $notification = DB::table('notifications')
+        ->where('membership_id', '01900000-0000-7000-8000-000000000202')
+        ->where('type', 'comment.mentioned')
+        ->orderByDesc('created_at')
+        ->first();
+
+    expect($notification)->not->toBeNull();
+
+    $payload = json_decode((string) $notification->payload, true, flags: JSON_THROW_ON_ERROR);
+
+    expect($payload['reference'])->toBe('ENG-144')
+        ->and($payload['comment_id'])->toBe($response->json('data.id'));
+});
+
+it('mentions a person once however many times they are named', function (): void {
+    $id = $this->withToken($this->employee)
+        ->postJson('/api/v1/work-items/ENG-144/comments', [
+            'body' => '@Ahmad Rizal and again @Ahmad Rizal — the dedupe key is per comment.',
+        ])->assertCreated()->json('data.id');
+
+    // Scoped to THIS comment. The first version counted every
+    // `comment.mentioned` Ahmad had and asserted 1, which passed only if no
+    // other test had ever mentioned him — the test above does, so it counted
+    // that one too and reported the dedupe as broken when it was working. The
+    // same shape as approving `.first()` off a shared queue: a row from an
+    // earlier run looks exactly like a wrong result.
+    $count = DB::table('notifications')
+        ->where('membership_id', '01900000-0000-7000-8000-000000000202')
+        ->where('type', 'comment.mentioned')
+        ->whereRaw("payload->>'comment_id' = ?", [$id])
+        ->count();
+
+    // One per comment, not one per occurrence: the dedupe key is the comment's
+    // id, and the partial unique index makes the second insert a no-op.
+    expect($count)->toBe(1);
 });
 
 it('does not notify someone about their own comment', function (): void {
