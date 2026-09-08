@@ -7,6 +7,7 @@ namespace App\Modules\Organization\Http\Policy;
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
+use App\Modules\Organization\Application\Query\ReportingLine;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 
 /**
@@ -31,9 +32,27 @@ final class MembershipPolicy
 
     private ?string $actorFor = null;
 
+    /**
+     * Everyone beneath the actor, resolved once per request.
+     *
+     * The directory asks `viewWorkload` for every row; without this the same
+     * recursive query would run a hundred times to return the same list.
+     *
+     * Keyed by membership id for the same reason `$actorFor` is: one request
+     * can act as two people, and a reporting line cached without its owner
+     * would answer the second person with the first one's reports — which here
+     * means showing them somebody else's workload.
+     *
+     * @var list<string>|null
+     */
+    private ?array $manages = null;
+
+    private ?string $managesFor = null;
+
     public function __construct(
         private readonly PermissionResolver $permissions,
         private readonly TenantContext $tenant,
+        private readonly ReportingLine $reportingLine,
     ) {}
 
     public function view(UserModel $user, MembershipModel $membership): bool
@@ -70,27 +89,32 @@ final class MembershipPolicy
     /**
      * A manager can see the workload of anyone in their reporting line, at any
      * depth, without needing the org-wide permission.
+     *
+     * Answered by `ReportingLine`, which is where this walk lives for the whole
+     * product (ADR 0009). The version here climbed the chain by following
+     * `$subject->manager` — a LAZY LOAD, inside a policy, called once per row
+     * of the directory. Lazy loading is disabled outside production, so
+     * `GET /people` threw a 500 for anyone the `||` above did not
+     * short-circuit: every caller WITHOUT `person.view_workload`, which is to
+     * say every ordinary employee. Managers and admins never saw it, and
+     * neither did any test, because the seeded people driving them all hold
+     * that permission.
+     *
+     * In production, where lazy loading is merely enabled, the same code was an
+     * N+1 climbing up to ten levels per rendered row.
      */
     private function managesTransitively(MembershipModel $membership): bool
     {
-        $actorProfileId = $this->actor()?->employeeProfile?->getKey();
+        $actorId = $this->tenant->membershipId();
 
-        if ($actorProfileId === null) {
-            return false;
+        // One query per request, not per row. `below()` is recursive SQL and
+        // the directory asks this question for everybody on the page.
+        if ($this->managesFor !== $actorId) {
+            $this->manages = $this->reportingLine->below($actorId);
+            $this->managesFor = $actorId;
         }
 
-        $subject = $membership->employeeProfile;
-        $guard = 0;
-
-        while ($subject !== null && $guard++ < 10) {
-            if ((string) $subject->manager_profile_id === (string) $actorProfileId) {
-                return true;
-            }
-
-            $subject = $subject->manager;
-        }
-
-        return false;
+        return in_array((string) $membership->getKey(), $this->manages ?? [], strict: true);
     }
 
     private function can(string $permission): bool
