@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { attachUploadedFile, attachmentUrl, reserveUpload } from "../actions";
 
 export type Attachment = {
@@ -53,10 +54,90 @@ export function AttachmentPanel({
   canAttach: boolean;
   timeZone: string;
 }) {
+  const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
+
+  // Cleared on unmount so a pending re-check cannot refresh a page nobody is
+  // on. No setState here — this component's waiting is driven by the upload
+  // EVENT, not by a rendered value.
+  //
+  // **Set true on mount, not only false on teardown.** Strict Mode runs effects
+  // mount → cleanup → mount in development, so a ref that is only cleared ends
+  // up false while the component is very much alive: the poll below then
+  // returned at its first line, the row stayed "being checked" forever, and
+  // the give-up message never arrived either — a wait that neither resolved
+  // nor timed out, which is the shape that reads as a hung feature.
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  // The current list, readable from inside a timer.
+  //
+  // A callback scheduled during one render closes over that render's props, so
+  // the poll below would keep re-reading the list as it was when the upload
+  // started and never notice the file it is waiting for. Synced in an effect
+  // rather than written during render: the render does not read this, it only
+  // needs it to be current by the time a timer fires.
+  const current = useRef(attachments);
+
+  useEffect(() => {
+    current.current = attachments;
+  });
+
+  /**
+   * Wait for the scan, out loud, and give up out loud.
+   *
+   * An uploaded file is not readable until it has been checked, and the check
+   * is queued — so the row says "being checked" and, until this existed, said
+   * it forever: the list is server-rendered and nothing asked again. The first
+   * attachment ever uploaded through this product sat like that, and the cause
+   * was a worker started without `--queue=default,low`, which is invisible from
+   * here.
+   *
+   * The export panel set this pattern in Phase 6: poll for a bounded time, then
+   * say plainly that a background worker does this and none may be running.
+   * A spinner that never resolves teaches people the feature is broken; a
+   * sentence naming the worker teaches them what to check.
+   */
+  const awaitScan = (name: string, attempt = 0) => {
+    if (!mounted.current) return;
+
+    if (current.current.some((row) => row.file.name === name && row.file.available)) {
+      // Checked, and the list already says so — the refresh that proved it also
+      // re-rendered the row as a link.
+      setStatus(null);
+
+      return;
+    }
+
+    if (attempt >= 10) {
+      setStatus(null);
+      setError(
+        "The file is uploaded but still being checked. A background worker scans "
+          + "uploads, and none may be running.",
+      );
+
+      return;
+    }
+
+    setTimeout(() => {
+      if (!mounted.current) return;
+
+      // Re-reads the server component, which is where the attachment list and
+      // its `available` flag come from. Nothing here holds a copy of them.
+      router.refresh();
+      awaitScan(name, attempt + 1);
+    }, 3_000);
+  };
 
   const upload = (file: File) =>
     startTransition(async () => {
@@ -99,6 +180,12 @@ export function AttachmentPanel({
 
       setStatus(null);
       setError(attached.error);
+
+      if (attached.error === null) {
+        // Attached, not yet readable: the scan decides that, on the queue.
+        setStatus("Uploaded. Waiting for the file to be checked…");
+        awaitScan(file.name);
+      }
 
       if (attached.error === null && input.current !== null) {
         // Cleared so the same file can be picked again: a file input keeps its
