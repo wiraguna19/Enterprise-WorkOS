@@ -96,7 +96,18 @@ export const QUEUE_HINT =
 export async function eventually<T>(
   what: string,
   attempt: () => Promise<T | null>,
-  hint: string,
+  /**
+   * A sentence, or a function that goes and looks.
+   *
+   * The callable form exists because a timeout says only that something did not
+   * appear, which is the same message whether nothing was written or the test
+   * was reading the wrong list. It runs once, at the deadline, and what it
+   * returns goes in the failure — so the next question is answered before
+   * anybody has to ask it. Two rounds of this suite were spent proving a
+   * notification existed in the database while the test that could not see it
+   * said nothing about what it COULD see.
+   */
+  hint: string | (() => Promise<string> | string),
   timeoutMs = 15_000,
 ): Promise<T> {
   const deadline = Date.now() + timeoutMs;
@@ -109,7 +120,13 @@ export async function eventually<T>(
     }
 
     if (Date.now() > deadline) {
-      throw new Error(`Timed out waiting for ${what}. ${hint}`);
+      const explanation = typeof hint === "string"
+        ? hint
+        : await Promise.resolve(hint()).catch(
+          (error: unknown) => `(the hint itself failed: ${String(error)})`,
+        );
+
+      throw new Error(`Timed out waiting for ${what}. ${explanation}`);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 500));
