@@ -110,43 +110,72 @@ final class CommentService
      * Matching is by display name against ACTIVE members of this organization
      * only, so an @mention can never resolve across tenants or to someone who
      * has left.
+     *
+     * **A name is however many words it is.** The first version captured one
+     * word or two, which is a guess about how people are called: "@I Made
+     * Wiraguna" resolved to nobody, silently, and the demo seed could never
+     * have shown it because every seeded name happens to be two words. So the
+     * text after each `@` is cut into candidate prefixes and the LONGEST one
+     * that equals a stored name wins — the database decides what a name is,
+     * and the parser stops guessing.
+     *
+     * Still extracted from the text, never accepted from the client: a
+     * client-supplied mention list is a notification-spam vector (see the class
+     * docblock), and that does not change because the client now has a picker.
      */
     private function recordMentions(CommentModel $comment, string $body): void
     {
-        preg_match_all('/@([\p{L}][\p{L}\p{N}\'\-]*(?:\s+[\p{L}][\p{L}\p{N}\'\-]*)?)/u', $body, $matches);
+        $occurrences = $this->candidateNames($body);
 
-        $names = array_unique(array_map('trim', $matches[1]));
-
-        if ($names === []) {
+        if ($occurrences === []) {
             return;
         }
 
-        /** @var list<string> $mentioned */
-        $mentioned = [];
-
-        $memberships = MembershipModel::query()
+        $byName = MembershipModel::query()
             ->with('user:id,name')
             ->where('status', 'active')
             ->whereHas('user', fn ($q) => $q->whereIn(
                 DB::raw('lower(name)'),
-                array_map(mb_strtolower(...), $names),
+                array_merge(...$occurrences),
             ))
-            ->get();
+            ->get()
+            ->keyBy(fn (MembershipModel $m) => mb_strtolower((string) $m->user?->name));
 
-        foreach ($memberships as $membership) {
-            // Never notify someone about their own comment.
-            if ((string) $membership->getKey() === $this->tenant->membershipId()) {
-                continue;
+        /** @var list<string> $mentioned */
+        $mentioned = [];
+
+        foreach ($occurrences as $prefixes) {
+            // Longest first, and STOP at the first hit. With a "Rina" and a
+            // "Rina Wijaya" in the same organization, "@Rina Wijaya" means one
+            // of them — notifying both because both prefixes matched is the
+            // kind of helpfulness people turn notifications off over.
+            foreach (array_reverse($prefixes) as $name) {
+                $membership = $byName->get($name);
+
+                if ($membership === null) {
+                    continue;
+                }
+
+                // Never notify someone about their own comment.
+                if ((string) $membership->getKey() === $this->tenant->membershipId()) {
+                    break;
+                }
+
+                if (in_array((string) $membership->getKey(), $mentioned, strict: true)) {
+                    break;   // named twice in one comment; one row, one notification
+                }
+
+                $mention = new MentionModel;
+                $mention->forceFill([
+                    'id' => MentionModel::newId(),
+                    'comment_id' => $comment->getKey(),
+                    'mentioned_membership_id' => $membership->getKey(),
+                ])->save();
+
+                $mentioned[] = (string) $membership->getKey();
+
+                break;
             }
-
-            $mention = new MentionModel;
-            $mention->forceFill([
-                'id' => MentionModel::newId(),
-                'comment_id' => $comment->getKey(),
-                'mentioned_membership_id' => $membership->getKey(),
-            ])->save();
-
-            $mentioned[] = (string) $membership->getKey();
         }
 
         if ($mentioned === []) {
@@ -166,12 +195,6 @@ final class CommentService
          * because Collaboration and Notification are siblings and the sideways
          * subscription would close a cycle through Workflow (ADR 0013). This is
          * the same call Workflow's NotifyAction makes.
-         *
-         * All recipients in ONE dispatch: the dedupe key is per membership, so
-         * a person named twice in one comment is notified once, and the
-         * dispatcher's own rule about not telling people what they just did
-         * still applies — though `recordMentions` has already skipped the
-         * author above, because a self-mention should not even be a row.
          */
         $this->notifications->dispatch(
             type: 'comment.mentioned',
@@ -181,5 +204,49 @@ final class CommentService
             payload: ['comment_id' => $comment->getKey()],
             dedupeSeed: (string) $comment->getKey(),
         );
+    }
+
+    /**
+     * Every name that could have been meant, from every `@` in the text.
+     *
+     * For "@I Made Wiraguna please look" this yields "i", "i made", "i made
+     * wiraguna", "i made wiraguna please" and so on up to the word cap — and
+     * the query keeps whichever of them is an actual member's name. Sending a
+     * handful of prefixes to an exact-match lookup is cheaper than fetching
+     * every member to compare in PHP, and it cannot match a name that is not
+     * stored.
+     *
+     * MAX_NAME_WORDS bounds the work: a comment full of "@" would otherwise
+     * generate prefixes without limit. Six is past any name this product has
+     * seen and far below anything that costs.
+     *
+     * @return list<list<string>> one list per `@`, lowercased, shortest first
+     */
+    private function candidateNames(string $body): array
+    {
+        $maxWords = 6;
+
+        preg_match_all(
+            '/@([\p{L}][\p{L}\p{N}\'\-]*(?:\s+[\p{L}][\p{L}\p{N}\'\-]*){0,'.($maxWords - 1).'})/u',
+            $body,
+            $matches,
+        );
+
+        $occurrences = [];
+
+        foreach ($matches[1] as $match) {
+            $words = preg_split('/\s+/u', trim($match)) ?: [];
+            $prefixes = [];
+
+            for ($take = 1; $take <= count($words); $take++) {
+                $prefixes[] = mb_strtolower(implode(' ', array_slice($words, 0, $take)));
+            }
+
+            if ($prefixes !== []) {
+                $occurrences[] = $prefixes;
+            }
+        }
+
+        return $occurrences;
     }
 }

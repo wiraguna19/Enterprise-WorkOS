@@ -482,3 +482,38 @@ export async function attachmentUrl(fileId: string): Promise<{ url: string | nul
     return { url: null, error: failed.error ?? "That file could not be opened." };
   }
 }
+
+export type Mentionable = { id: string; name: string; jobTitle: string | null };
+
+/**
+ * People whose names can be typed after an `@`.
+ *
+ * A Server Action rather than a browser fetch, for the reason every other read
+ * in this app is one: the session token lives in an HttpOnly cookie and the
+ * browser never holds a bearer (docs/06 §1). The API applies its own
+ * visibility, so this cannot list people the caller could not otherwise see.
+ *
+ * Returns the DISPLAY NAME, which is the thing the server resolves a mention
+ * by. There is no separate handle in this product, and inventing one here —
+ * `@rina.wijaya` — would be a second identifier the API knows nothing about.
+ */
+export async function mentionable(query: string): Promise<Mentionable[]> {
+  const terms = query.trim();
+
+  try {
+    const { data } = await api<Array<{ id: string; name: string | null; job_title: string | null }>>(
+      `/people?limit=6${terms === "" ? "" : `&q=${encodeURIComponent(terms)}`}`,
+      { revalidate: false },
+    );
+
+    return data
+      .filter((person): person is { id: string; name: string; job_title: string | null } =>
+        person.name !== null)
+      .map((person) => ({ id: person.id, name: person.name, jobTitle: person.job_title }));
+  } catch {
+    // A picker that cannot reach the server should get out of the way, not
+    // interrupt: the person can still type the name, which is what they did
+    // before this existed.
+    return [];
+  }
+}

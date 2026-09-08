@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Uid\UuidV7;
 
 /**
  * Comments are a security boundary as much as a feature: the body is untrusted
@@ -118,6 +119,89 @@ it('mentions a person once however many times they are named', function (): void
     // One per comment, not one per occurrence: the dedupe key is the comment's
     // id, and the partial unique index makes the second insert a no-op.
     expect($count)->toBe(1);
+});
+
+it('resolves a name of any length, not one word or two', function (): void {
+    // The old parser captured at most two words, so anyone with a longer name
+    // could not be mentioned at all — silently, with the comment posted and
+    // nobody told. Every seeded name happens to be two words, so the demo data
+    // could never have shown it; this fixture is the case the seed cannot make.
+    $id = (string) new UuidV7;
+
+    DB::table('users')->insert([
+        'id' => $id,
+        'email' => 'threewords@acme.test',
+        'name' => 'I Made Wiraguna',
+        'password_hash' => bcrypt('password'),
+        'timezone' => 'Asia/Makassar',
+        'locale' => 'en',
+        'created_at' => now(),
+    ]);
+
+    $membership = (string) new UuidV7;
+
+    DB::table('memberships')->insert([
+        'id' => $membership,
+        'organization_id' => '01900000-0000-7000-8000-0000000000ac',
+        'user_id' => $id,
+        'status' => 'active',
+        'joined_at' => now(),
+    ]);
+
+    $comment = $this->withToken($this->employee)
+        ->postJson('/api/v1/work-items/ENG-144/comments', [
+            'body' => '@I Made Wiraguna could you check the rollback plan?',
+        ])->assertCreated()->json('data.id');
+
+    $this->assertDatabaseHas('mentions', [
+        'comment_id' => $comment,
+        'mentioned_membership_id' => $membership,
+    ]);
+});
+
+it('takes the longest name that matches, not every prefix of it', function (): void {
+    // With a "Sarah" and a "Sarah Chen" in one organization, "@Sarah Chen"
+    // means one of them. Notifying both because both prefixes matched is the
+    // kind of helpfulness people turn notifications off over.
+    $id = (string) new UuidV7;
+
+    DB::table('users')->insert([
+        'id' => $id,
+        'email' => 'sarah-short@acme.test',
+        'name' => 'Sarah',
+        'password_hash' => bcrypt('password'),
+        'timezone' => 'Asia/Jakarta',
+        'locale' => 'en',
+        'created_at' => now(),
+    ]);
+
+    $shortName = (string) new UuidV7;
+
+    DB::table('memberships')->insert([
+        'id' => $shortName,
+        'organization_id' => '01900000-0000-7000-8000-0000000000ac',
+        'user_id' => $id,
+        'status' => 'active',
+        'joined_at' => now(),
+    ]);
+
+    // Ahmad writes it, so that mentioning Sarah Chen is not a self-mention.
+    $ahmad = $this->loginAs('ahmad@acme.test');
+
+    $comment = $this->withToken($ahmad)
+        ->postJson('/api/v1/work-items/ENG-144/comments', ['body' => '@Sarah Chen please review'])
+        ->assertCreated()
+        ->json('data.id');
+
+    $this->assertDatabaseHas('mentions', [
+        'comment_id' => $comment,
+        'mentioned_membership_id' => '01900000-0000-7000-8000-000000000203',
+    ]);
+
+    $this->assertDatabaseMissing('mentions', [
+        'comment_id' => $comment,
+        'mentioned_membership_id' => $shortName,
+    ]);
 });
 
 it('does not notify someone about their own comment', function (): void {

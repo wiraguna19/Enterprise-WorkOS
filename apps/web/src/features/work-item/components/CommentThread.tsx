@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { editComment, postComment } from "../actions";
+import { MentionTextarea } from "./MentionTextarea";
 import type { Comment } from "../types";
 
 /**
@@ -142,12 +143,15 @@ function CommentRow({
             {/* Seeded with the markdown SOURCE, not the rendered HTML: editing
                 a comment must not silently rewrite it into whatever the
                 renderer produced. */}
-            <textarea
+            {/* The same control as the composer: an edit that adds a mention
+                is the commonest reason to edit at all, and a picker that only
+                exists on the way in is a picker people learn not to rely on. */}
+            <MentionTextarea
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={setDraft}
               rows={3}
-              aria-label="Edit your comment"
-              className="w-full resize-y rounded-sm border border-n-200 bg-n-0 px-2.5 py-1.5 text-body text-n-900 outline-none transition-colors focus:border-a-500"
+              ariaLabel="Edit your comment"
+              disabled={saving}
             />
 
             <div className="flex flex-wrap items-center gap-2">
@@ -199,13 +203,14 @@ function Composer({ reference }: { reference: string }) {
       }}
     >
       <div className="flex items-start gap-2">
-        <textarea
-          name="body"
+        <MentionTextarea
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={setBody}
           rows={2}
           placeholder="Write a comment…  @name to mention"
-          className="min-h-[2.5rem] flex-1 resize-y rounded-sm border border-n-200 bg-n-0 px-2.5 py-1.5 text-body text-n-900 outline-none transition-colors placeholder:text-n-300 focus:border-a-500"
+          ariaLabel="Write a comment"
+          disabled={sending}
+          className="min-h-[2.5rem]"
         />
         <Button type="submit" variant="primary" disabled={sending || body.trim() === ""}>
           {sending ? "Sending…" : "Send"}
