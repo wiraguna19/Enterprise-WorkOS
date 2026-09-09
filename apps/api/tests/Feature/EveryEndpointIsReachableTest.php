@@ -78,11 +78,6 @@ const INTERFACE_OWED = [
     'api/v1/recurrences' => 'Recurring work can be created by API only.',
     'api/v1/recurrences/{id}' => 'Recurring work can be created by API only.',
 
-    // One undo path left, and it is the second half of an action the product
-    // already offers. (Editing a comment and removing an assignee were the
-    // other two, and are now built.)
-    'api/v1/approvals/{id}/withdraw' => 'A requester cannot withdraw their own submission.',
-
     // ── Found 2026-09-06, when this test learned to ask about the VERB ──────
     //
     // Everything below was counted as reached until the day the path stopped

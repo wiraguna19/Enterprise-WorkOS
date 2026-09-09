@@ -4,6 +4,7 @@ import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { formatAge, formatDateTime } from "@/lib/format";
 import type { Approval } from "@/features/work-item/types";
 import { DecisionForm } from "./DecisionForm";
+import { WithdrawButton } from "./WithdrawButton";
 
 /**
  * The review queue (docs/08 §7).
@@ -124,6 +125,11 @@ export function ReviewQueue({
               reference={approval.subject?.reference ?? "this"}
             />
           )}
+
+          {/* The other side of the same row. `permissions.withdraw` has been in
+              this payload since Phase 4 and nothing read it: the client asked
+              for `decide` and ignored the answer sitting beside it. */}
+          {approval.permissions.withdraw && <WithdrawButton approvalId={approval.id} />}
         </li>
       ))}
     </ul>

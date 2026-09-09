@@ -77,3 +77,35 @@ export async function markRead(ids?: string[]): Promise<{ error: string | null }
 
   return { error: null };
 }
+
+/**
+ * Take back your own submission.
+ *
+ * The last of the three undo paths that had no way in. `approvals/{id}/withdraw`
+ * has existed since Phase 4 and the resource has been sending
+ * `permissions.withdraw` to a client that read only `permissions.decide` — the
+ * server answering a question nobody asked.
+ *
+ * The API decides who may: only the requester, and only while the approval is
+ * still pending. Neither rule is repeated here. What this does add is the
+ * refusal's own words when somebody withdraws a submission a reviewer has just
+ * decided — a race two people can lose in a shared queue.
+ */
+export async function withdraw(approvalId: string): Promise<DecisionState> {
+  try {
+    await api(`/approvals/${approvalId}/withdraw`, { method: "POST" });
+  } catch (error) {
+    if (error instanceof ApiRequestError) {
+      return { error: error.error.message, requestId: error.error.request_id };
+    }
+
+    return { error: "We could not reach the server. Please try again." };
+  }
+
+  // Both sides: the requester's "waiting on others" loses a row, and the
+  // reviewer's queue loses the same one.
+  revalidatePath("/inbox");
+  revalidatePath("/", "layout");
+
+  return { error: null };
+}
