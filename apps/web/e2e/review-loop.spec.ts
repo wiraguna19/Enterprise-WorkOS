@@ -221,8 +221,8 @@ async function pendingApprovalFor(
     `an approval for ${reference}`,
     async () => {
       const [reviewing, requested] = await Promise.all([
-        call<Approval[]>(reviewer, "/approvals?role=reviewer&status=pending"),
-        call<Approval[]>(requester, "/me/approvals?role=requester&status=pending"),
+        call<Approval[]>(reviewer, "/approvals?role=reviewer&status=pending&limit=100"),
+        call<Approval[]>(requester, "/me/approvals?role=requester&status=pending&limit=100"),
       ]);
 
       // `subject?`, because the resource emits null for an approval whose

@@ -33,6 +33,16 @@ export async function signIn(email: string, password = "password"): Promise<Sess
   return { token: body.data.token };
 }
 
+/**
+ * Every collection in this API is cursor-paginated, and the flows ask for the
+ * maximum page (`limit=100`) where they scan one.
+ *
+ * That is a known ceiling, not a fix. The review queue is oldest-first, so the
+ * approval a flow has just created sits at the END of it, and a database
+ * carrying more than a hundred pending approvals pages it out — which is what a
+ * stale test database looks like from in here. Reseed; the number cannot go
+ * higher (`CursorPage::MAX_PER_PAGE`).
+ */
 export async function call<T>(
   session: Session,
   path: string,

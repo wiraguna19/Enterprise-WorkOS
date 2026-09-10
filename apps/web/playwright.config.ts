@@ -27,7 +27,23 @@ export default defineConfig({
   // than about the product.
   workers: 1,
   fullyParallel: false,
-  timeout: 60_000,
+  // 120s, and the reason is the harness rather than the product.
+  //
+  // `npm run dev` compiles each route on its first request, and the project
+  // that runs first pays for all of them. In one full run every mobile test was
+  // three to ten times its desktop twin — dashboard 13.9s against 2.1s,
+  // cross-tenant 14.6s against 1.8s, reassignment 23.7s against 1.8s. That is
+  // not a viewport difference; the second project finds every route warm.
+  //
+  // review-loop is the longest flow — two submit-and-review cycles across two
+  // signed-in contexts — and it ran 7.6s warm and over a minute cold, which is
+  // how a compile budget turns into a failure that looks like a product bug.
+  //
+  // The real fix is to run against a production build (`next build && next
+  // start`), where nothing compiles mid-suite. Until then this is a budget wide
+  // enough for a cold first project. **If a test approaches this, look at what
+  // it does, not at this number** — the warm run is the honest measurement.
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? "github" : "list",
 

@@ -90,7 +90,7 @@ test.describe("submitting work", () => {
       async () => {
         const rows = await call<Approval[]>(
           sarah,
-          "/me/approvals?role=requester&status=pending",
+          "/me/approvals?role=requester&status=pending&limit=100",
         );
 
         return rows.find((row) => row.subject?.reference === item.reference) ?? null;
@@ -170,7 +170,7 @@ test.describe("submitting work", () => {
 
     // It leaves the reviewer's queue too. A withdrawal that only the submitter
     // can see is a submission the reviewer keeps looking at.
-    const reviewerQueue = await call<Approval[]>(ahmad, "/approvals?role=reviewer&status=pending");
+    const reviewerQueue = await call<Approval[]>(ahmad, "/approvals?role=reviewer&status=pending&limit=100");
 
     expect(
       reviewerQueue.map((row) => row.id),

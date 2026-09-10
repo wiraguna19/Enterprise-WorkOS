@@ -7,6 +7,7 @@ namespace App\Modules\Approval\Http\Controller;
 use App\Modules\Approval\Application\Service\ApprovalService;
 use App\Modules\Approval\Http\Resource\ApprovalResource;
 use App\Modules\Approval\Infrastructure\Eloquent\ApprovalModel;
+use App\Modules\Platform\Application\Query\CursorPage;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
@@ -31,13 +32,14 @@ final class ApprovalController extends ApiController
     {
         $validated = $request->validate([
             'role' => ['sometimes', Rule::in(['reviewer', 'requester'])],
+            'limit' => ['sometimes', 'integer', 'min:1'],
             'status' => ['sometimes', Rule::in(['pending', 'approved', 'changes_requested', 'rejected', 'withdrawn'])],
         ]);
 
         $role = $validated['role'] ?? 'reviewer';
         $membershipId = $this->tenant->membershipId();
 
-        $approvals = ApprovalModel::query()
+        $query = ApprovalModel::query()
             ->with(['requester.user:id,name', 'approvers.membership.user:id,name', 'decisions.reviewer.user:id,name'])
             ->when(
                 $role === 'reviewer',
@@ -48,10 +50,37 @@ final class ApprovalController extends ApiController
                 fn ($q) => $q->where('requested_by_membership_id', $membershipId),
             )
             ->where('status', $validated['status'] ?? 'pending')
+            // Oldest first. A newest-first review queue starves the submission
+            // that has waited longest, which is the one most likely to be
+            // blocking somebody.
             ->orderBy('submitted_at')
-            ->get();
+            // The tiebreaker is not decoration: a cursor is built from the
+            // ordering columns, and two approvals submitted in the same
+            // millisecond — which is exactly what a rule opening several at
+            // once produces — give a cursor that cannot say which side of
+            // itself a row falls on. Rows then repeat or vanish between pages.
+            ->orderBy('id');
 
-        return $this->ok(ApprovalResource::collection($this->withSubjects($approvals)));
+        // Counted before the page is taken, because the two answer different
+        // questions: the count is a fact about the queue, the rows are a page
+        // of it (ADR 0008). Without this the inbox said "12 waiting on you"
+        // by measuring the array it had just been handed — a number that would
+        // stop at the page size and never say so.
+        $total = (clone $query)->count();
+
+        // Cursor-paginated, like every other collection in this API. This
+        // endpoint returned the WHOLE queue with three eager-loaded relations
+        // on each row, and the inbox rendered all of it: one page render, one
+        // unbounded result set, growing with the organization. Nothing caught
+        // it because a demo queue is six rows and a `->get()` looks like every
+        // other `->get()` — see docs/12 §6, and the board that exhausted PHP's
+        // memory limit the same way.
+        $page = new CursorPage($query->cursorPaginate(CursorPage::perPage($request->integer('limit'))));
+
+        return ApiResponse::collection(
+            ApprovalResource::collection($this->withSubjects(collect($page->paginator->items()))),
+            $page->meta() + ['total' => $total],
+        );
     }
 
     public function show(string $id): ApiResponse

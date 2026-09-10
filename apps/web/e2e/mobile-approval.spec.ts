@@ -73,8 +73,8 @@ test.describe("mobile approval", () => {
     // and this reviewer is not on it (the rule's roster is not who we think).
     const approval = await eventually("the approval to be created", async () => {
       const [reviewing, requested] = await Promise.all([
-        call<Approval[]>(ahmad, "/approvals?role=reviewer&status=pending"),
-        call<Approval[]>(sarah, "/me/approvals?role=requester&status=pending"),
+        call<Approval[]>(ahmad, "/approvals?role=reviewer&status=pending&limit=100"),
+        call<Approval[]>(sarah, "/me/approvals?role=requester&status=pending&limit=100"),
       ]);
 
       const mine = reviewing.find((row) => row.subject?.reference === item.reference);

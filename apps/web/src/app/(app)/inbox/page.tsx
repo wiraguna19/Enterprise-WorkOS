@@ -35,27 +35,37 @@ export default async function InboxPage({
   const [me, params] = await Promise.all([requireUser(), searchParams]);
   const tab = TABS.find((t) => t.key === params.tab)?.key ?? "reviews";
 
-  const [reviews, waiting, notifications] = await Promise.all([
+  // Every list here is a PAGE, and every count beside it is a total the server
+  // counted before paging. They are different questions and this screen used to
+  // answer both with `array.length` — a number that stops at the page size and
+  // never says so. `/notifications` has been cursor-paginated all along, so the
+  // header already disagreed with the badge in the shell beside it, which reads
+  // its count from the server (ADR 0008: a count is a fact about the queue, the
+  // rows are a page of it).
+  const [reviews, waiting, notifications, unread] = await Promise.all([
     api<Approval[]>("/approvals?role=reviewer&status=pending")
-      .then((r) => r.data).catch(() => [] as Approval[]),
+      .then((r) => ({ rows: r.data, total: totalIn(r.meta, r.data.length) }))
+      .catch(() => ({ rows: [] as Approval[], total: 0 })),
     api<Approval[]>("/me/approvals?role=requester&status=pending")
-      .then((r) => r.data).catch(() => [] as Approval[]),
+      .then((r) => ({ rows: r.data, total: totalIn(r.meta, r.data.length) }))
+      .catch(() => ({ rows: [] as Approval[], total: 0 })),
     api<Notification[]>("/notifications")
       .then((r) => r.data).catch(() => [] as Notification[]),
+    api<{ unread: number }>("/notifications/unread-count")
+      .then((r) => r.data.unread).catch(() => 0),
   ]);
 
   // Notifications about approvals already have their own tab; repeating them
   // under "everything else" is the duplication that makes an inbox feel noisy.
   const rest = notifications.filter((n) => !n.type.startsWith("approval."));
-  const unread = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Inbox"
         description={
-          reviews.length > 0
-            ? `${reviews.length} waiting on you · ${unread} unread`
+          reviews.total > 0
+            ? `${reviews.total} waiting on you · ${unread} unread`
             : `${unread} unread`
         }
         // "All" is decided by the server, not by the rows this page happened to
@@ -72,9 +82,13 @@ export default async function InboxPage({
       <nav aria-label="Inbox sections" className="flex gap-1 overflow-x-auto border-b border-n-100">
         {TABS.map((t) => {
           const active = t.key === tab;
+          // The server's totals for the two queues. "Everything else" has no
+          // total of its own — it is the notification page minus the approval
+          // rows, a filter this screen applies — so it counts what it shows and
+          // is the one tab whose number is honestly about the page.
           const count =
-            t.key === "reviews" ? reviews.length
-            : t.key === "waiting" ? waiting.length
+            t.key === "reviews" ? reviews.total
+            : t.key === "waiting" ? waiting.total
             : rest.length;
 
           return (
@@ -97,14 +111,14 @@ export default async function InboxPage({
       </nav>
 
       {tab === "reviews" && (
-        reviews.length === 0 ? (
+        reviews.rows.length === 0 ? (
           <EmptyState
             title="Nothing is waiting on you"
             description="When someone submits work for your review it appears here, with their note, so you can decide without opening every item."
           />
         ) : (
           <ReviewQueue
-            approvals={reviews}
+            approvals={reviews.rows}
             timeZone={me.user.timezone}
             emptyLabel="Nothing is waiting on you."
           />
@@ -112,14 +126,14 @@ export default async function InboxPage({
       )}
 
       {tab === "waiting" && (
-        waiting.length === 0 ? (
+        waiting.rows.length === 0 ? (
           <EmptyState
             title="You are not waiting on anyone"
             description="Work you submit for review stays here until it is decided, so a submission never disappears the moment you send it."
           />
         ) : (
           <ReviewQueue
-            approvals={waiting}
+            approvals={waiting.rows}
             timeZone={me.user.timezone}
             emptyLabel="You are not waiting on anyone."
           />
@@ -138,4 +152,18 @@ export default async function InboxPage({
       )}
     </div>
   );
+}
+
+/**
+ * The `total` the API counted before paging, or the page's own length.
+ *
+ * The fallback is for an endpoint that has not been paginated yet rather than
+ * for a missing field: guessing zero would hide a queue, and guessing the page
+ * length is exactly what this function exists to stop — but only where a total
+ * was never sent.
+ */
+function totalIn(meta: unknown, fallback: number): number {
+  const total = (meta as { total?: unknown } | null)?.total;
+
+  return typeof total === "number" ? total : fallback;
 }
