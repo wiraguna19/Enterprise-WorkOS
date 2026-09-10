@@ -36,6 +36,10 @@ const SECONDARY: NavItem[] = [
   { href: "/projects", label: "Projects", permission: "project.view" },
   { href: "/calendar", label: "Calendar" },
   { href: "/time", label: "Timesheet" },
+  // Standing instructions to create work. Gated on the permission the route
+  // itself requires, so it does not appear for somebody who would only find a
+  // refusal behind it.
+  { href: "/recurring", label: "Recurring", permission: "work_item.create" },
   { href: "/reports", label: "Flow", permission: "report.view" },
 ];
 

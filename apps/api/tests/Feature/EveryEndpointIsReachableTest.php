@@ -71,9 +71,11 @@ const INTERFACE_OWED = [
     // project form) while the writes had none, and exempting the whole path
     // would have stopped watching a read the product depends on.
 
-    // Phase 5 shipped RRULE recurrence end to end and no way to create one.
-    'api/v1/recurrences' => 'Recurring work can be created by API only.',
-    'api/v1/recurrences/{id}' => 'Recurring work can be created by API only.',
+    // Recurrence was here — the rule, the materializer, the scheduled command
+    // and the `recurrence_id` on every item it produced, all shipped in Phase 5
+    // with nothing able to create one. `/recurring` does now, and it was the
+    // last entry on this list that belonged to the PRODUCT rather than to a
+    // phase that has not started.
 
     // ── Found 2026-09-06, when this test learned to ask about the VERB ──────
     //
