@@ -65,14 +65,11 @@ const NO_INTERFACE_BY_DESIGN = [
  * @var array<string, string>
  */
 const INTERFACE_OWED = [
-    // Phase 2 built department management; nothing in the product administers
-    // one. The LIST is read now — the New project form offers departments — so
-    // only the writes are still owed, which is what the verb-scoped keys are
-    // for: exempting the whole path would stop watching a read the product
-    // depends on.
-    'POST api/v1/departments' => 'No department admin screen exists.',
-    'PATCH api/v1/departments/{department}' => 'No department admin screen exists.',
-    'POST api/v1/departments/{department}/move' => 'No department admin screen exists.',
+    // The three department writes were here, and are paid: `/departments`
+    // creates, renames and re-parents one. Worth keeping the note about HOW
+    // they were listed — verb-scoped, because the LIST had a reader (the New
+    // project form) while the writes had none, and exempting the whole path
+    // would have stopped watching a read the product depends on.
 
     // Phase 5 shipped RRULE recurrence end to end and no way to create one.
     'api/v1/recurrences' => 'Recurring work can be created by API only.',
@@ -92,7 +89,8 @@ const INTERFACE_OWED = [
     // `POST /work-items` was here for one commit — it had existed since Phase 3
     // with nothing calling it — and is now the New work item form. What is left
     // is the other half: an item can be created and never corrected.
-    'POST api/v1/teams' => 'Teams can gain and lose members; no team can be created.',
+    // `POST /teams` was here — a team could gain and lose members and could not
+    // be created, so every team in the product came from the seed.
 
     // `GET /approvals/{id}` was here, and paid: it is `/approvals/[id]` now.
     // Worth recording what the absence had been hiding — the route was gated

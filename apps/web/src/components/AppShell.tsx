@@ -42,6 +42,9 @@ const SECONDARY: NavItem[] = [
 const ADMIN: NavItem[] = [
   { href: "/people", label: "People", permission: "person.view" },
   { href: "/teams", label: "Teams", permission: "team.view" },
+  // Gated on `department.view` like every other entry here, so it does not
+  // appear for somebody who would only find a 403 behind it.
+  { href: "/departments", label: "Departments", permission: "department.view" },
   // Points at the one settings screen that exists. A nav entry whose target
   // 404s is worse than an absent one: it reads as a broken product rather than
   // an unbuilt feature. The index page arrives when there is more than one

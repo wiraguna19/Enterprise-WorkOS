@@ -6,8 +6,10 @@ namespace App\Modules\Organization\Providers;
 
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Organization\Application\Service\OrganizationDirectoryReader;
+use App\Modules\Organization\Http\Policy\DepartmentPolicy;
 use App\Modules\Organization\Http\Policy\MembershipPolicy;
 use App\Modules\Organization\Http\Policy\TeamPolicy;
+use App\Modules\Organization\Infrastructure\Eloquent\DepartmentModel;
 use App\Modules\Organization\Infrastructure\Eloquent\EmployeeProfileModel;
 use App\Modules\Organization\Infrastructure\Eloquent\TeamModel;
 use App\Modules\Platform\Domain\Contract\OrganizationDirectory;
@@ -54,6 +56,7 @@ final class OrganizationServiceProvider extends ServiceProvider
         // to everyone, and the directory reports that nobody may edit anybody.
         // Laravel's convention-based discovery cannot find it — the modular
         // layout puts models and policies where the convention does not look.
+        Gate::policy(DepartmentModel::class, DepartmentPolicy::class);
         Gate::policy(MembershipModel::class, MembershipPolicy::class);
         Gate::policy(TeamModel::class, TeamPolicy::class);
 

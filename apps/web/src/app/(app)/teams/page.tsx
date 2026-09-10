@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Team } from "@/features/teams/types";
@@ -12,18 +13,37 @@ import { requireUser } from "@/lib/auth";
  * three facts do not need a container each.
  */
 export default async function TeamsPage() {
-  await requireUser();
+  const me = await requireUser();
 
   const { data: teams } = await api<Team[]>("/teams");
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Teams" description={`${teams.length} active`} />
+      <PageHeader
+        title="Teams"
+        description={`${teams.length} active`}
+        action={
+          me.permissions.includes("team.create") ? (
+            <ButtonLink href="/teams/new" variant="primary">
+              New team
+            </ButtonLink>
+          ) : undefined
+        }
+      />
 
       {teams.length === 0 ? (
         <EmptyState
           title="No teams yet"
           description="Teams group people who work together, so work can be found by the group that owns it rather than person by person."
+          action={
+            // The empty state is the worse of the two dead buttons to leave
+            // behind: it is what a brand-new organization sees first.
+            me.permissions.includes("team.create") ? (
+              <ButtonLink href="/teams/new" variant="primary">
+                Create the first team
+              </ButtonLink>
+            ) : undefined
+          }
         />
       ) : (
         <ul className="divide-y divide-n-100 border-y border-n-100">
