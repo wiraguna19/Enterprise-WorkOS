@@ -30,7 +30,13 @@ type WorkItem = {
 // `subject` is nullable: the resource sends null for an approval whose subject
 // this reader cannot load. Declaring it non-null is what let `row.subject.reference`
 // compile and then throw on the first such row in the queue.
-type Approval = { id: string; status: string; subject: { reference: string } | null };
+type Approval = {
+  id: string;
+  status: string;
+  subject: { reference: string } | null;
+  /** Detail endpoint only, and named `reviewers` there though the relation is `approvers`. */
+  reviewers?: Array<{ membership_id: string; name: string | null }>;
+};
 
 test.describe("the review loop", () => {
   test("changes are requested, the work comes back, and the second try is approved", async ({
@@ -209,6 +215,8 @@ async function pendingApprovalFor(
   requester: Session,
   reference: string,
 ): Promise<Approval> {
+  const reviewerId = await membershipOf(reviewer);
+
   return eventually(
     `an approval for ${reference}`,
     async () => {
@@ -227,11 +235,44 @@ async function pendingApprovalFor(
         return mine;
       }
 
-      if (requested.some((row) => row.subject?.reference === reference)) {
+      const theirs = requested.find((row) => row.subject?.reference === reference);
+
+      if (theirs) {
+        // The approval exists and the reviewer's queue does not have it, which
+        // is a roster question (ADR 0001) rather than a queue one — no amount
+        // of waiting fixes it.
+        //
+        // So say WHO is on it. The first version of this asserted the diagnosis
+        // ("Ahmad is not its reviewer, even though he holds the reviewer role
+        // on the item") and named no names, which turned a wrong roster into a
+        // guess about which of four things produced it. The detail endpoint
+        // answers exactly this, and the requester may read her own submission.
+        const opened = await call<Approval>(requester, `/approvals/${theirs.id}`);
+        const roster = opened.reviewers ?? [];
+
+        // On the roster, so this is not a roster problem — keep waiting.
+        //
+        // The two lists above are fetched in one `Promise.all`, and they can
+        // straddle the commit: the reviewer's queue answered a moment BEFORE
+        // the job's transaction landed and the requester's a moment after. The
+        // first version threw here on that two-millisecond window and reported
+        // a permanent roster fault, which is how a race gets a wrong name and a
+        // real bug gets ignored the next time this message appears.
+        //
+        // The roster is the authoritative answer to "is this a roster
+        // problem". A queue that has not caught up is not one.
+        if (roster.some((person) => person.membership_id === reviewerId)) {
+          return null;
+        }
+
         throw new Error(
-          `An approval for ${reference} exists, but Ahmad is not its reviewer — even `
-            + 'though he holds the reviewer role on the item. That is a roster '
-            + 'question (ADR 0001), not a queue one, and no amount of waiting fixes it.',
+          `An approval for ${reference} exists and is not in the reviewer's queue. `
+            + 'It is assigned to: '
+            + `${roster.length === 0 ? "nobody" : roster.map((p) => p.name ?? p.membership_id).join(", ")}. `
+            + 'The rule resolves its roster from the item\'s reviewer assignments and '
+            + 'falls back to the project owner when it finds none — a roster naming '
+            + 'the owner means the assignment was not visible when the job ran, and '
+            + 'an empty one means the approval can never be decided at all.',
         );
       }
 
