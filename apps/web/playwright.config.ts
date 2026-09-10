@@ -27,23 +27,24 @@ export default defineConfig({
   // than about the product.
   workers: 1,
   fullyParallel: false,
-  // 120s, and the reason is the harness rather than the product.
+  // Back to 60s, and the story of why it briefly was not is the point.
   //
-  // `npm run dev` compiles each route on its first request, and the project
-  // that runs first pays for all of them. In one full run every mobile test was
-  // three to ten times its desktop twin — dashboard 13.9s against 2.1s,
-  // cross-tenant 14.6s against 1.8s, reassignment 23.7s against 1.8s. That is
-  // not a viewport difference; the second project finds every route warm.
+  // review-loop kept timing out on whichever project ran first. It looked like
+  // slow compilation — dev mode compiles each route on first request — so the
+  // budget was doubled. It timed out again at 120s, which is when the trace was
+  // finally read: the time was going into INTERACTIONS, not loads. 38.7s to
+  // click one button that never became stable, on a spec that runs in 10.7s on
+  // its own.
   //
-  // review-loop is the longest flow — two submit-and-review cycles across two
-  // signed-in contexts — and it ran 7.6s warm and over a minute cold, which is
-  // how a compile budget turns into a failure that looks like a product bug.
+  // The cause was in the harness. Five specs never closed their browser
+  // contexts, so every page they opened stayed alive for the whole run, each
+  // holding an HMR websocket the dev server keeps broadcasting to. `signedInPhone`
+  // now registers its contexts with an auto fixture that closes them.
   //
-  // The real fix is to run against a production build (`next build && next
-  // start`), where nothing compiles mid-suite. Until then this is a budget wide
-  // enough for a cold first project. **If a test approaches this, look at what
-  // it does, not at this number** — the warm run is the honest measurement.
-  timeout: 120_000,
+  // **Raising a timeout is how a harness bug gets recorded as a slow product.**
+  // Sixty seconds is generous for every flow here; if one approaches it, read
+  // the trace before touching this number.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? "github" : "list",
 

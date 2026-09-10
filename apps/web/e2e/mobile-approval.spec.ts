@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { call, eventually, QUEUE_HINT, type Session } from "./support/api";
-import { signedInPhone } from "./support/auth";
+import { test, signedInPhone } from "./support/auth";
 import { moveThroughTheInterface } from "./support/flows";
 
 /**

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test as base, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { SESSION_COOKIE } from "../../src/lib/session-cookie";
 import { call, type Session } from "./api";
 
@@ -25,6 +25,43 @@ import { call, type Session } from "./api";
 // which is `apps/web`.
 const STATE_DIR = join(process.cwd(), "e2e", ".auth");
 
+/**
+ * Every context this test opened, closed for it when the test ends.
+ *
+ * A context created with `browser.newContext()` belongs to the test that made
+ * it, and Playwright closes only the BROWSER, at the end of the worker. Five of
+ * the ten specs never closed theirs, so their pages stayed open for the whole
+ * run — each holding an HMR websocket the dev server keeps broadcasting to, and
+ * a React tree the browser keeps alive.
+ *
+ * The cost was not a leak warning; it was arithmetic. review-loop ran 10.7s on
+ * its own and over two minutes in the full suite, and the trace showed the time
+ * going into INTERACTIONS rather than loads — 38.7s to click one button that
+ * never became stable. It looked exactly like a slow product, and for two runs
+ * I treated it as one and raised the timeout.
+ *
+ * So it is a fixture rather than a rule. `auto: true` means a spec cannot
+ * forget it by importing `test` from the wrong place — importing it from HERE
+ * is the only thing a spec has to get right, and a spec that imports the plain
+ * `test` gets no `signedInPhone` either.
+ */
+const opened: BrowserContext[] = [];
+
+export const test = base.extend<{ closeOpenedContexts: void }>({
+  closeOpenedContexts: [
+    async ({}, use) => {
+      await use();
+
+      // Splice, so a context closed by the spec itself is not closed twice and
+      // a failure in one close does not strand the others.
+      await Promise.all(
+        opened.splice(0).map((context) => context.close().catch(() => undefined)),
+      );
+    },
+    { auto: true },
+  ],
+});
+
 export type Phone = {
   context: BrowserContext;
   page: Page;
@@ -43,6 +80,8 @@ export async function signedInPhone(
     viewport: viewport ?? undefined,
     storageState: stored ?? undefined,
   });
+
+  opened.push(context);
 
   const page = await context.newPage();
 

@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { call, status, type Session } from "./support/api";
-import { signedInPhone } from "./support/auth";
+import { test, signedInPhone } from "./support/auth";
 
 /**
  * docs/11 §4, flow 14 — "Cross-tenant: a Globex user cannot reach an Acme URL
