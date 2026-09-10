@@ -94,9 +94,12 @@ const INTERFACE_OWED = [
     // is the other half: an item can be created and never corrected.
     'POST api/v1/teams' => 'Teams can gain and lose members; no team can be created.',
 
-    // Hidden behind `/approvals/{id}/decide`. The queue row is the whole
-    // interface an approval has; there is no page for one.
-    'GET api/v1/approvals/{id}' => 'An approval has no detail screen.',
+    // `GET /approvals/{id}` was here, and paid: it is `/approvals/[id]` now.
+    // Worth recording what the absence had been hiding — the route was gated
+    // on a reviewer's permission while its policy named the requester a
+    // participant, so the submitter could withdraw a submission the API would
+    // not let her read. Three phases old, and unreachable by anyone, which is
+    // the only reason it was never reported.
 
     // A number without its drill-through, which is exactly what Phase 6 house
     // rule 1 forbids — the workload bar shows the hours and cannot show the work.

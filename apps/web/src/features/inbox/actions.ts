@@ -41,6 +41,11 @@ export async function decide(
   // work item's status and history gain one.
   revalidatePath("/inbox");
 
+  // And the approval's own page, which is where the decision that was just
+  // made has to appear. Deciding FROM that page and being shown the state
+  // before the decision is the same bug as a queue that does not empty.
+  revalidatePath(`/approvals/${approvalId}`);
+
   return { error: null };
 }
 
@@ -105,6 +110,7 @@ export async function withdraw(approvalId: string): Promise<DecisionState> {
   // Both sides: the requester's "waiting on others" loses a row, and the
   // reviewer's queue loses the same one.
   revalidatePath("/inbox");
+  revalidatePath(`/approvals/${approvalId}`);
   revalidatePath("/", "layout");
 
   return { error: null };

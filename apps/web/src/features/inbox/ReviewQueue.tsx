@@ -48,6 +48,17 @@ export function ReviewQueue({
               {approval.subject?.reference}
             </span>
 
+            {/* The row is triage; this is the rest of it — the note unclamped,
+                every decision rather than the last, and who else was asked.
+                Named for what is behind it rather than "Details", so the link
+                is distinguishable from the title beside it when read out. */}
+            <Link
+              href={`/approvals/${approval.id}`}
+              className="text-caption text-n-500 hover:text-a-700 hover:underline"
+            >
+              Full submission
+            </Link>
+
             {approval.subject && (
               <PriorityIcon priority={approval.subject.priority} withLabel />
             )}

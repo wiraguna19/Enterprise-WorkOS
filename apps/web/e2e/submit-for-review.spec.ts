@@ -40,7 +40,16 @@ type Approval = {
   subject: { reference: string } | null;
 };
 
-const NOTE = "Migration is reversible and the rollback path is in the runbook.";
+/**
+ * Two paragraphs on purpose.
+ *
+ * The queue row collapses whitespace to fit a three-line clamp; the detail page
+ * keeps what was typed. A single-line note cannot tell those two apart, so it
+ * would have passed against a page that silently flattened everything.
+ */
+const NOTE_FIRST_LINE = "Migration is reversible and the rollback path is in the runbook.";
+const NOTE_SECOND_LINE = "Needs deploying before Friday's freeze.";
+const NOTE = `${NOTE_FIRST_LINE}\n\n${NOTE_SECOND_LINE}`;
 
 test.describe("submitting work", () => {
   test("a submission carries its note, and can be taken back", async ({ browser, viewport }) => {
@@ -106,6 +115,34 @@ test.describe("submitting work", () => {
         + "argument for the note being on the row (docs/08 §7).",
     ).toBe(NOTE);
 
+    // ── and the page that shows it in full ────────────────────────────────
+    //
+    // `GET /approvals/{id}` was unreachable until this screen existed, and what
+    // it hid was a permission bug that made the SUBMITTER — the person on this
+    // page right now — unable to read her own submission. So this reads it as
+    // her, not as the reviewer.
+    await page.goto("/inbox?tab=waiting");
+    await page
+      .locator("li")
+      .filter({ hasText: item.reference })
+      .getByRole("link", { name: "Full submission" })
+      .click();
+
+    await expect(page).toHaveURL(new RegExp(`/approvals/${approval.id}$`));
+
+    // Both lines, separately: the note survived with its break rather than
+    // arriving as one collapsed paragraph.
+    await expect(page.getByText(NOTE_FIRST_LINE)).toBeVisible();
+    await expect(page.getByText(NOTE_SECOND_LINE)).toBeVisible();
+
+    // The reviewer is NAMED, not just counted. "1 of 3 approvals" is what the
+    // queue row can say; who the three are is why this page exists — and the
+    // field carrying them is `reviewers`, which the web app called `approvers`
+    // for three phases without ever being wrong out loud, because nothing read
+    // it.
+    await expect(page.getByRole("heading", { name: "Asked to decide" })).toBeVisible();
+    await expect(page.getByText(await nameOf(ahmad))).toBeVisible();
+
     // ── and the queue she is waiting in ───────────────────────────────────
     await page.goto("/inbox?tab=waiting");
 
@@ -150,6 +187,13 @@ test.describe("submitting work", () => {
  * memory the first time and answered with a 404, which is the right answer:
  * the API refuses to invent a route because a client guessed one.
  */
+/** Their display name, as the product shows it. */
+async function nameOf(session: Session): Promise<string> {
+  const me = await call<{ user: { name: string } }>(session, "/auth/me");
+
+  return me.user.name;
+}
+
 async function membershipOf(session: Session): Promise<string> {
   const me = await call<{ membership: { id: string } }>(session, "/auth/me");
 

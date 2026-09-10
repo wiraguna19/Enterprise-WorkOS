@@ -108,7 +108,17 @@ export type Approval = {
     state_category: StateCategory;
     due_at: string | null;
   } | null;
-  approvers: Array<{ membership_id: string; name: string | null }>;
+  /**
+   * Named as the API names it — which is NOT what the model calls it.
+   *
+   * `ApprovalResource` emits `'reviewers' => whenLoaded('approvers')`: the
+   * relation is `approvers`, the field is `reviewers`. This said `approvers`
+   * for three phases and was never wrong out loud, because nothing read it.
+   * Optional for the same reason `requested_by` is: whenLoaded means absent,
+   * not null, on any response that did not eager load it — and the index does
+   * not.
+   */
+  reviewers?: Array<{ membership_id: string; name: string | null }>;
   decisions: Array<{
     id: string;
     decision: "approved" | "changes_requested" | "rejected";
