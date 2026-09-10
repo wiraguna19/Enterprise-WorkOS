@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import type { Workload } from "./types";
 
@@ -23,6 +24,20 @@ export function WorkloadPanel({ workload }: { workload: Workload }) {
         itemCount={workload.item_count}
         unestimatedCount={workload.unestimated_count}
       />
+
+      {/* Phase 6's first house rule: a number must be able to show its work.
+          The endpoint that explains this figure shipped with the figure and had
+          no caller for a phase, so the one number a staffing decision gets made
+          from was the one number nobody could check.
+
+          A link, not a button: it GOES somewhere, and a link with no href does
+          not render, which is a failure mode a button cannot have. */}
+      <Link
+        href={`/people/${workload.membership_id}/workload?week=${workload.week_start}`}
+        className="inline-block text-caption text-a-700 hover:underline"
+      >
+        See the {workload.item_count} {workload.item_count === 1 ? "item" : "items"} behind this
+      </Link>
 
       <p className="text-caption text-n-500">
         Week of {workload.week_start}. Unestimated work is counted at{" "}

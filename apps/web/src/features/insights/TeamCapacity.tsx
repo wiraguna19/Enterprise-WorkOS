@@ -36,12 +36,23 @@ export function TeamCapacity({ rows, withheld }: { rows: Row[]; withheld: number
             )}
           </div>
 
-          <WorkloadBar
-            committedHours={row.committed_hours}
-            capacityHours={row.capacity_hours}
-            itemCount={row.item_count}
-            unestimatedCount={row.unestimated_count}
-          />
+          {/* The bar goes to the work behind it — the same house rule the
+              personal panel follows, and the reason it matters more here: a
+              manager reading "over" on this block needs the items before they
+              can move any of them, and the name beside it goes to a profile
+              rather than to an answer. */}
+          <Link
+            href={`/people/${row.membership_id}/workload?week=${row.week_start}`}
+            className="block rounded-sm hover:bg-n-25"
+            aria-label={`The ${row.item_count} items behind ${row.name ?? "this person"}'s week`}
+          >
+            <WorkloadBar
+              committedHours={row.committed_hours}
+              capacityHours={row.capacity_hours}
+              itemCount={row.item_count}
+              unestimatedCount={row.unestimated_count}
+            />
+          </Link>
         </div>
       ))}
 

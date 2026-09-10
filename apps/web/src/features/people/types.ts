@@ -1,3 +1,5 @@
+import type { StateCategory } from "@/features/work-item/types";
+
 /**
  * Mirrors PersonResource (docs/05 §3).
  *
@@ -53,3 +55,29 @@ export type Workload = {
   undated_count: number;
   default_estimate_hours: number;
 };
+
+/**
+ * One item behind a person's committed hours, as the drill-through returns it.
+ *
+ * `share_hours` is what this item contributed to the figure — not its estimate.
+ * An item spanning three weeks contributes a slice to each, and printing the
+ * estimate here would produce a list whose numbers do not add up to the bar
+ * above it (docs/10, ADR 0009).
+ */
+export type WorkloadItem = {
+  id: string;
+  reference: string;
+  title: string;
+  state_category: StateCategory;
+  project: string | null;
+  start_date: string | null;
+  due_at: string | null;
+  estimate_hours: number | null;
+  /** Null where the item could not be placed in this week at all. */
+  share_hours: number | null;
+  /** True where the hours are the organization's default, not an estimate. */
+  counted_at_default: boolean;
+};
+
+/** The summary the drill-through echoes, plus what the reader cannot see. */
+export type WorkloadItemsMeta = Workload & { hidden_count: number };

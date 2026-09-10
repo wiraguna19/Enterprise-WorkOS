@@ -101,9 +101,12 @@ const INTERFACE_OWED = [
     // not let her read. Three phases old, and unreachable by anyone, which is
     // the only reason it was never reported.
 
-    // A number without its drill-through, which is exactly what Phase 6 house
-    // rule 1 forbids — the workload bar shows the hours and cannot show the work.
-    'api/v1/people/{membership}/workload/items' => 'The workload bar has no drill-through.',
+    // `people/{membership}/workload/items` was here, and paid. It was the last
+    // entry on this list that broke a house rule rather than merely lacking a
+    // screen — Phase 6 rule 1 says a number must be able to show its work, and
+    // the one figure a staffing decision is made from was the one figure nobody
+    // could check. **A rule with a standing counter-example in the product is
+    // not a rule.**
 
     // Phase 7 owns these: the visual workflow and rule builders.
     'api/v1/workflows' => 'Phase 7 — the workflow builder reads this.',

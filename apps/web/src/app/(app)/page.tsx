@@ -83,10 +83,22 @@ export default async function HomePage() {
         .catch(() => [] as Approval[]),
     ]);
 
-  // Overdue work is already an exception; an unaccepted assignment that is also
-  // overdue should be named once, in the more urgent list.
+  // Overdue work is already an exception; anything that is ALSO overdue should
+  // be named once, in the more urgent list.
+  //
+  // This rule was written for the unaccepted list and applied only there, while
+  // "Due today" is `due_at < end of today` — which is every overdue item by
+  // definition. So every late item appeared twice on this screen, in two
+  // sections, one of them describing it wrongly: work that was due last Tuesday
+  // is not due today.
+  //
+  // Deduplicated HERE rather than by narrowing the query, because
+  // `/me/work?view=today` answers "what must be done by the end of today", and
+  // late work belongs in that answer. Two readers, two right answers; the
+  // screen is the one that has to choose.
   const overdueIds = new Set(attention.overdue.map((item) => item.id));
   const unaccepted = attention.unaccepted.filter((item) => !overdueIds.has(item.id));
+  const dueToday = today.filter((item) => !overdueIds.has(item.id));
 
   // The manager half is shown because there is something to manage. Someone
   // with reports but a quiet week still gets the capacity block; someone with
@@ -96,7 +108,9 @@ export default async function HomePage() {
   const nothingToShow =
     attention.overdue.length === 0 &&
     unaccepted.length === 0 &&
-    today.length === 0 &&
+    // The deduplicated list, like the section below renders: `today` alone
+    // would keep the empty state away on a screen whose every section is empty.
+    dueToday.length === 0 &&
     upcoming.length === 0 &&
     waiting.length === 0;
 
@@ -143,7 +157,7 @@ export default async function HomePage() {
 
           <Section
             title="Due today"
-            items={today}
+            items={dueToday}
             timeZone={me.user.timezone}
             href="/my-work?view=today"
           />
