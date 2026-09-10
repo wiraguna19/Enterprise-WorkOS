@@ -68,6 +68,7 @@ it('records every status change in the activity log', function (): void {
 
     $this->withToken($this->manager)->postJson('/api/v1/work-items/ENG-144/transition', [
         'to_state_id' => '01900002-0000-7000-8000-000000000004',   // In Review
+        'comment' => 'Ready for review.',   // the edge asks for one
     ])->assertOk();
 
     $this->assertDatabaseHas('activity_logs', [
@@ -83,6 +84,7 @@ it('keeps state_category in step with the workflow state', function (): void {
     // asserts — that the denormalised column follows the state — is unchanged.
     $this->withToken($this->manager)->postJson('/api/v1/work-items/ENG-144/transition', [
         'to_state_id' => '01900002-0000-7000-8000-000000000004',   // In Review
+        'comment' => 'Ready for review.',   // the edge asks for one
     ])->assertOk();
 
     // The denormalised column is the whole reason list queries are fast; if it
@@ -114,7 +116,12 @@ it('sets completed_at exactly when the item becomes done', function (): void {
         '01900002-0000-7000-8000-000000000006',   // Completed
     ] as $state) {
         $this->withToken($this->manager)
-            ->postJson('/api/v1/work-items/ENG-144/transition', ['to_state_id' => $state])
+            ->postJson('/api/v1/work-items/ENG-144/transition', [
+                'to_state_id' => $state,
+                // Only the first of the three edges asks for a reason; sending
+                // one on all three is harmless and keeps the loop a loop.
+                'comment' => 'Walking the happy path.',
+            ])
             ->assertOk();
     }
 

@@ -24,6 +24,17 @@ final readonly class WorkItemStatusChanged implements DomainEvent
         /** Null when the actor is the system: a rule-driven change has no person behind it. */
         public ?string $actorMembershipId,
         public ?string $overrideReason = null,
+        /**
+         * What the person typed when they moved it, when the edge asked.
+         *
+         * Carried on the event rather than left in the comment table because
+         * the only subscriber that needs it — the rule that opens a review —
+         * runs on a queue, after the transaction, with nothing but this
+         * payload to go on. Without it the approval's submission note is the
+         * empty string every single time in production, and the review queue's
+         * one column worth reading is blank.
+         */
+        public ?string $comment = null,
         public \DateTimeImmutable $occurredAt = new \DateTimeImmutable,
     ) {}
 
@@ -42,6 +53,7 @@ final readonly class WorkItemStatusChanged implements DomainEvent
             'to_category' => $this->toCategory,
             'actor_membership_id' => $this->actorMembershipId,
             'override_reason' => $this->overrideReason,
+            'comment' => $this->comment,
         ];
     }
 

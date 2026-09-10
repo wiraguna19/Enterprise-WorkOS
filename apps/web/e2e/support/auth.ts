@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { SESSION_COOKIE } from "../../src/lib/session-cookie";
-import type { Session } from "./api";
+import { call, type Session } from "./api";
 
 /**
  * A signed-in phone, reusing yesterday's session where there is one.
@@ -50,9 +50,43 @@ export async function signedInPhone(
     await signInThroughTheForm(page, email);
     mkdirSync(STATE_DIR, { recursive: true });
     await context.storageState({ path: statePath });
+
+    return { context, page, session: await sessionFrom(page) };
   }
 
+  // A cookie that has not expired is not the same as a session the server still
+  // knows about, and the gap between the two is one `migrate:fresh` wide. The
+  // saved state then sails through every local check and every flow fails in
+  // its arrange step with a 401 from whichever endpoint it happened to call
+  // first — five different stack traces for one dropped table.
+  //
+  // So the reused session is asked one cheap question before it is trusted.
+  const session = await sessionFrom(page);
+
+  if (await stillValid(session)) {
+    return { context, page, session };
+  }
+
+  rmSync(statePath, { force: true });
+
+  await signInThroughTheForm(page, email);
+  await context.storageState({ path: statePath });
+
   return { context, page, session: await sessionFrom(page) };
+}
+
+/** Does the API still recognise this token? */
+async function stillValid(session: Session): Promise<boolean> {
+  try {
+    await call(session, "/auth/me");
+
+    return true;
+  } catch {
+    // Any failure is treated as "sign in again", including the API being down.
+    // The sign-in that follows fails with a message that names the API, which
+    // is a better answer than this function guessing at the difference.
+    return false;
+  }
 }
 
 /**

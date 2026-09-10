@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { call, eventually, QUEUE_HINT, type Session } from "./support/api";
 import { signedInPhone } from "./support/auth";
+import { moveThroughTheInterface } from "./support/flows";
 
 /**
  * docs/11 §4, flow 15 — "Mobile: manager approves a submission end to end on a
@@ -22,7 +23,10 @@ type WorkItem = {
   state: { id: string; label: string; category: string } | null;
 };
 
-type Approval = { id: string; status: string; subject: { reference: string } };
+// `subject` is nullable: the resource sends null for an approval whose subject
+// this reader cannot load, and a queue with one such row in it must not kill a
+// flow that is waiting for a different row.
+type Approval = { id: string; status: string; subject: { reference: string } | null };
 
 test.describe("mobile approval", () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) > 500, "phone-sized only");
@@ -42,16 +46,19 @@ test.describe("mobile approval", () => {
     const item = await arrangeItemInProgress(sarah, ahmad);
 
     // ── Sarah submits, on her phone ────────────────────────────────────────
-    await page.goto(`/work/${item.reference}`);
-
-    // The sticky bar is the whole affordance at this width. Its label comes
-    // from the workflow graph, so the assertion is that a forward move is
-    // offered — not that it is spelled a particular way.
-    const primary = page.getByRole("button", { name: /review/i });
-    await expect(primary).toBeEnabled();
-    await primary.click();
-
-    await expect(page.getByText(/in review/i).first()).toBeVisible();
+    //
+    // Whichever control the move needs, at 375px. The sticky bar is the whole
+    // affordance for a one-tap move; an edge that asks for a reason routes
+    // through the status menu and its reason box instead — and that dialog
+    // sharing the viewport with a sticky bar and a keyboard is exactly the
+    // thing this flow exists to prove works on a phone.
+    await moveThroughTheInterface(
+      page,
+      sarah,
+      item,
+      "in_review",
+      "Ready for review — screenshots are attached to the item.",
+    );
 
     // The state it is in once submitted, kept to compare against later. The
     // assertion after the approval is that the work MOVED — which is
@@ -70,13 +77,13 @@ test.describe("mobile approval", () => {
         call<Approval[]>(sarah, "/me/approvals?role=requester&status=pending"),
       ]);
 
-      const mine = reviewing.find((row) => row.subject.reference === item.reference);
+      const mine = reviewing.find((row) => row.subject?.reference === item.reference);
 
       if (mine) {
         return mine;
       }
 
-      const exists = requested.some((row) => row.subject.reference === item.reference);
+      const exists = requested.some((row) => row.subject?.reference === item.reference);
 
       if (exists) {
         throw new Error(

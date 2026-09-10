@@ -30,9 +30,20 @@ INSERT INTO workflow_transitions
   '{"actor_is":["assignee","creator"]}',false,1),
 
  -- In Progress → In Review. The submit step.
+ --
+ -- requires_comment, because the reviewer's queue is built around a submission
+ -- note and nothing in the product could write one: the rule that opens the
+ -- approval copies the note from its own static config, and the demo rule has
+ -- none. Every approval the product created for itself carried an empty note
+ -- while the SEEDED ones carried prose — which is why the screen looked right
+ -- in every screenshot and was blank in use.
+ --
+ -- Asking here is the cheap half of the fix: the comment now rides the status
+ -- event into the rule's facts and becomes the note. Making it optional would
+ -- restore the blank column for anyone who skipped the box.
  ('01900020-0000-7000-8000-000000000003','01900000-0000-7000-8000-0000000000ac','01900001-0000-7000-8000-000000000001',
   '01900002-0000-7000-8000-000000000003','01900002-0000-7000-8000-000000000004','Submit for review',
-  '{"actor_is":["assignee","creator"]}',false,2),
+  '{"actor_is":["assignee","creator"]}',true,2),
 
  -- In Review → Approved. Guarded by permission AND by role: holding
  -- approval.decide is not enough if you are not one of this item's reviewers.

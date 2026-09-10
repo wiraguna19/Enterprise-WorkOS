@@ -284,6 +284,7 @@ final class WorkItemService
                 toCategory: $target->category,
                 actorMembershipId: $this->actorMembershipId(),
                 overrideReason: $options['override_reason'] ?? null,
+                comment: $options['comment'] ?? null,
             ));
 
             // Two channels, because two screens are watching the same fact from
@@ -364,10 +365,18 @@ final class WorkItemService
         ?string $beforeId,
         ?string $afterId,
         ?string $toStateId = null,
+        ?string $comment = null,
     ): WorkItemModel {
-        return $this->transactional(function () use ($item, $beforeId, $afterId, $toStateId): WorkItemModel {
+        return $this->transactional(function () use ($item, $beforeId, $afterId, $toStateId, $comment): WorkItemModel {
             if ($toStateId !== null && $toStateId !== $item->workflow_state_id) {
-                $item = $this->transition($item, $toStateId);
+                // The reason travels with the move for the same reason the
+                // permission check does: this delegates to `transition()`,
+                // guards and all, so an edge that requires a comment requires
+                // it here too. Without somewhere to put one, this endpoint
+                // could perform every transition in the workflow EXCEPT the
+                // ones that ask why — an exemption nobody chose, discovered
+                // the day "Submit for review" started asking.
+                $item = $this->transition($item, $toStateId, ['comment' => $comment]);
             }
 
             $position = $this->positions->between($beforeId, $afterId);

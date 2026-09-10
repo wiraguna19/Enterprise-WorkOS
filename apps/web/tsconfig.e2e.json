@@ -1,0 +1,19 @@
+{
+  // The E2E suite, which the app's own tsconfig deliberately excludes.
+  //
+  // Excluding it is right — Playwright's globals and Next's type environment do
+  // not belong in one program — but the consequence went unnoticed until a
+  // duplicate `const` in a spec passed `npm run typecheck` and was found by the
+  // test RUNNER, which is the slowest and least specific place to learn about a
+  // syntax error. Half a suite that nothing typechecks is a blind spot in the
+  // thing that exists to find blind spots.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The Next plugin has nothing to say about a Playwright spec, and loading
+    // it here makes this config depend on a built `.next` directory.
+    "plugins": [],
+    "types": ["node"]
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"],
+  "exclude": ["node_modules"]
+}

@@ -163,6 +163,10 @@ final class WorkItemController extends ApiController
             'before_id' => ['sometimes', 'nullable', 'uuid'],
             'after_id' => ['sometimes', 'nullable', 'uuid'],
             'to_state_id' => ['sometimes', 'nullable', 'uuid'],
+            // Only meaningful alongside a `to_state_id`, and only required
+            // when the edge says so — the same rule, read from the same
+            // transition row, as the endpoint next door.
+            'comment' => ['sometimes', 'string', 'max:2000'],
         ]);
 
         // Compared against the item's current state rather than merely being
@@ -188,6 +192,7 @@ final class WorkItemController extends ApiController
             $validated['before_id'] ?? null,
             $validated['after_id'] ?? null,
             $validated['to_state_id'] ?? null,
+            $validated['comment'] ?? null,
         );
 
         $moved->load(['state', 'project:id,key,name', 'assignments.membership.user']);

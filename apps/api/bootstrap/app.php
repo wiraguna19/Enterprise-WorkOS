@@ -7,6 +7,7 @@ use App\Modules\Calendar\Providers\CalendarServiceProvider;
 use App\Modules\Collaboration\Providers\CollaborationServiceProvider;
 use App\Modules\Files\Providers\FilesServiceProvider;
 use App\Modules\Governance\Providers\GovernanceServiceProvider;
+use App\Modules\Identity\Http\Middleware\RequireAnyPermission;
 use App\Modules\Identity\Http\Middleware\RequirePermission;
 use App\Modules\Identity\Http\Middleware\ResolveTenant;
 use App\Modules\Identity\Providers\IdentityServiceProvider;
@@ -91,6 +92,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'permission' => RequirePermission::class,
+            // `permission:` ANDs its arguments; this one ORs them, for a route
+            // two roles reach for two different reasons.
+            'permission.any' => RequireAnyPermission::class,
         ]);
 
         // This is a stateless JSON API: there is no session cookie to protect

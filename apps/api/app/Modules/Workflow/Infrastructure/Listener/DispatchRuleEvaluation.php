@@ -29,6 +29,10 @@ final class DispatchRuleEvaluation
             'to_category' => $event->toCategory,
             'from_state_id' => $event->fromStateId,
             'to_state_id' => $event->toStateId,
+            // The reason the person gave for THIS move, which is the only
+            // thing that can become an approval's submission note. Every other
+            // fact here describes the item; this one describes the act.
+            'comment' => $event->comment,
         ];
 
         $states = DB::table('workflow_states')

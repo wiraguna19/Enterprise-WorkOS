@@ -71,7 +71,12 @@ final class CreateApprovalAction implements WorkflowAction
             reviewerMembershipIds: $reviewers,
             policy: (string) ($config['policy'] ?? 'any_one'),
             requiredApprovals: (int) ($config['required_approvals'] ?? 1),
-            note: (string) ($config['note'] ?? ''),
+            // The rule's static note first, because an administrator who wrote
+            // one meant it to appear on every approval this rule opens. Absent
+            // that, the reason the submitter typed — which is what the reviewer
+            // actually wants to read, and what this column was empty of until
+            // the transition comment learned to travel this far.
+            note: (string) ($config['note'] ?? $facts['comment'] ?? ''),
             requestedBy: $facts['assignee_membership_id'] ?? null,
         );
 

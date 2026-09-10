@@ -124,6 +124,7 @@ export function StatusPicker({
       {pending && (
         <CommentPrompt
           transition={pending}
+          reference={reference}
           onCancel={() => setPending(null)}
           onSubmit={(comment) => {
             setPending(null);
@@ -150,10 +151,12 @@ export function StatusPicker({
  */
 function CommentPrompt({
   transition,
+  reference,
   onCancel,
   onSubmit,
 }: {
   transition: Transition;
+  reference: string;
   onCancel: () => void;
   onSubmit: (comment: string) => void;
 }) {
@@ -161,35 +164,62 @@ function CommentPrompt({
   const fieldId = useId();
 
   return (
-    <form
-      className="absolute right-0 z-20 mt-1 w-80 space-y-2 rounded-sm border border-n-200 bg-n-0 p-3 shadow-sm"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit(comment);
-      }}
-    >
-      <label htmlFor={fieldId} className="block text-caption font-medium text-n-700">
-        Why are you moving this to {transition.to_state.label}?
-      </label>
+    // A real overlay, not a panel hanging off the trigger.
+    //
+    // It used to be `absolute right-0` under the status button, which put it
+    // behind the mobile tab bar — `fixed bottom-0 z-20`, the same layer — at
+    // 375px. The reason box was visible, the confirm button underneath it was
+    // not clickable, and the only edge into review is the one that asks for a
+    // reason: **on a phone, work could not be submitted at all.** Nothing said
+    // so; the button was simply inert under the nav.
+    //
+    // So it now matches the board's prompt, which asks the same question and
+    // got this right: fixed, z-30, above the chrome, bottom-sheet on small
+    // screens and centred above them. One question, one shape.
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-n-900/20 p-4 sm:items-center">
+      <form
+        // Announced as a dialog, like the board's. This one predates that one
+        // and never got the treatment: it appeared, it took focus from nobody,
+        // and a screen reader was told only that a text field had turned up
+        // somewhere on the page.
+        //
+        // The name also gives its confirm button somewhere to be unambiguous.
+        // The button repeats the transition's label — "Submit for review" —
+        // which is also on the sticky bar behind it, so without a named
+        // container there are two buttons with one name.
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Move ${reference} to ${transition.to_state.label}`}
+        className="w-full max-w-md space-y-2 rounded-sm border border-n-200 bg-n-0 p-4 shadow-sm"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(comment);
+        }}
+      >
+        <label htmlFor={fieldId} className="block text-caption font-medium text-n-700">
+          Why are you moving this to {transition.to_state.label}?
+        </label>
 
-      <textarea
-        id={fieldId}
-        required
-        rows={3}
-        value={comment}
-        onChange={(event) => setComment(event.target.value)}
-        className="w-full rounded-sm border border-n-200 px-2 py-1.5 text-body text-n-900 focus:border-a-500 focus:outline-2 focus:outline-offset-1 focus:outline-a-500"
-        placeholder="The person picking this up next reads this first."
-      />
+        <textarea
+          id={fieldId}
+          autoFocus
+          required
+          rows={3}
+          value={comment}
+          onChange={(event) => setComment(event.target.value)}
+          className="w-full rounded-sm border border-n-200 px-2 py-1.5 text-body text-n-900 focus:border-a-500 focus:outline-2 focus:outline-offset-1 focus:outline-a-500"
+          placeholder="The person picking this up next reads this first."
+        />
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" variant="primary" size="sm" disabled={comment.trim() === ""}>
-          {transition.label}
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" size="sm" disabled={comment.trim() === ""}>
+            {transition.label}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }

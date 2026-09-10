@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { call, eventually, QUEUE_HINT, type Session } from "./support/api";
 import { signedInPhone } from "./support/auth";
+import { moveThroughTheInterface } from "./support/flows";
 
 /**
  * docs/11 §4, flow 8 — "Manager: request changes → employee resubmits →
@@ -26,7 +27,10 @@ type WorkItem = {
   state: { id: string; key: string; label: string; category: string } | null;
 };
 
-type Approval = { id: string; status: string; subject: { reference: string } };
+// `subject` is nullable: the resource sends null for an approval whose subject
+// this reader cannot load. Declaring it non-null is what let `row.subject.reference`
+// compile and then throw on the first such row in the queue.
+type Approval = { id: string; status: string; subject: { reference: string } | null };
 
 test.describe("the review loop", () => {
   test("changes are requested, the work comes back, and the second try is approved", async ({
@@ -43,7 +47,12 @@ test.describe("the review loop", () => {
     const started = await call<WorkItem>(sarah, `/work-items/${item.reference}`);
 
     // ── First submission ───────────────────────────────────────────────────
-    await submit(sarahsScreen.page, item.reference);
+    await submit(
+      sarahsScreen.page,
+      sarah,
+      started,
+      "First pass — the migration and its rollback are both in the branch.",
+    );
 
     const first = await pendingApprovalFor(ahmad, sarah, item.reference);
 
@@ -113,7 +122,15 @@ test.describe("the review loop", () => {
     ).toContain("review_changes_requested");
 
     // ── Second submission, from the same screen as the first ───────────────
-    await submit(sarahsScreen.page, item.reference);
+    // `returned`, not `started`: the status control is named by the state the
+    // item is in NOW, and the round trip through review left it in a different
+    // one. That read is already made above, waiting for the work to come back.
+    await submit(
+      sarahsScreen.page,
+      sarah,
+      returned,
+      "Addressed the review: the index is created concurrently now.",
+    );
 
     const second = await pendingApprovalFor(ahmad, sarah, item.reference);
 
@@ -150,16 +167,27 @@ test.describe("the review loop", () => {
   });
 });
 
-/** Submit for review from the item's own page, the way a person does. */
-async function submit(page: Page, reference: string): Promise<void> {
-  await page.goto(`/work/${reference}`);
-
-  const primary = page.getByRole("button", { name: /review/i });
-
-  await expect(primary).toBeEnabled();
-  await primary.click();
-
-  await expect(page.getByText(/in review/i).first()).toBeVisible();
+/**
+ * Submit for review from the item's own page, the way a person does.
+ *
+ * Was three lines and a click on the sticky bar until the edge into review
+ * started asking for a reason, at which point the button it clicked became
+ * permanently disabled — correctly, and this test would have reported it as a
+ * broken submission. The shared helper asks the API which control the move
+ * needs and drives that one, so the next edge to grow a requirement moves this
+ * test instead of breaking it.
+ *
+ * The reason differs between the two submissions on purpose: the second is the
+ * only evidence a resubmission writes a note of its own rather than inheriting
+ * the first one.
+ */
+async function submit(
+  page: Page,
+  session: Session,
+  item: WorkItem,
+  reason: string,
+): Promise<void> {
+  await moveThroughTheInterface(page, session, item, "in_review", reason);
 }
 
 /**
@@ -189,13 +217,17 @@ async function pendingApprovalFor(
         call<Approval[]>(requester, "/me/approvals?role=requester&status=pending"),
       ]);
 
-      const mine = reviewing.find((row) => row.subject.reference === reference);
+      // `subject?`, because the resource emits null for an approval whose
+      // subject this reader cannot load — and one unreadable row in the queue
+      // is not a reason for this flow to die with a TypeError instead of
+      // waiting for the row it came for.
+      const mine = reviewing.find((row) => row.subject?.reference === reference);
 
       if (mine) {
         return mine;
       }
 
-      if (requested.some((row) => row.subject.reference === reference)) {
+      if (requested.some((row) => row.subject?.reference === reference)) {
         throw new Error(
           `An approval for ${reference} exists, but Ahmad is not its reviewer — even `
             + 'though he holds the reviewer role on the item. That is a roster '

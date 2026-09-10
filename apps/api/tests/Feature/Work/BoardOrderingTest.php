@@ -69,6 +69,9 @@ it('moves a card to another column and changes its state together', function ():
         'to_state_id' => '01900002-0000-7000-8000-000000000004',   // In Review
         'before_id' => null,
         'after_id' => null,
+        // Required by the edge, and the reason a card cannot be dragged into
+        // this column: a gesture cannot carry a sentence (Board.tsx).
+        'comment' => 'Ready for review.',
     ])->assertOk();
 
     expect($item->fresh()->state_category)->toBe('in_review');

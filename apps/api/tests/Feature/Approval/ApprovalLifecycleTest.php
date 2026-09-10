@@ -82,6 +82,7 @@ it('carries work through the whole lifecycle and leaves an honest trail', functi
     // ── 4. submit — which opens the approval, by rule, not by hardcoded branch
     $this->withToken($this->employee)->postJson("/api/v1/work-items/{$reference}/transition", [
         'to_state_id' => $this->inReview,
+        'comment' => 'Ready for review.',
     ])->assertOk();
 
     app(TenantContext::class)->setFromSession(
@@ -90,6 +91,33 @@ it('carries work through the whole lifecycle and leaves an honest trail', functi
 
     $approval = ApprovalModel::query()
         ->where('subject_id', $id)->where('status', 'pending')->firstOrFail();
+
+    // The reason typed into the move is what the reviewer reads. It travels
+    // comment → status event → rule facts → note, four hops through a queue,
+    // and it was the empty string at the far end for two phases while the
+    // seeded approvals carried prose and made the screen look right.
+    expect($approval->submission_note)->toBe('Ready for review.');
+
+    // The submitter can READ what she submitted.
+    //
+    // Obvious, and it was false: the route was gated on `approval.decide` — a
+    // reviewer's permission — while `ApprovalPolicy::view` named the requester
+    // as a participant. The coarse layer won, so Sarah could withdraw an
+    // approval the API would not let her open. Nothing caught it because this
+    // endpoint has no screen (`INTERFACE_OWED`), and an endpoint with no reader
+    // has no one to report it.
+    $this->withToken($this->employee)
+        ->getJson("/api/v1/approvals/{$approval->id}")
+        ->assertOk()
+        ->assertJsonPath('data.submission_note', 'Ready for review.');
+
+    // Widening the gate did not widen the answer: someone who is neither
+    // reviewer nor requester still cannot read it. Which layer refuses is not
+    // asserted — the middleware and the policy both would, and pinning the test
+    // to one of them would make it fail the day the other is what stops it.
+    $this->withToken($this->loginAs('budi@acme.test'))
+        ->getJson("/api/v1/approvals/{$approval->id}")
+        ->assertForbidden();
 
     // ── 5. the reviewer bounces it back, with a reason ──────────────────────
     $this->withToken($this->manager)
@@ -110,6 +138,7 @@ it('carries work through the whole lifecycle and leaves an honest trail', functi
 
     $this->withToken($this->employee)->postJson("/api/v1/work-items/{$reference}/transition", [
         'to_state_id' => $this->inReview,
+        'comment' => 'Ready for review.',
     ])->assertOk();
 
     $second = ApprovalModel::query()

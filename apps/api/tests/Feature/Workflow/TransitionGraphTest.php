@@ -127,6 +127,7 @@ it('writes an append-only history row for every move', function (): void {
     // that, so driving this one as the admin would contradict it.
     $this->withToken($this->reviewer)->postJson('/api/v1/work-items/ENG-144/transition', [
         'to_state_id' => $this->state['in_review'],
+        'comment' => 'Ready for review.',   // the edge requires one
     ])->assertOk();
 
     $row = DB::table('work_item_transitions')

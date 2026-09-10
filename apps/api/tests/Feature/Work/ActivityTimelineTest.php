@@ -24,6 +24,10 @@ it('shows what happened to a work item, newest first', function (): void {
 
     $this->withToken($this->manager)->postJson('/api/v1/work-items/ENG-144/transition', [
         'to_state_id' => '01900002-0000-7000-8000-000000000004',   // In Review
+        // The edge into review requires a comment: it becomes the approval's
+        // submission note, which is the only thing the reviewer's queue has to
+        // decide from.
+        'comment' => 'Ready for review.',
     ])->assertOk();
 
     $timeline = $this->withToken($this->manager)
