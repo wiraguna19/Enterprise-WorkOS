@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Workflow\Http\Controller\RecurrenceController;
 use App\Modules\Workflow\Http\Controller\WorkflowController;
+use App\Modules\Workflow\Http\Controller\WorkflowGraphController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('workflows', [WorkflowController::class, 'index'])
@@ -41,4 +42,22 @@ Route::get('workflow-vocabulary', [WorkflowController::class, 'vocabulary'])
 Route::post('workflow-rules', [WorkflowController::class, 'storeRule'])
     ->middleware(['permission:workflow.manage', 'throttle:writes']);
 Route::patch('workflow-rules/{id}', [WorkflowController::class, 'updateRule'])
+    ->middleware(['permission:workflow.manage', 'throttle:writes']);
+
+// ── Editing the graph (ADR 0015) ────────────────────────────────────────────
+// In place, never copy-on-write: `version` and `superseded_by_id` stay unused
+// until somebody needs the migration that makes them mean anything. The edits
+// that would strand work or rewrite what a report already counted are refused
+// by the editor, with 409 and a named reason — not hidden from the form, which
+// would leave a person guessing why a control is missing.
+Route::post('workflows/{id}/states', [WorkflowGraphController::class, 'storeState'])
+    ->middleware(['permission:workflow.manage', 'throttle:writes']);
+Route::patch('workflows/{id}/states/{stateId}', [WorkflowGraphController::class, 'updateState'])
+    ->middleware(['permission:workflow.manage', 'throttle:writes']);
+Route::delete('workflows/{id}/states/{stateId}', [WorkflowGraphController::class, 'destroyState'])
+    ->middleware(['permission:workflow.manage', 'throttle:writes']);
+
+Route::post('workflows/{id}/transitions', [WorkflowGraphController::class, 'storeTransition'])
+    ->middleware(['permission:workflow.manage', 'throttle:writes']);
+Route::delete('workflows/{id}/transitions/{transitionId}', [WorkflowGraphController::class, 'destroyTransition'])
     ->middleware(['permission:workflow.manage', 'throttle:writes']);

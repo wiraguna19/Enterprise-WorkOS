@@ -88,3 +88,104 @@ export async function saveRule(id: string, input: Partial<RuleInput>): Promise<R
 export async function setRuleActive(id: string, active: boolean): Promise<RuleResult> {
   return saveRule(id, { is_active: active });
 }
+
+/**
+ * Editing the graph work moves through (ADR 0015).
+ *
+ * The API refuses the destructive edits with 409 and a named reason, and those
+ * sentences are surfaced as they are: "12 work items are in this state. Move
+ * them first." is the most useful thing this screen can say, and no wording
+ * this client invented would be as specific.
+ */
+export type StateInput = {
+  key?: string;
+  label?: string;
+  category?: string;
+  color?: string;
+  requires_approval?: boolean;
+};
+
+function refreshGraph(): void {
+  revalidatePath("/settings/workflows");
+}
+
+export async function addState(workflowId: string, input: StateInput): Promise<RuleResult> {
+  try {
+    await api(`/workflows/${workflowId}/states`, { method: "POST", body: input });
+  } catch (error) {
+    return failure(error);
+  }
+
+  refreshGraph();
+
+  return { error: null };
+}
+
+export async function renameState(
+  workflowId: string,
+  stateId: string,
+  label: string,
+): Promise<RuleResult> {
+  try {
+    await api(`/workflows/${workflowId}/states/${stateId}`, {
+      method: "PATCH",
+      // Only the label. The category and the key are refused by the API, and
+      // sending them unchanged would still be asking for something this form
+      // has no business asking.
+      body: { label },
+    });
+  } catch (error) {
+    return failure(error);
+  }
+
+  refreshGraph();
+
+  return { error: null };
+}
+
+export async function removeState(workflowId: string, stateId: string): Promise<RuleResult> {
+  try {
+    await api(`/workflows/${workflowId}/states/${stateId}`, { method: "DELETE" });
+  } catch (error) {
+    return failure(error);
+  }
+
+  refreshGraph();
+
+  return { error: null };
+}
+
+export async function addTransition(
+  workflowId: string,
+  input: {
+    from_state_id: string | null;
+    to_state_id: string;
+    label: string;
+    requires_comment: boolean;
+  },
+): Promise<RuleResult> {
+  try {
+    await api(`/workflows/${workflowId}/transitions`, { method: "POST", body: input });
+  } catch (error) {
+    return failure(error);
+  }
+
+  refreshGraph();
+
+  return { error: null };
+}
+
+export async function removeTransition(
+  workflowId: string,
+  transitionId: string,
+): Promise<RuleResult> {
+  try {
+    await api(`/workflows/${workflowId}/transitions/${transitionId}`, { method: "DELETE" });
+  } catch (error) {
+    return failure(error);
+  }
+
+  refreshGraph();
+
+  return { error: null };
+}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Workflow\Application\Service;
 
 use App\Modules\Notification\Application\Service\NotificationDispatcher;
+use App\Modules\Platform\Domain\Work\StateCategory;
 use App\Modules\Workflow\Domain\ConditionEvaluator;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 
@@ -126,6 +127,11 @@ final class RuleVocabulary
             // hardcodes a membership breaks the day they change teams, and
             // every customer discovers that the hard way.
             'audiences' => NotificationDispatcher::AUDIENCES,
+            // The seven buckets every state maps to. Served here rather than
+            // written into the graph editor for the same reason as everything
+            // else on this endpoint: the list is closed, it lives in Platform,
+            // and a copy in the interface is a copy that will disagree.
+            'state_categories' => StateCategory::ALL,
         ];
     }
 

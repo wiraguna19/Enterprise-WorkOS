@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -13,10 +14,10 @@ import { requireUser } from "@/lib/auth";
  * querying the database. Worse, it was sending its NODES and none of its EDGES
  * — a defect nothing could report, because nobody had ever looked.
  *
- * Read-only, and it says so. The visual builder needs write endpoints that do
- * not exist yet; an "Edit" button in front of them would be this codebase's
- * house shape for a dead control, which is the defect this whole screen is
- * paying off.
+ * Editing is offered to `workflow.manage` and happens in place (ADR 0015):
+ * renaming a status is free, and the edits that would strand work or rewrite
+ * what a finished quarter counted are refused by the API with a named reason
+ * the editor prints verbatim.
  *
  * The graph is drawn per state rather than as a canvas: what an administrator
  * comes here to check is "from here, where can work go, and who is stopped" —
@@ -24,18 +25,17 @@ import { requireUser } from "@/lib/auth";
  * picture. A canvas is worth building when a person can move the nodes.
  */
 export default async function WorkflowsPage() {
-  await requireUser();
+  const me = await requireUser();
 
   const { data: workflows } = await api<Workflow[]>("/workflows", {
     tags: ["workflows"],
   });
 
+  const mayManage = me.permissions.includes("workflow.manage");
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Workflows"
-        description={`${workflows.length} active · read-only until the builder ships`}
-      />
+      <PageHeader title="Workflows" description={`${workflows.length} active`} />
 
       {workflows.length === 0 ? (
         <EmptyState
@@ -43,13 +43,15 @@ export default async function WorkflowsPage() {
           description="Every work item follows a workflow, so an empty list here means work has nowhere to move. This is a configuration problem rather than an empty screen."
         />
       ) : (
-        workflows.map((workflow) => <WorkflowGraph key={workflow.id} workflow={workflow} />)
+        workflows.map((workflow) => (
+          <WorkflowGraph key={workflow.id} workflow={workflow} mayManage={mayManage} />
+        ))
       )}
     </div>
   );
 }
 
-function WorkflowGraph({ workflow }: { workflow: Workflow }) {
+function WorkflowGraph({ workflow, mayManage }: { workflow: Workflow; mayManage: boolean }) {
   const headingId = `workflow-${workflow.id}`;
 
   const byId = new Map(workflow.states.map((state) => [state.id, state]));
@@ -76,6 +78,15 @@ function WorkflowGraph({ workflow }: { workflow: Workflow }) {
           {workflow.applies_to_type} · version {workflow.version}
           {workflow.is_default && " · default"}
         </span>
+
+        {mayManage && (
+          <Link
+            href={`/settings/workflows/${workflow.id}/edit`}
+            className="ml-auto text-body-sm text-a-700 underline"
+          >
+            Edit
+          </Link>
+        )}
       </div>
 
       <ol className="divide-y divide-n-100 border-b border-n-100">

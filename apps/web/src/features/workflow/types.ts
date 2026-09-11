@@ -109,4 +109,6 @@ export type Vocabulary = {
   >;
   /** Who a notify action may reach. Never a person, by design. */
   audiences: string[];
+  /** The seven buckets every state maps to (docs/02 §7). */
+  state_categories: string[];
 };

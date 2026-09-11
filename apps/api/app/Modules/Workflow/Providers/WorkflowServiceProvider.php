@@ -9,8 +9,10 @@ use App\Modules\Work\Domain\Event\WorkItemAssigned;
 use App\Modules\Work\Domain\Event\WorkItemCreated;
 use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
+use App\Modules\Workflow\Http\Policy\WorkflowPolicy;
 use App\Modules\Workflow\Http\Policy\WorkflowRulePolicy;
 use App\Modules\Workflow\Infrastructure\Console\MaterializeRecurrences;
+use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
 use App\Modules\Workflow\Infrastructure\Listener\DispatchRuleEvaluation;
@@ -61,6 +63,7 @@ final class WorkflowServiceProvider extends ServiceProvider
         // owns the model owns its policy, and Gate's answer with no policy is
         // deny — which has read as a missing permission three times in this
         // codebase (see WorkflowRulePolicy).
+        Gate::policy(WorkflowModel::class, WorkflowPolicy::class);
         Gate::policy(WorkflowRuleModel::class, WorkflowRulePolicy::class);
 
         Route::prefix('api/v1')
