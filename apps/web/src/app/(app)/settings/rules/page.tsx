@@ -1,0 +1,166 @@
+import Link from "next/link";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { describeAction, describeCondition, describeTrigger } from "@/features/workflow/describe";
+import type { Rule, RuleAction } from "@/features/workflow/types";
+import { api } from "@/lib/api";
+import { requireUser } from "@/lib/auth";
+
+/**
+ * What the system does on its own (docs/02 §7).
+ *
+ * Automation that cannot be read is automation nobody trusts, and until this
+ * screen the only way to see which rules existed was to query the database —
+ * `GET /workflow-rules` had no caller for three phases.
+ *
+ * Health is given the same weight as the rule itself, because a rule that has
+ * been failing silently is the single thing an administrator most needs to see
+ * and the thing least likely to announce itself: `failure_count` and
+ * `disabled_reason` exist in the schema precisely because a rule can degrade
+ * every workflow it touches while looking exactly like a working one.
+ *
+ * Each rule links to its own run log rather than an index of runs — a report is
+ * reached from its subject.
+ */
+export default async function RulesPage() {
+  const me = await requireUser();
+
+  const { data: rules } = await api<Rule[]>("/workflow-rules", { tags: ["workflow-rules"] });
+
+  const maySeeRuns = me.permissions.includes("workflow.manage");
+  const unhealthy = rules.filter((rule) => !rule.health.healthy).length;
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Automation rules"
+        description={
+          unhealthy > 0
+            ? `${rules.length} rules · ${unhealthy} not running`
+            : `${rules.length} rules · all running`
+        }
+      />
+
+      {rules.length === 0 ? (
+        <EmptyState
+          title="Nothing is automated"
+          description="A rule watches for something happening — work entering review, an item going overdue — and acts on it. Until the builder ships, rules are created through the API."
+        />
+      ) : (
+        <ul className="space-y-4">
+          {rules.map((rule) => (
+            <li key={rule.id}>
+              <RuleCard rule={rule} maySeeRuns={maySeeRuns} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function RuleCard({ rule, maySeeRuns }: { rule: Rule; maySeeRuns: boolean }) {
+  const headingId = `rule-${rule.id}`;
+  const conditions = describeCondition(rule.conditions);
+
+  return (
+    <section aria-labelledby={headingId} className="border border-n-200 p-4 rounded-md">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id={headingId} className="font-medium text-n-900">
+          {rule.name}
+        </h2>
+
+        <Health rule={rule} />
+      </div>
+
+      <p className="mt-0.5 max-w-prose text-caption text-n-500">{rule.description}</p>
+
+      <dl className="mt-3 space-y-2 text-body-sm">
+        <div className="flex flex-wrap gap-x-3">
+          <dt className="w-24 shrink-0 text-caption text-n-500">Runs</dt>
+          <dd className="min-w-0 text-n-700">{describeTrigger(rule.trigger)}</dd>
+        </div>
+
+        <div className="flex flex-wrap gap-x-3">
+          <dt className="w-24 shrink-0 text-caption text-n-500">If</dt>
+          <dd className="min-w-0 text-n-700">
+            {conditions ? (
+              <ul className="space-y-0.5">
+                {conditions.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : (
+              // The predicate uses something this build cannot put into words.
+              // Printing the source is the honest answer: a description that
+              // guesses is believed and never checked again.
+              <Raw value={rule.conditions} />
+            )}
+          </dd>
+        </div>
+
+        <div className="flex flex-wrap gap-x-3">
+          <dt className="w-24 shrink-0 text-caption text-n-500">Then</dt>
+          <dd className="min-w-0 text-n-700">
+            <ul className="space-y-0.5">
+              {rule.actions.map((action, index) => (
+                <li key={`${action.type}-${index}`}>
+                  <Action action={action} />
+                </li>
+              ))}
+            </ul>
+          </dd>
+        </div>
+      </dl>
+
+      {maySeeRuns && (
+        <p className="mt-3">
+          <Link href={`/settings/rules/${rule.id}`} className="text-body-sm text-a-700 underline">
+            Why it did or did not fire
+          </Link>
+        </p>
+      )}
+    </section>
+  );
+}
+
+function Action({ action }: { action: RuleAction }) {
+  const described = describeAction(action);
+
+  // An action type this build does not register is a rule authored against a
+  // newer vocabulary — or a rule that will throw when it next runs, which the
+  // run log is where to confirm.
+  if (!described) return <Raw value={action} />;
+
+  return (
+    <span>
+      <span className="text-n-900">{described.verb}</span>
+      {described.config.length > 0 && (
+        <span className="text-n-500"> — {described.config.join(", ")}</span>
+      )}
+    </span>
+  );
+}
+
+function Health({ rule }: { rule: Rule }) {
+  if (rule.health.healthy) {
+    return <span className="text-caption text-n-500">running</span>;
+  }
+
+  return (
+    <span className="text-caption text-s-danger">
+      {rule.health.disabled_reason ??
+        (rule.is_active
+          ? `${rule.health.failure_count} recent failures`
+          : "switched off")}
+    </span>
+  );
+}
+
+function Raw({ value }: { value: unknown }) {
+  return (
+    <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-micro text-n-700">
+      {JSON.stringify(value)}
+    </pre>
+  );
+}

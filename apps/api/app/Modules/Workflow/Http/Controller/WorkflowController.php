@@ -13,6 +13,7 @@ use App\Modules\Workflow\Application\Service\TransitionService;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
+use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowTransitionModel;
 use Illuminate\Support\Facades\DB;
 
 final class WorkflowController extends ApiController
@@ -25,7 +26,7 @@ final class WorkflowController extends ApiController
     public function index(): ApiResponse
     {
         $workflows = WorkflowModel::query()
-            ->with('states')
+            ->with(['states', 'transitions'])
             ->where('is_active', true)
             ->orderBy('applies_to_type')
             ->get();
@@ -47,6 +48,26 @@ final class WorkflowController extends ApiController
                 'is_initial' => $s->is_initial,
                 'is_terminal' => $s->is_terminal,
                 'requires_approval' => $s->requires_approval,
+            ])->values(),
+            // The edges, not just the nodes. Without them this endpoint
+            // describes a list of statuses and calls it a workflow — and the
+            // one question an administrator opens this screen to answer is
+            // which moves are legal, which is a property of the edges alone.
+            'transitions' => $w->transitions->map(fn (WorkflowTransitionModel $t): array => [
+                'id' => $t->id,
+                // NULL means "from anywhere" (docs/02 §7). Sent as null rather
+                // than expanded into one edge per state: the fan-out is the
+                // fact, and a reader that expands it loses the ability to say
+                // so in words.
+                'from_state_id' => $t->from_state_id,
+                'to_state_id' => $t->to_state_id,
+                'label' => $t->label,
+                'requires_comment' => $t->requires_comment,
+                // The guard itself is not sent — it is a predicate over facts
+                // this endpoint does not have, so rendering it beside a graph
+                // would invite reading it as a promise. Whether one EXISTS is
+                // the part that changes how the edge should be drawn.
+                'is_guarded' => $t->guard !== [],
             ])->values(),
         ]));
     }
@@ -77,7 +98,7 @@ final class WorkflowController extends ApiController
         ]);
     }
 
-    /** The read-only rule list. The builder UI is Phase 7. */
+    /** The rule list. Read-only until the builder's write endpoints exist. */
     public function rules(): ApiResponse
     {
         $rules = WorkflowRuleModel::query()->orderBy('run_order')->get();

@@ -49,11 +49,11 @@ const ADMIN: NavItem[] = [
   // Gated on `department.view` like every other entry here, so it does not
   // appear for somebody who would only find a 403 behind it.
   { href: "/departments", label: "Departments", permission: "department.view" },
-  // Points at the one settings screen that exists. A nav entry whose target
-  // 404s is worse than an absent one: it reads as a broken product rather than
-  // an unbuilt feature. The index page arrives when there is more than one
-  // thing to index.
-  { href: "/settings/notifications", label: "Settings", permission: "organization.view" },
+  // Pointed straight at the one settings screen that existed, because an index
+  // of one adds a click and says nothing. The workflow catalogue and the
+  // automation rules made it three, so the index exists now — which was always
+  // the condition, not a to-do.
+  { href: "/settings", label: "Settings", permission: "organization.view" },
 ];
 
 export function AppShell({

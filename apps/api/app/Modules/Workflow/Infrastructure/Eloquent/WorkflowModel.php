@@ -44,6 +44,20 @@ final class WorkflowModel extends TenantModel
         return $this->hasMany(WorkflowStateModel::class, 'workflow_id')->orderBy('position');
     }
 
+    /**
+     * The edges of the graph.
+     *
+     * A workflow rendered as a list of states is a list, not a workflow: what
+     * makes it a graph — and what an administrator needs to see before changing
+     * anything — is which moves are legal.
+     *
+     * @return HasMany<WorkflowTransitionModel, $this>
+     */
+    public function transitions(): HasMany
+    {
+        return $this->hasMany(WorkflowTransitionModel::class, 'workflow_id')->orderBy('position');
+    }
+
     public function initialState(): ?WorkflowStateModel
     {
         return $this->states()->where('is_initial', true)->first();

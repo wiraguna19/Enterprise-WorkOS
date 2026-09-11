@@ -108,10 +108,17 @@ const INTERFACE_OWED = [
     // could check. **A rule with a standing counter-example in the product is
     // not a rule.**
 
-    // Phase 7 owns these: the visual workflow and rule builders.
-    'api/v1/workflows' => 'Phase 7 — the workflow builder reads this.',
-    'api/v1/workflow-rules' => 'Phase 7 — the rule builder reads this.',
-    'api/v1/workflow-rules/{id}/runs' => 'Phase 7 — the rule builder shows run history.',
+    // The three workflow reads were here, waiting for Phase 7's builders, and
+    // are paid by the screens under `/settings` — read-only, because the
+    // builders need write endpoints that do not exist yet and a control in
+    // front of a missing endpoint is the dead control this list is about.
+    //
+    // Worth recording what the absence was hiding, as every entry so far has
+    // been: `GET /workflows` was sending the STATES of the graph and not one
+    // of the EDGES. A workflow with no edges is a list of statuses, and the
+    // one question the screen exists to answer — which moves are legal — was
+    // unanswerable from the endpoint that owns the answer. Three phases old,
+    // and invisible for the usual reason: nothing had ever read it.
 ];
 
 function webSourceDirectory(): ?string
