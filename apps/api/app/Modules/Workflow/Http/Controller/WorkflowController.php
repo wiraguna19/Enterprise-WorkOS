@@ -9,7 +9,9 @@ use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
+use App\Modules\Workflow\Application\Service\RuleVocabulary;
 use App\Modules\Workflow\Application\Service\TransitionService;
+use App\Modules\Workflow\Http\Request\SaveRuleRequest;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
@@ -98,27 +100,106 @@ final class WorkflowController extends ApiController
         ]);
     }
 
-    /** The rule list. Read-only until the builder's write endpoints exist. */
     public function rules(): ApiResponse
     {
         $rules = WorkflowRuleModel::query()->orderBy('run_order')->get();
 
-        return $this->ok($rules->map(fn (WorkflowRuleModel $r) => [
-            'id' => $r->id,
-            'name' => $r->name,
-            'description' => $r->description,
-            'trigger' => $r->trigger,
-            'conditions' => $r->conditions,
-            'actions' => $r->actions,
-            'is_active' => $r->is_active,
+        return $this->ok($rules->map($this->presentRule(...)));
+    }
+
+    /**
+     * Everything a rule may legally say, from the code that implements it.
+     *
+     * The builder has to offer a list of triggers, operators and actions, and
+     * a list kept in the interface is a copy — this codebase has paid for that
+     * four times. Offering an action the executor cannot run is the worst of
+     * them: it throws inside a queued job, hours later.
+     */
+    public function vocabulary(): ApiResponse
+    {
+        return $this->ok(RuleVocabulary::all());
+    }
+
+    public function storeRule(SaveRuleRequest $request): ApiResponse
+    {
+        $this->authorize('create', WorkflowRuleModel::class);
+
+        $rule = new WorkflowRuleModel;
+        $rule->forceFill([
+            'id' => WorkflowRuleModel::newId(),
+            'workflow_id' => null,
+            'name' => $request->string('name')->toString(),
+            'description' => $request->string('description')->toString(),
+            'trigger' => $request->string('trigger')->toString(),
+            'conditions' => $request->array('conditions'),
+            'actions' => array_values($request->array('actions')),
+            'is_active' => $request->boolean('is_active', true),
+            'run_order' => $request->integer('run_order'),
+            'failure_count' => 0,
+            'disabled_reason' => null,
+        ])->save();
+
+        return $this->created($this->presentRule($rule));
+    }
+
+    /**
+     * Editing a rule, and switching one off.
+     *
+     * Both are this one endpoint because both are `workflow.manage`: turning
+     * off the rule that opens approvals changes what the product does more
+     * thoroughly than rewriting its conditions.
+     *
+     * **Re-activating clears the failure count**, and so does any edit. The
+     * engine disables a rule after five consecutive failures; leaving the count
+     * where it was would put a rule somebody has just fixed one failure away
+     * from being switched off again, which reads as the fix not working.
+     */
+    public function updateRule(SaveRuleRequest $request, string $id): ApiResponse
+    {
+        /** @var WorkflowRuleModel $rule */
+        $rule = WorkflowRuleModel::query()->findOrFail($id);
+
+        $this->authorize('update', $rule);
+
+        $attributes = [
+            'failure_count' => 0,
+            'disabled_reason' => null,
+        ];
+
+        // Only what was sent. A form that posts every field turns "switch this
+        // off" into a rewrite of the conditions with whatever the client last
+        // read — and a client reading a stale rule would silently revert an
+        // edit made a minute earlier.
+        foreach (['name', 'description', 'trigger', 'conditions', 'actions', 'is_active', 'run_order'] as $field) {
+            if ($request->has($field)) {
+                $attributes[$field] = $request->input($field);
+            }
+        }
+
+        $rule->forceFill($attributes)->save();
+
+        return $this->ok($this->presentRule($rule));
+    }
+
+    /** @return array<string, mixed> */
+    private function presentRule(WorkflowRuleModel $rule): array
+    {
+        return [
+            'id' => $rule->id,
+            'name' => $rule->name,
+            'description' => $rule->description,
+            'trigger' => $rule->trigger,
+            'conditions' => $rule->conditions,
+            'actions' => $rule->actions,
+            'is_active' => $rule->is_active,
             // Surfaced deliberately: a rule that has been silently failing is
             // the thing an administrator most needs to see.
             'health' => [
-                'healthy' => $r->isHealthy(),
-                'failure_count' => $r->failure_count,
-                'disabled_reason' => $r->disabled_reason,
+                'healthy' => $rule->isHealthy(),
+                'failure_count' => $rule->failure_count,
+                'disabled_reason' => $rule->disabled_reason,
             ],
-        ]));
+        ];
     }
 
     /**

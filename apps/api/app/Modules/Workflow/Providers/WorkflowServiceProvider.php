@@ -9,11 +9,14 @@ use App\Modules\Work\Domain\Event\WorkItemAssigned;
 use App\Modules\Work\Domain\Event\WorkItemCreated;
 use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
+use App\Modules\Workflow\Http\Policy\WorkflowRulePolicy;
 use App\Modules\Workflow\Infrastructure\Console\MaterializeRecurrences;
+use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
 use App\Modules\Workflow\Infrastructure\Listener\DispatchRuleEvaluation;
 use App\Modules\Workflow\Infrastructure\Listener\TransitionOnApprovalDecision;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -53,6 +56,12 @@ final class WorkflowServiceProvider extends ServiceProvider
         // A decided approval moves the work it was about, in the deciding
         // reviewer's own request — see the listener for why it is not queued.
         Event::listen(ApprovalDecided::class, [TransitionOnApprovalDecision::class, 'handle']);
+
+        // Registered here rather than in a global provider: the module that
+        // owns the model owns its policy, and Gate's answer with no policy is
+        // deny — which has read as a missing permission three times in this
+        // codebase (see WorkflowRulePolicy).
+        Gate::policy(WorkflowRuleModel::class, WorkflowRulePolicy::class);
 
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum'])

@@ -146,6 +146,22 @@ final class NotificationDispatcher
     }
 
     /**
+     * The audience names a rule may use, for whatever has to OFFER them.
+     *
+     * Kept immediately beside the match it mirrors, because PHP cannot drive a
+     * match from a constant. A name added below and not here is invisible in
+     * the rule builder — which is the mild failure; a name offered here and
+     * missing below resolves to nobody, and a rule that notifies nobody looks
+     * exactly like a rule that works.
+     *
+     * `membership:<id>` is deliberately not offered: a rule that hardcodes a
+     * person breaks the day they change teams.
+     *
+     * @var list<string>
+     */
+    public const AUDIENCES = ['assignee', 'reviewer', 'approver', 'watchers', 'creator', 'project_owner'];
+
+    /**
      * Resolve audience names to memberships.
      *
      * Rules name recipients by ROLE relative to the subject, never by id: a

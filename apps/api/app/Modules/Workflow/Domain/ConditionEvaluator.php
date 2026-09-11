@@ -29,7 +29,14 @@ final class ConditionEvaluator
     /** Guards against a pathological or hand-crafted deeply nested predicate. */
     private const MAX_DEPTH = 8;
 
-    private const OPERATORS = [
+    /**
+     * Public because the rule builder may only offer what this class can
+     * evaluate. A second list of operators in the interface would be the
+     * fifth copy of a vocabulary in this codebase, and two lists that must
+     * agree eventually will not — the thing that CONSUMES a value is not the
+     * thing that should name it.
+     */
+    public const OPERATORS = [
         'eq', 'neq', 'in', 'not_in', 'gt', 'gte', 'lt', 'lte',
         'contains', 'is_null', 'is_not_null', 'changed_to', 'changed_from',
     ];

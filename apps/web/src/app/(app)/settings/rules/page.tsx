@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ActiveSwitch } from "@/features/workflow/ActiveSwitch";
+import { isBuildable } from "@/features/workflow/composable";
 import { describeAction, describeCondition, describeTrigger } from "@/features/workflow/describe";
 import type { Rule, RuleAction } from "@/features/workflow/types";
 import { api } from "@/lib/api";
@@ -21,13 +24,20 @@ import { requireUser } from "@/lib/auth";
  *
  * Each rule links to its own run log rather than an index of runs — a report is
  * reached from its subject.
+ *
+ * Editing is offered only for rules the builder can express: it composes a flat
+ * "all of these hold" and two action types, and a form that opened a nested
+ * predicate would save back less than the rule says. Switching off is offered
+ * for every rule, because that one is the same act whatever the rule contains.
  */
 export default async function RulesPage() {
   const me = await requireUser();
 
   const { data: rules } = await api<Rule[]>("/workflow-rules", { tags: ["workflow-rules"] });
 
-  const maySeeRuns = me.permissions.includes("workflow.manage");
+  // One permission, two capabilities: the run log names subjects, and writing
+  // changes what the product does for everybody.
+  const mayManage = me.permissions.includes("workflow.manage");
   const unhealthy = rules.filter((rule) => !rule.health.healthy).length;
 
   return (
@@ -39,18 +49,32 @@ export default async function RulesPage() {
             ? `${rules.length} rules · ${unhealthy} not running`
             : `${rules.length} rules · all running`
         }
+        action={
+          mayManage ? (
+            <ButtonLink href="/settings/rules/new" variant="primary">
+              New rule
+            </ButtonLink>
+          ) : undefined
+        }
       />
 
       {rules.length === 0 ? (
         <EmptyState
           title="Nothing is automated"
-          description="A rule watches for something happening — work entering review, an item going overdue — and acts on it. Until the builder ships, rules are created through the API."
+          description="A rule watches for something happening — work entering review, an item going overdue — and acts on it."
+          action={
+            mayManage ? (
+              <ButtonLink href="/settings/rules/new" variant="primary">
+                Write the first one
+              </ButtonLink>
+            ) : undefined
+          }
         />
       ) : (
         <ul className="space-y-4">
           {rules.map((rule) => (
             <li key={rule.id}>
-              <RuleCard rule={rule} maySeeRuns={maySeeRuns} />
+              <RuleCard rule={rule} mayManage={mayManage} />
             </li>
           ))}
         </ul>
@@ -59,7 +83,7 @@ export default async function RulesPage() {
   );
 }
 
-function RuleCard({ rule, maySeeRuns }: { rule: Rule; maySeeRuns: boolean }) {
+function RuleCard({ rule, mayManage }: { rule: Rule; mayManage: boolean }) {
   const headingId = `rule-${rule.id}`;
   const conditions = describeCondition(rule.conditions);
 
@@ -113,12 +137,28 @@ function RuleCard({ rule, maySeeRuns }: { rule: Rule; maySeeRuns: boolean }) {
         </div>
       </dl>
 
-      {maySeeRuns && (
-        <p className="mt-3">
+      {mayManage && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link href={`/settings/rules/${rule.id}`} className="text-body-sm text-a-700 underline">
             Why it did or did not fire
           </Link>
-        </p>
+
+          {/* Absent, not disabled, for a rule this form cannot express: a
+              control that opens a screen which then refuses is worse than one
+              that was never offered. The edit page says why if reached. */}
+          {isBuildable(rule) && (
+            <Link
+              href={`/settings/rules/${rule.id}/edit`}
+              className="text-body-sm text-a-700 underline"
+            >
+              Edit
+            </Link>
+          )}
+
+          <span className="ml-auto">
+            <ActiveSwitch id={rule.id} name={rule.name} active={rule.is_active} />
+          </span>
+        </div>
       )}
     </section>
   );

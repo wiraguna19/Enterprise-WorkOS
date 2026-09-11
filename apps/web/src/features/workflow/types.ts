@@ -90,3 +90,23 @@ export type RuleRun = {
   duration_ms: number | null;
   occurred_at: string;
 };
+
+/**
+ * What a rule may legally say, as the engine reports it.
+ *
+ * Fetched rather than hardcoded: a trigger the builder offers and the engine
+ * does not implement produces a rule that can never fire, and an ACTION it
+ * cannot run throws inside a queued job hours later. This codebase has four
+ * separate scars from a list kept beside the thing that owns it.
+ */
+export type Vocabulary = {
+  triggers: string[];
+  operators: string[];
+  actions: string[];
+  fields: Record<
+    string,
+    { type: "string" | "number" | "id"; values: string[] | null; triggers: string[] }
+  >;
+  /** Who a notify action may reach. Never a person, by design. */
+  audiences: string[];
+};

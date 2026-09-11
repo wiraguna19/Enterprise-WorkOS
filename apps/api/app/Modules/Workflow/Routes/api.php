@@ -27,3 +27,18 @@ Route::get('workflow-rules', [WorkflowController::class, 'rules'])
     ->middleware('permission:workflow.view');
 Route::get('workflow-rules/{id}/runs', [WorkflowController::class, 'ruleRuns'])
     ->middleware('permission:workflow.manage');
+
+// What a rule may legally say. Read by the builder so the interface cannot
+// offer a trigger, operator or action the engine does not implement — the same
+// permission as reading the rules, because it describes nothing but this
+// build's own vocabulary.
+Route::get('workflow-vocabulary', [WorkflowController::class, 'vocabulary'])
+    ->middleware('permission:workflow.view');
+
+// Writing a rule is `workflow.manage` at the route AND WorkflowRulePolicy at
+// the record. Two layers saying the same thing is deliberate (docs/06 §2); the
+// day a rule becomes scoped to a project, only the policy changes.
+Route::post('workflow-rules', [WorkflowController::class, 'storeRule'])
+    ->middleware(['permission:workflow.manage', 'throttle:writes']);
+Route::patch('workflow-rules/{id}', [WorkflowController::class, 'updateRule'])
+    ->middleware(['permission:workflow.manage', 'throttle:writes']);

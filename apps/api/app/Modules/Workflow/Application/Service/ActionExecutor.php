@@ -40,6 +40,20 @@ final class ActionExecutor
         'escalate' => Action\EscalateAction::class,
     ];
 
+    /**
+     * The action types a rule may name, for whatever has to OFFER them.
+     *
+     * Derived from the registry rather than repeated beside it: an action the
+     * builder offers and this class cannot run throws `UnknownAction` inside a
+     * queued job, where nobody is watching.
+     *
+     * @return list<string>
+     */
+    public static function types(): array
+    {
+        return array_keys(self::HANDLERS);
+    }
+
     public function __construct(
         private readonly Container $container,
         private readonly TenantContext $tenant,
