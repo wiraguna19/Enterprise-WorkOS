@@ -51,17 +51,37 @@ export default async function SettingsPage() {
       <PageHeader title="Settings" description={`${sections.length} areas`} />
 
       <ul className="divide-y divide-n-100 border-y border-n-100">
-        {sections.map((section) => (
-          <li key={section.href}>
-            <Link
-              href={section.href}
-              className="flex flex-col gap-0.5 py-3 transition-colors duration-[120ms] ease-standard hover:bg-n-50"
-            >
-              <span className="font-medium text-n-900">{section.label}</span>
-              <span className="max-w-prose text-caption text-n-500">{section.description}</span>
-            </Link>
-          </li>
-        ))}
+        {sections.map((section) => {
+          // "/settings/rules" → "settings-rules". The leading slash would make
+          // an id that starts with a dash — legal HTML, and the kind of thing
+          // that breaks the first tool that treats an id as a CSS selector.
+          const id = section.href.replace(/^\//, "").replace(/\//g, "-");
+
+          return (
+            <li key={section.href}>
+              {/* The whole row is the target, and the link's NAME is the label
+                  alone. A link whose accessible name is its entire contents is
+                  announced as "Automation rules What the system does on its own
+                  — and what it has actually done." — one long sentence where a
+                  name should be, and a description that never gets to be one.
+                  `aria-labelledby` and `aria-describedby` split them, which is
+                  also what lets a test address the entry by its name. */}
+              <Link
+                href={section.href}
+                aria-labelledby={`${id}-label`}
+                aria-describedby={`${id}-description`}
+                className="flex flex-col gap-0.5 py-3 transition-colors duration-[120ms] ease-standard hover:bg-n-50"
+              >
+                <span id={`${id}-label`} className="font-medium text-n-900">
+                  {section.label}
+                </span>
+                <span id={`${id}-description`} className="max-w-prose text-caption text-n-500">
+                  {section.description}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
