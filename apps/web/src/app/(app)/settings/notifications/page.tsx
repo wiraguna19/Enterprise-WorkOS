@@ -81,8 +81,17 @@ export default async function NotificationPreferencesPage() {
   // The defaults come from the API rather than a copy kept here — the second
   // copy was already in this file, one edit away from disagreeing with the
   // server about what "unset" means.
-  const preferenceFor = (key: string): Preference =>
-    preferences.find((p) => p.type === key) ?? { type: key, ...defaults };
+  // Resolved HERE, into data, because a prop crossing into a client component
+  // is serialized — and a function is not serializable. Passing
+  // `preferenceFor` threw at render and made this whole screen an error
+  // boundary, which is the second time this page has been one. Neither was
+  // visible to a type-checker or to the reachability guard: both are runtime
+  // truths that only opening the screen can find.
+  const entries = (types: NotificationType[]) =>
+    types.map((type) => ({
+      type,
+      saved: preferences.find((p) => p.type === type.key) ?? { type: type.key, ...defaults },
+    }));
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -98,7 +107,7 @@ export default async function NotificationPreferencesPage() {
           </h2>
           <p className="mt-0.5 text-body-sm text-n-500">{group.description}</p>
 
-          <PreferenceGroup types={group.types} preferenceFor={preferenceFor} />
+          <PreferenceGroup entries={entries(group.types)} />
         </section>
       ))}
     </div>

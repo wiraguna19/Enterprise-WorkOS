@@ -20,23 +20,28 @@ import type { NotificationType, Preference } from "./types";
  * handler — a whole screen of dead controls, and the most convincing kind,
  * because it renders your saved state back at you. It became a client
  * component when the toggles were wired; the layouts below are unchanged.
+ *
+ * **And then it took a FUNCTION as a prop** — `preferenceFor(key)`, resolved on
+ * the server — which a Server Component cannot hand to a Client Component:
+ * props cross that boundary by serialization, and a closure does not
+ * serialize. The whole screen threw at render. It is data now, resolved before
+ * it crosses: the server does the lookup, and what arrives is a list.
  */
 export function PreferenceGroup({
-  types,
-  preferenceFor,
+  entries,
 }: {
-  types: NotificationType[];
-  preferenceFor: (key: string) => Preference;
+  /** Each type with the preference already resolved for it. */
+  entries: Array<{ type: NotificationType; saved: Preference }>;
 }) {
   return (
     <>
       {/* ── Phone: one block per type ───────────────────────────────────── */}
       <ul className="mt-3 divide-y divide-n-100 border-y border-n-100 md:hidden">
-        {types.map((type) => (
+        {entries.map((entry) => (
           <PreferenceRow
-            key={type.key}
-            type={type}
-            saved={preferenceFor(type.key)}
+            key={entry.type.key}
+            type={entry.type}
+            saved={entry.saved}
             layout="block"
           />
         ))}
@@ -62,11 +67,11 @@ export function PreferenceGroup({
         </thead>
 
         <tbody className="divide-y divide-n-100">
-          {types.map((type) => (
+          {entries.map((entry) => (
             <PreferenceRow
-              key={type.key}
-              type={type}
-              saved={preferenceFor(type.key)}
+              key={entry.type.key}
+              type={entry.type}
+              saved={entry.saved}
               layout="row"
             />
           ))}

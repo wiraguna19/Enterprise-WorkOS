@@ -37,12 +37,19 @@ beforeEach(function (): void {
 /** A project owned by the reader, so the risk list contains only this test's work. */
 function riskProject(): string
 {
+    // Sequential, not random. A fixture id drawn from a small range against a
+    // UNIQUE column is only usually unique: `ProjectHealthTest` drew from nine
+    // hundred and collided on a day nothing had changed. The static counter
+    // outlives the RefreshDatabase rollback, and that is what makes it safe —
+    // nothing it has already handed out can come back.
+    static $sequence = 0;
+
     $id = (string) new UuidV7;
 
     DB::table('projects')->insert([
         'id' => $id,
         'organization_id' => R_ORG,
-        'key' => 'RK'.random_int(100, 999),
+        'key' => sprintf('RK%04d', ++$sequence),
         'name' => 'Risk fixture',
         'workflow_id' => R_WF,
         'status' => 'active',
@@ -56,12 +63,19 @@ function riskProject(): string
 /** @param  array<string, mixed>  $attributes */
 function riskItem(string $category = 'todo', array $attributes = [], bool $assign = true): string
 {
+    // Sequential, not random. A fixture id drawn from a small range against a
+    // UNIQUE column is only usually unique: `ProjectHealthTest` drew from nine
+    // hundred and collided on a day nothing had changed. The static counter
+    // outlives the RefreshDatabase rollback, and that is what makes it safe —
+    // nothing it has already handed out can come back.
+    static $reference = 0;
+
     $id = (string) new UuidV7;
 
     DB::table('work_items')->insert(array_merge([
         'id' => $id,
         'organization_id' => R_ORG,
-        'reference' => 'RSK-'.random_int(10000, 99999),
+        'reference' => sprintf('RSK-%05d', ++$reference),
         'title' => 'Risk fixture',
         'project_id' => test()->project,
         'workflow_id' => R_WF,

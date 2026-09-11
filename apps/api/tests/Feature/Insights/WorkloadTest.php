@@ -28,12 +28,19 @@ beforeEach(function (): void {
 /** @param array<string, mixed> $attributes */
 function assignWork(string $membershipId, array $attributes = []): string
 {
+    // Sequential, not random. A fixture id drawn from a small range against a
+    // UNIQUE column is only usually unique: `ProjectHealthTest` drew from nine
+    // hundred and collided on a day nothing had changed. The static counter
+    // outlives the RefreshDatabase rollback, and that is what makes it safe —
+    // nothing it has already handed out can come back.
+    static $sequence = 0;
+
     $id = (string) new UuidV7;
 
     DB::table('work_items')->insert([
         'id' => $id,
         'organization_id' => ACME_ORG,
-        'reference' => 'ENG-'.random_int(8000, 8999),
+        'reference' => sprintf('ENG-8%03d', ++$sequence),
         'title' => 'Workload fixture',
         'workflow_id' => WORKFLOW,
         'workflow_state_id' => $attributes['workflow_state_id'] ?? TODO_STATE,

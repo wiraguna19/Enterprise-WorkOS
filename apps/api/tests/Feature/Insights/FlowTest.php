@@ -36,12 +36,19 @@ beforeEach(function (): void {
  */
 function itemFor(string $category = 'done', array $attributes = []): string
 {
+    // Sequential, not random. A fixture id drawn from a small range against a
+    // UNIQUE column is only usually unique: `ProjectHealthTest` drew from nine
+    // hundred and collided on a day nothing had changed. The static counter
+    // outlives the RefreshDatabase rollback, and that is what makes it safe —
+    // nothing it has already handed out can come back.
+    static $sequence = 0;
+
     $id = (string) new UuidV7;
 
     DB::table('work_items')->insert(array_merge([
         'id' => $id,
         'organization_id' => ORG,
-        'reference' => 'FLW-'.random_int(1000, 9999),
+        'reference' => sprintf('FLW-%05d', ++$sequence),
         'title' => 'Flow fixture',
         'project_id' => FLOW_PROJECT,
         'workflow_id' => WF,

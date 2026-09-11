@@ -24,8 +24,15 @@ const P_OWNER = '01900000-0000-7000-8000-000000000202';
 /** @return array{0: string, 1: string} the project's id and key */
 function progressProject(): array
 {
+    // Sequential, not random. A fixture id drawn from a small range against a
+    // UNIQUE column is only usually unique: `ProjectHealthTest` drew from nine
+    // hundred and collided on a day nothing had changed. The static counter
+    // outlives the RefreshDatabase rollback, and that is what makes it safe —
+    // nothing it has already handed out can come back.
+    static $sequence = 0;
+
     $id = (string) new UuidV7;
-    $key = 'PG'.random_int(100, 999);
+    $key = sprintf('PG%04d', ++$sequence);
 
     DB::table('projects')->insert([
         'id' => $id,
@@ -43,10 +50,17 @@ function progressProject(): array
 
 function progressItem(string $projectId, string $category): void
 {
+    // Sequential, not random. A fixture id drawn from a small range against a
+    // UNIQUE column is only usually unique: `ProjectHealthTest` drew from nine
+    // hundred and collided on a day nothing had changed. The static counter
+    // outlives the RefreshDatabase rollback, and that is what makes it safe —
+    // nothing it has already handed out can come back.
+    static $reference = 0;
+
     DB::table('work_items')->insert([
         'id' => (string) new UuidV7,
         'organization_id' => P_ORG,
-        'reference' => 'PRG-'.random_int(10000, 99999),
+        'reference' => sprintf('PRG-%05d', ++$reference),
         'title' => 'Progress fixture item',
         'project_id' => $projectId,
         'workflow_id' => P_WF,

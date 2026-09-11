@@ -37,8 +37,19 @@ beforeEach(function (): void {
  */
 function healthProject(?string $endDate = null): array
 {
+    // Sequential, not random. This drew from `random_int(100, 999)` — nine
+    // hundred possible keys, `(organization_id, key)` UNIQUE, and this test
+    // alone inserts two projects inside one transaction. It passed for two
+    // phases and then failed on a day nothing had changed, which is the
+    // signature of a fixture that is only usually unique.
+    //
+    // The static counter is deliberate: it outlives the RefreshDatabase
+    // rollback, and that is exactly what makes it safe — nothing it has
+    // already handed out can come back.
+    static $sequence = 0;
+
     $id = (string) new UuidV7;
-    $key = 'HL'.random_int(100, 999);
+    $key = sprintf('HL%04d', ++$sequence);
 
     DB::table('projects')->insert([
         'id' => $id,
@@ -58,12 +69,19 @@ function healthProject(?string $endDate = null): array
 /** @param  array<string, mixed>  $attributes */
 function healthItem(string $projectId, string $category, array $attributes = []): string
 {
+    // Sequential, not random. A fixture id drawn from a small range against a
+    // UNIQUE column is only usually unique: `ProjectHealthTest` drew from nine
+    // hundred and collided on a day nothing had changed. The static counter
+    // outlives the RefreshDatabase rollback, and that is what makes it safe —
+    // nothing it has already handed out can come back.
+    static $reference = 0;
+
     $id = (string) new UuidV7;
 
     DB::table('work_items')->insert([
         'id' => $id,
         'organization_id' => H_ORG,
-        'reference' => 'HLT-'.random_int(10000, 99999),
+        'reference' => sprintf('HLT-%05d', ++$reference),
         'title' => 'Health fixture item',
         'project_id' => $projectId,
         'workflow_id' => H_WF,
