@@ -77,11 +77,17 @@ final class MembershipPolicy
     /**
      * What this person may do, and where.
      *
-     * Not self-readable by default, and not a mistake: a person's grants name
-     * the projects, teams and departments they have authority over, which is a
-     * map of the organization somebody with `role.view` is trusted with and an
-     * ordinary employee is not. Nothing stops that being widened later; it is
-     * harder to narrow.
+     * The gate is about the SCOPED half. A person's org-wide roles are already
+     * public to anyone who may view them — `PersonResource` sends them and the
+     * profile renders them under "Access", which is how a viewer can tell who
+     * the administrators are, and correct. Their GRANTS are different: each one
+     * names a project, team or department somebody has authority over, and the
+     * list of them is a map of the organization. `role.view` is trusted with
+     * that map; `person.view` is not.
+     *
+     * So this endpoint is gated on the more sensitive half of what it returns,
+     * which is the only safe way to gate one payload by two sensitivities.
+     * Nothing stops it being widened later; it is harder to narrow.
      */
     public function viewRoles(UserModel $user, MembershipModel $membership): bool
     {

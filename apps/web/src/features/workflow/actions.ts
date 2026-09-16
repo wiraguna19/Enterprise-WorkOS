@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { api, ApiRequestError } from "@/lib/api";
+import { api, describeApiError } from "@/lib/api";
 import type { Rule } from "./types";
 
 /**
@@ -24,21 +24,13 @@ export type RuleInput = {
 };
 
 function failure(error: unknown): RuleResult {
-  if (error instanceof ApiRequestError) {
-    // The validator names what it refused — the field it does not recognise,
-    // the comparison it cannot make — and those sentences are the whole reason
-    // the rule is validated at the door. Surface them rather than the generic
-    // envelope message.
-    const details = error.error.details as Record<string, string[]> | undefined;
-    const refusals = details ? Object.values(details).flat() : [];
-
-    return {
-      error: refusals.length > 0 ? refusals.join(" ") : error.error.message,
-      requestId: error.error.request_id,
-    };
-  }
-
-  return { error: "We could not reach the server. Please try again." };
+  // The validator names what it refused — the field it does not recognise, the
+  // comparison it cannot make — and those sentences are the whole reason a rule
+  // is validated at the door. A graph refusal is the opposite shape: its
+  // details are a refusal code and a count, and the sentence is the message.
+  // `describeApiError` knows which is which; this used to join both blindly and
+  // print `would_strand_work 12` at somebody.
+  return describeApiError(error);
 }
 
 function refresh(id?: string): void {

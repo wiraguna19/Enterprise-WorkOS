@@ -76,6 +76,14 @@ and since when" is the first question asked after an incident.
   expressed**, because roles are rows and this organization has four. A
   customer who wants something narrower creates a role; the custom role builder
   in `docs/10` Phase 7 is what makes that pleasant, and this works without it.
+- **The two halves of a person's roles have different sensitivities.** Org-wide
+  roles have been public to `person.view` since Phase 2 — the profile's
+  "Access" chips are how a viewer tells who the administrators are. The scoped
+  grants are the new thing and the sensitive one: each names somewhere its
+  holder has authority, and the list is a map of the organization. The endpoint
+  returns both and is gated on the more sensitive half, which is the only safe
+  way to gate one payload by two sensitivities. Found by opening the profile as
+  the viewer, which is also the only way it could have been.
 - `GET /roles` exists so the grant form offers what the organization HAS. A
   list of the four seeded keys in the interface would be the fifth copy of a
   vocabulary in this codebase, and the one that cannot grant a custom role.

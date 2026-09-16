@@ -41,6 +41,37 @@ type RequestOptions = {
   anonymous?: boolean;
 };
 
+/**
+ * An API error as a sentence somebody can act on.
+ *
+ * `error.details` carries two completely different things, and treating them
+ * alike is how a screen ends up printing `already_organization_wide manager` at
+ * a person. For `validation.failed` it is field → MESSAGES, and those messages
+ * are the useful part: the validator names the field it refused and why. For a
+ * domain refusal it is structured FACTS — a refusal code, a count, an id — for
+ * a client to branch on, and the human sentence is `message`.
+ *
+ * Found by granting a role twice in the product. Both the rule builder and the
+ * graph editor claimed in their own comments to "print the refusal verbatim",
+ * and both were printing the metadata instead.
+ */
+export function describeApiError(error: unknown): { error: string; requestId?: string } {
+  if (!(error instanceof ApiRequestError)) {
+    return { error: "We could not reach the server. Please try again." };
+  }
+
+  const requestId = error.error.request_id;
+
+  if (error.error.code === "validation.failed") {
+    const fields = (error.error.details ?? {}) as Record<string, string[]>;
+    const messages = Object.values(fields).flat();
+
+    if (messages.length > 0) return { error: messages.join(" "), requestId };
+  }
+
+  return { error: error.error.message, requestId };
+}
+
 export async function api<T>(
   path: string,
   options: RequestOptions = {},

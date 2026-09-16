@@ -1,29 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { api, ApiRequestError } from "@/lib/api";
+import { api, describeApiError } from "@/lib/api";
 
 /**
  * Granting and revoking authority over one thing (ADR 0016).
  *
  * The API refuses the grants that would not mean what they appear to — a role
  * the person already holds across the organization, a scope that does not
- * exist, your own authority — with 409 and a named reason. Those sentences are
- * surfaced as they arrive: "They already hold that role across the whole
- * organization." is the useful answer, and nothing this client invented would
- * be as specific.
+ * exist, your own authority — with 409 and a named reason. `describeApiError`
+ * is what turns that into the sentence rather than the metadata beside it: the
+ * first version of this printed `already_organization_wide manager` at the
+ * person, which is a refusal code wearing a message's clothes.
  */
 export type RoleResult = { error: string | null };
 
 function failure(error: unknown): RoleResult {
-  if (error instanceof ApiRequestError) {
-    const details = error.error.details as Record<string, string[]> | undefined;
-    const refusals = details ? Object.values(details).flat() : [];
-
-    return { error: refusals.length > 0 ? refusals.join(" ") : error.error.message };
-  }
-
-  return { error: "We could not reach the server. Please try again." };
+  return { error: describeApiError(error).error };
 }
 
 export async function grantRole(
