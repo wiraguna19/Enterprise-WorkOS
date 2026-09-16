@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -34,6 +35,16 @@ type Recurrence = {
 
 export default async function RecurringPage() {
   const me = await requireUser();
+
+  // The nav hides this entry without the permission; the PAGE has to refuse it
+  // too. A URL is typed, pasted and bookmarked, and until now the two screens
+  // whose reads have no fallback answered a 403 with "Something went wrong"
+  // while the two that do fall back answered with an empty state — which is
+  // worse, because "no departments yet" is a confident lie about somebody
+  // else's organization. 404 rather than 403, like every other refusal in this
+  // product: whether the thing exists is not this page's to disclose.
+  if (!me.permissions.includes("work_item.create")) notFound();
+
 
   const recurrences = await api<Recurrence[]>("/recurrences")
     .then((r) => r.data)

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageBody } from "@/components/ui/PageBody";
@@ -22,6 +23,16 @@ export default async function PeoplePage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const [me, params] = await Promise.all([requireUser(), searchParams]);
+
+  // The nav hides this entry without the permission; the PAGE has to refuse it
+  // too. A URL is typed, pasted and bookmarked, and until now the two screens
+  // whose reads have no fallback answered a 403 with "Something went wrong"
+  // while the two that do fall back answered with an empty state — which is
+  // worse, because "no departments yet" is a confident lie about somebody
+  // else's organization. 404 rather than 403, like every other refusal in this
+  // product: whether the thing exists is not this page's to disclose.
+  if (!me.permissions.includes("person.view")) notFound();
+
 
   const query = (params.q ?? "").trim();
   const search = query.length >= 2 ? `&q=${encodeURIComponent(query)}` : "";
