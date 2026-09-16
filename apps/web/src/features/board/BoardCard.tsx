@@ -54,8 +54,11 @@ export function BoardCard({
       }}
       onDragEnd={onCancel}
       className={clsx(
-        "rounded-sm border bg-n-0 shadow-e1 transition-colors duration-[120ms]",
-        picked ? "border-a-500 ring-2 ring-a-500/30" : "border-n-200 hover:border-n-300",
+        // A card is the one thing on this screen that genuinely floats — it is
+        // picked up and moved — so it keeps its shadow while the column it sits
+        // in has only a border (docs/09 §4).
+        "rounded-lg border bg-n-0 shadow-e1 transition-colors duration-[120ms]",
+        picked ? "border-a-500 ring-2 ring-a-500/30" : "border-n-300 hover:border-n-500",
         moving && "opacity-60",
       )}
     >

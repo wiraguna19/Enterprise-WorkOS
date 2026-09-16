@@ -24,7 +24,7 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
 
   if (!confirming) {
     return (
-      <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
+      <Button variant="destructive" size="sm" onClick={() => setConfirming(true)}>
         Stop
       </Button>
     );
@@ -41,7 +41,7 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
       <span className="text-caption text-n-500">Stop “{schedule}”? No more work appears.</span>
 
       <Button
-        variant="secondary"
+        variant="danger"
         size="sm"
         disabled={busy}
         onClick={() =>

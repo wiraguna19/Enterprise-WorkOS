@@ -52,8 +52,11 @@ export function DecisionForm({
   if (pending === null) {
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2">
+        {/* Tinted rather than solid: docs/09 allows ONE primary per screen,
+            and a queue of seven decisions was rendering seven of them. It is
+            still the affirmative of the row and still the first control. */}
         <Button
-          variant="primary"
+          variant="affirmative"
           size="sm"
           disabled={submitting}
           onClick={() => send("approved", "")}
@@ -61,12 +64,20 @@ export function DecisionForm({
           {submitting ? "Approving…" : "Approve"}
         </Button>
 
+        {/* NOT destructive, and the inbox is what proved it. Seven rows with
+            two red buttons each is a wall of red, and red that appears
+            everywhere stops meaning anything.
+            
+            The rule survives the correction — asking for changes takes nothing
+            away. The work goes back to its author and carries on; it is the
+            ordinary outcome of a review, not the end of one. Only Reject
+            stops it (ADR 0024). */}
         <Button size="sm" disabled={submitting} onClick={() => setPending("changes_requested")}>
           Request changes
         </Button>
 
         <Button
-          variant="ghost"
+          variant="destructive"
           size="sm"
           disabled={submitting}
           onClick={() => setPending("rejected")}
@@ -115,9 +126,12 @@ export function DecisionForm({
       )}
 
       <div className="flex items-center gap-2">
+        {/* The confirmation of the decision just chosen — red, because both
+            of the decisions that reach this form stop the work where it is
+            (ADR 0024). Approving never comes through here: it needs no note. */}
         <Button
           type="submit"
-          variant="primary"
+          variant="danger"
           size="sm"
           disabled={submitting || comment.trim() === ""}
         >

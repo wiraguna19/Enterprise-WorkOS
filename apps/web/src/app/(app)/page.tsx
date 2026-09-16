@@ -1,7 +1,9 @@
-import Link from "next/link";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Badge } from "@/components/ui/Badge";
+import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Button } from "@/components/ui/Button";
+import { PageBody } from "@/components/ui/PageBody";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import { AtRiskList } from "@/features/insights/AtRiskList";
 import { WorkloadPanel } from "@/features/people/WorkloadPanel";
@@ -100,10 +102,11 @@ export default async function HomePage() {
   const unaccepted = attention.unaccepted.filter((item) => !overdueIds.has(item.id));
   const dueToday = today.filter((item) => !overdueIds.has(item.id));
 
-  // The manager half is shown because there is something to manage. Someone
-  // with reports but a quiet week still gets the capacity block; someone with
-  // neither gets the personal page they had before.
-  const managing = atRisk.length > 0 || capacity.rows.length > 0;
+  // The manager half is shown because there is something to manage — someone
+  // with reports but a quiet week still gets the capacity panel, someone with
+  // neither gets the personal page they had before (ADR 0009). It no longer
+  // needs a `managing` flag: each panel guards itself, and one condition kept
+  // in two places is one that eventually disagrees with itself.
 
   const nothingToShow =
     attention.overdue.length === 0 &&
@@ -115,13 +118,47 @@ export default async function HomePage() {
     waiting.length === 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title={`${greeting(me.user.timezone)}, ${firstName}`}
         description={summary(counts, me.user.timezone)}
       />
 
-      {nothingToShow ? (
+      <PageBody
+        aside={
+          <>
+            {workload && (
+              <Panel id="your-week" title="Your week">
+                <WorkloadPanel workload={workload} />
+              </Panel>
+            )}
+
+            {reviews.length > 0 && (
+              // A count and a way through, rather than the queue itself: the
+              // Inbox already renders that queue, and two implementations of
+              // one list is how they start disagreeing about what is pending.
+              <Panel
+                id="waiting-review"
+                title="Waiting on your review"
+                actions={<Badge tone="warning">{reviews.length}</Badge>}
+              >
+                <ButtonLink href="/inbox" variant="secondary" size="sm">
+                  Open the inbox
+                </ButtonLink>
+              </Panel>
+            )}
+
+            {capacity.rows.length > 0 && (
+              <Panel id="capacity" title="Your reports this week" bleed>
+                <div className="px-4 py-3">
+                  <TeamCapacity rows={capacity.rows} withheld={capacity.withheld} />
+                </div>
+              </Panel>
+            )}
+          </>
+        }
+      >
+        {nothingToShow ? (
         <EmptyState
           title={
             (counts.open ?? 0) > 0 ? "Nothing needs you today" : "No work assigned to you yet"
@@ -133,15 +170,15 @@ export default async function HomePage() {
           }
           action={
             me.permissions.includes("team.create") ? (
-              <Link href="/teams">
-                <Button variant="primary">Browse teams</Button>
-              </Link>
+              <ButtonLink href="/teams" variant="primary">
+                Browse teams
+              </ButtonLink>
             ) : undefined
           }
         />
-      ) : (
-        <>
-          <Section
+        ) : (
+          <>
+            <Section
             title="Overdue"
             items={attention.overdue}
             timeZone={me.user.timezone}
@@ -179,66 +216,20 @@ export default async function HomePage() {
         </>
       )}
 
-      {workload && (
-        <section aria-labelledby="your-week" className="space-y-1.5 border-t border-n-100 pt-5">
-          <h2
-            id="your-week"
-            className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
+        {atRisk.length > 0 && (
+          <Panel
+            id="at-risk"
+            title="Where the risk is"
+            description="Work that will miss, and why — ordered by how soon it bites."
+            actions={<Badge tone="warning">{atRisk.length}</Badge>}
+            bleed
           >
-            Your week
-          </h2>
-
-          <WorkloadPanel workload={workload} />
-        </section>
-      )}
-
-      {managing && (
-        <div className="space-y-6 border-t border-n-200 pt-6">
-          {atRisk.length > 0 && (
-            <section aria-labelledby="at-risk" className="space-y-1">
-              <div className="flex items-baseline justify-between">
-                <h2
-                  id="at-risk"
-                  className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-                >
-                  Where the risk is
-                </h2>
-                <span className="text-caption text-n-500">
-                  {atRisk.length} {atRisk.length === 1 ? "item" : "items"}
-                </span>
-              </div>
-
+            <div className="px-4 py-3">
               <AtRiskList items={atRisk} timeZone={me.user.timezone} />
-            </section>
-          )}
-
-          {reviews.length > 0 && (
-            // A count and a way through, rather than the queue itself: the
-            // Inbox already renders that queue, and two implementations of one
-            // list is how they start disagreeing about what is pending.
-            <p className="text-body-sm text-n-700">
-              {reviews.length} {reviews.length === 1 ? "item is" : "items are"} waiting on your
-              review.{" "}
-              <Link href="/inbox" className="text-a-700 hover:underline">
-                Open the inbox
-              </Link>
-            </p>
-          )}
-
-          {capacity.rows.length > 0 && (
-            <section aria-labelledby="capacity" className="space-y-3">
-              <h2
-                id="capacity"
-                className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-              >
-                Your reports this week
-              </h2>
-
-              <TeamCapacity rows={capacity.rows} withheld={capacity.withheld} />
-            </section>
-          )}
-        </div>
-      )}
+            </div>
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }
@@ -262,27 +253,23 @@ function Section({
   if (items.length === 0) return null;
 
   return (
-    <section aria-labelledby={`home-${title}`} className="space-y-1">
-      <div className="flex items-baseline justify-between">
-        <h2
-          id={`home-${title}`}
-          className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-        >
-          {title}
-        </h2>
-        <Link href={href} className="text-caption text-a-700 hover:underline">
+    <Panel
+      id={`home-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+      title={title}
+      description={note}
+      actions={
+        <ButtonLink href={href} variant="ghost" size="sm">
           See all
-        </Link>
-      </div>
-
-      {note && <p className="max-w-[72ch] text-caption text-n-500">{note}</p>}
-
-      <div className="border-t border-n-100">
+        </ButtonLink>
+      }
+      bleed
+    >
+      <div className="divide-y divide-n-100">
         {items.slice(0, 5).map((item) => (
           <WorkItemRow key={item.id} item={item} timeZone={timeZone} />
         ))}
       </div>
-    </section>
+    </Panel>
   );
 }
 

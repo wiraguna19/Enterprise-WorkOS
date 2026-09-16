@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
+import { PageBody } from "@/components/ui/PageBody";
+import { Panel } from "@/components/ui/Panel";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { DueDate } from "@/features/work-item/components/DueDate";
@@ -106,8 +109,8 @@ export default async function WorkItemPage({
     : [];
 
   return (
-    <article className="mx-auto max-w-4xl space-y-6">
-      <header className="space-y-3 border-b border-n-100 pb-4">
+    <article className="space-y-3">
+      <header className="space-y-3 rounded-xl border border-n-300 bg-n-0 px-4 py-3.5">
         <div className="flex items-center gap-2 text-caption text-n-500">
           <span className="font-mono">{item.reference}</span>
           {item.project && (
@@ -185,73 +188,75 @@ export default async function WorkItemPage({
         </div>
       </header>
 
-      {item.description && (
-        <section aria-labelledby="description-heading">
-          <SectionLabel id="description-heading">Description</SectionLabel>
-          <p className="max-w-[72ch] whitespace-pre-wrap text-body text-n-700">
-            {item.description}
-          </p>
-        </section>
-      )}
+      {/* The thread on the left, the record on the right (ADR 0024). What
+          somebody opens a work item to DO is read the description and say
+          something; time, attachments and history are what they glance at, and
+          they were pushing the conversation a screen and a half down. */}
+      <PageBody
+        aside={
+          <>
+            <Panel id="time" title="Time">
+              <TimePanel
+                reference={item.reference}
+                entries={time.entries}
+                total={time.total}
+                cachedTotal={time.cached}
+                canLog={item.permissions.log_time ?? false}
+              />
+            </Panel>
 
-      {history.length > 0 && (
-        <section aria-labelledby="history-heading">
-          <SectionLabel id="history-heading">Assignment history</SectionLabel>
-          <AssignmentHistory entries={history} timeZone={me.user.timezone} />
-        </section>
-      )}
+            <Panel
+              id="attachments"
+              title="Attachments"
+              actions={attachments.length > 0 ? <Badge>{attachments.length}</Badge> : undefined}
+            >
+              <AttachmentPanel
+                reference={item.reference}
+                attachments={attachments}
+                // The same right the API asks for: uploading is a permission,
+                // not a consequence of being able to comment.
+                canAttach={me.permissions.includes("file.upload")}
+                timeZone={me.user.timezone}
+              />
+            </Panel>
 
-      <section aria-labelledby="time-heading">
-        <SectionLabel id="time-heading">Time</SectionLabel>
-        <TimePanel
-          reference={item.reference}
-          entries={time.entries}
-          total={time.total}
-          cachedTotal={time.cached}
-          canLog={item.permissions.log_time ?? false}
-        />
-      </section>
+            {history.length > 0 && (
+              <Panel id="assignment-history" title="Assignment history">
+                <AssignmentHistory entries={history} timeZone={me.user.timezone} />
+              </Panel>
+            )}
 
-      {/* Was "Activity & comments" over a list of comments, because the
-          activity log had no endpoint to read it from. It has one now, and it
-          is the section below. */}
-      <section aria-labelledby="attachments-heading">
-        <SectionLabel id="attachments-heading">
-          Attachments
-          {attachments.length > 0 && (
-            <span className="ml-1 font-normal text-n-500">({attachments.length})</span>
-          )}
-        </SectionLabel>
-        <AttachmentPanel
-          reference={item.reference}
-          attachments={attachments}
-          // The same right the API asks for: uploading is a permission, not a
-          // consequence of being able to comment.
-          canAttach={me.permissions.includes("file.upload")}
-          timeZone={me.user.timezone}
-        />
-      </section>
+            <Panel id="activity" title="History">
+              <ActivityTimeline events={activity} timeZone={me.user.timezone} />
+            </Panel>
+          </>
+        }
+      >
+        {item.description && (
+          <Panel id="description" title="Description">
+            <p className="max-w-[72ch] whitespace-pre-wrap text-body text-n-700">
+              {item.description}
+            </p>
+          </Panel>
+        )}
 
-      <section aria-labelledby="comments-heading">
-        <SectionLabel id="comments-heading">
-          Comments
-          {comments.length > 0 && (
-            <span className="ml-1 font-normal text-n-500">({comments.length})</span>
-          )}
-        </SectionLabel>
-        <CommentThread
-          reference={reference}
-          comments={comments}
-          timeZone={me.user.timezone}
-          canComment={item.permissions.comment ?? false}
-          membershipId={me.membership.id}
-        />
-      </section>
-
-      <section aria-labelledby="activity-heading">
-        <SectionLabel id="activity-heading">History</SectionLabel>
-        <ActivityTimeline events={activity} timeZone={me.user.timezone} />
-      </section>
+        {/* Was "Activity & comments" over a list of comments, because the
+            activity log had no endpoint to read it from. It has one now, and it
+            is the panel in the column beside this one. */}
+        <Panel
+          id="comments"
+          title="Comments"
+          actions={comments.length > 0 ? <Badge>{comments.length}</Badge> : undefined}
+        >
+          <CommentThread
+            reference={reference}
+            comments={comments}
+            timeZone={me.user.timezone}
+            canComment={item.permissions.comment ?? false}
+            membershipId={me.membership.id}
+          />
+        </Panel>
+      </PageBody>
 
       {/* One primary action, always visible, always the next legal step. */}
       <PrimaryAction item={item} transitions={moves} />
@@ -270,13 +275,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function SectionLabel({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <h2
-      id={id}
-      className="mb-2 text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-    >
-      {children}
-    </h2>
-  );
-}

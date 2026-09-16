@@ -50,7 +50,7 @@ export function WithdrawButton({ approvalId }: { approvalId: string }) {
         </>
       ) : (
         <Button
-          variant="ghost"
+          variant="destructive"
           size="sm"
           onClick={() => {
             setError(null);

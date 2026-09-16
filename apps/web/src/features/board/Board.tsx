@@ -208,7 +208,7 @@ export function Board({
       {error && (
         <p
           role="alert"
-          className="rounded-sm border border-s-danger/30 bg-s-danger/5 px-3 py-2 text-caption text-s-danger"
+          className="rounded-lg border border-s-danger/40 bg-s-danger/5 px-3 py-2 text-caption text-s-danger"
         >
           {error}
         </p>
@@ -331,8 +331,20 @@ function BoardColumnDropZone({
       data-column={column.state.key}
       aria-dropeffect={picked && !isSource ? (legal ? "move" : "none") : undefined}
       className={clsx(
-        "flex w-72 shrink-0 flex-col rounded-sm border border-transparent p-1 transition-colors duration-[120ms]",
-        (over || isKeyboardTarget) && !isSource && "border-a-500 bg-a-500/5",
+        // A column is a container and now looks like one (ADR 0024). It was a
+        // transparent strip with a transparent border, so the board read as
+        // cards floating in space with the headings hovering above them — the
+        // clearest case in the product of a boundary that existed only in the
+        // layout.
+        //
+        // The drop states REPLACE the resting border rather than being layered
+        // over it: two border colours on one element leave the winner to
+        // stylesheet order, which is not something a drag target should depend
+        // on.
+        "flex w-72 shrink-0 flex-col rounded-xl border p-2 transition-colors duration-[120ms]",
+        (over || isKeyboardTarget) && !isSource
+          ? "border-a-500 bg-a-500/5"
+          : "border-n-200 bg-n-25",
         picked && known && !legal && !isSource && "opacity-50",
       )}
       onDragOver={(event) => {
@@ -358,7 +370,7 @@ function BoardColumnDropZone({
         onDrop(column.state.id);
       }}
     >
-      <header className="flex items-center gap-2 px-1 pb-2">
+      <header className="flex items-center gap-2 px-1 pb-2.5">
         <span
           aria-hidden
           className={clsx("size-1.5 rounded-full", CATEGORY_DOT[column.state.category])}
@@ -372,7 +384,7 @@ function BoardColumnDropZone({
 
       <ol className="flex flex-1 flex-col gap-1.5">
         {column.items.length === 0 ? (
-          <li className="rounded-sm border border-dashed border-n-200 px-3 py-6 text-center text-caption text-n-500">
+          <li className="rounded-lg border border-dashed border-n-300 px-3 py-6 text-center text-caption text-n-500">
             Nothing here
           </li>
         ) : (
@@ -461,7 +473,7 @@ function CommentPrompt({
         role="dialog"
         aria-modal="true"
         aria-label={`Move ${reference} to ${transition.to_state.label}`}
-        className="w-full max-w-md space-y-2 rounded-sm border border-n-200 bg-n-0 p-4 shadow-sm"
+        className="w-full max-w-md space-y-2 rounded-xl border border-n-300 bg-n-0 p-4 shadow-e2"
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit(comment);
@@ -478,7 +490,7 @@ function CommentPrompt({
           rows={3}
           value={comment}
           onChange={(event) => setComment(event.target.value)}
-          className="w-full rounded-sm border border-n-200 px-2 py-1.5 text-body text-n-900 focus:border-a-500 focus:outline-2 focus:outline-offset-1 focus:outline-a-500"
+          className="w-full rounded-md border border-n-300 px-2 py-1.5 text-body text-n-900 focus:border-a-500 focus:outline-2 focus:outline-offset-1 focus:outline-a-500"
           placeholder="The person picking this up next reads this first."
         />
 
