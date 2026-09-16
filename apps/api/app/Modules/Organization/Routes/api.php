@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Organization\Http\Controller\DepartmentController;
+use App\Modules\Organization\Http\Controller\InvitationController;
 use App\Modules\Organization\Http\Controller\PersonController;
 use App\Modules\Organization\Http\Controller\PersonRoleController;
 use App\Modules\Organization\Http\Controller\TeamController;
@@ -57,6 +58,17 @@ Route::get('people/{membership}', [PersonController::class, 'show'])
 // A grant is always scoped to one project, team or department. Making an
 // organization-wide administrator is a different act with a different blast
 // radius, and it does not belong behind the same control.
+// ── Inviting somebody in (ADR 0017) ─────────────────────────────────────────
+// `person.invite` was granted to two roles in Phase 1 and had nothing behind it
+// until now. The link is returned once, to the caller: there is no mail layer
+// in this product and this slice does not invent one.
+Route::post('people/invite', [InvitationController::class, 'store'])
+    ->middleware(['permission:person.invite', 'throttle:writes']);
+Route::get('invitations', [InvitationController::class, 'index'])
+    ->middleware('permission:person.invite');
+Route::delete('invitations/{id}', [InvitationController::class, 'destroy'])
+    ->middleware(['permission:person.invite', 'throttle:writes']);
+
 // The roles that exist, so a grant form cannot offer four keys to an
 // organization that has five.
 Route::get('roles', [PersonRoleController::class, 'catalogue'])

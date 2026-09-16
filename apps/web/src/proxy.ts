@@ -11,7 +11,14 @@ import { SESSION_COOKIE } from "@/lib/session-cookie";
  * in the API (docs/06 §2). Deleting this file must not make anything
  * accessible that was not accessible before.
  */
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
+/**
+ * `/invite` is here because the person holding an invitation link has no
+ * account yet — bouncing them to a sign-in they cannot pass is the one way to
+ * make an invitation useless, and it is what this file did until flow 2 walked
+ * the link as a stranger. The other three were always public for the same
+ * reason: they are the ways IN.
+ */
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/invite"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

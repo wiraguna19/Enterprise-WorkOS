@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Identity\Http\Controller\AuthController;
+use App\Modules\Identity\Http\Controller\InvitationAcceptController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -20,4 +21,20 @@ Route::prefix('auth')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('auth.me');
     });
+});
+
+/**
+ * The public half of an invitation (ADR 0017).
+ *
+ * Unauthenticated because the person holding the link has no account yet, which
+ * makes these the only endpoints besides login reachable with nothing at all —
+ * so they carry a throttle of their own, keyed by token and address. Both
+ * answer identically for a token that is wrong, expired, revoked or already
+ * accepted: telling those apart is an oracle for guessing tokens.
+ */
+Route::prefix('invitations')->middleware('throttle:invitation')->group(function (): void {
+    Route::get('{token}/preview', [InvitationAcceptController::class, 'show'])
+        ->name('invitations.preview');
+    Route::post('{token}/accept', [InvitationAcceptController::class, 'accept'])
+        ->name('invitations.accept');
 });

@@ -71,6 +71,21 @@ final class IdentityServiceProvider extends ServiceProvider
             Limit::perMinutes(15, 20)->by($request->ip()),
         ]);
 
+        /*
+         * Accepting an invitation is reachable with nothing but a link, so it
+         * is throttled like login rather than like a write — but on its own
+         * limiter, because login's key is `ip|email` and these requests carry
+         * no email, which would collapse every caller behind one NAT onto the
+         * same five attempts per quarter hour.
+         *
+         * Keyed by the token as well as the address: guessing tokens from one
+         * IP is what this is for, and somebody retyping their own link is not.
+         */
+        RateLimiter::for('invitation', fn (Request $request) => [
+            Limit::perMinutes(15, 10)->by($request->ip().'|'.$request->route('token')),
+            Limit::perMinutes(15, 30)->by((string) $request->ip()),
+        ]);
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(300)
             ->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
 

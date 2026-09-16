@@ -1,6 +1,8 @@
+import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PeopleSearch } from "@/features/people/PeopleSearch";
+import { PendingInvitations, type Pending } from "@/features/people/PendingInvitations";
 import { PersonList } from "@/features/people/PersonList";
 import type { Person } from "@/features/people/types";
 import { api } from "@/lib/api";
@@ -24,6 +26,17 @@ export default async function PeoplePage({
 
   const { data: people } = await api<Person[]>(`/people?limit=100${search}`);
 
+  // Invitations sit with the directory because they answer the same question —
+  // who is here — one row earlier. `person.invite` is what the endpoint
+  // requires, so the list is not asked for by anybody who would be refused it.
+  const mayInvite = me.permissions.includes("person.invite");
+
+  const invitations = mayInvite
+    ? await api<Pending[]>("/invitations")
+        .then((r) => r.data)
+        .catch(() => [])
+    : [];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -33,8 +46,19 @@ export default async function PeoplePage({
             ? `${people.length} matching "${query}"`
             : `${people.length} active in ${me.organization.name}`
         }
-        action={<PeopleSearch initialQuery={query} />}
+        action={
+          <div className="flex items-center gap-2">
+            <PeopleSearch initialQuery={query} />
+            {mayInvite && (
+              <ButtonLink href="/people/invite" variant="primary">
+                Invite someone
+              </ButtonLink>
+            )}
+          </div>
+        }
       />
+
+      {mayInvite && <PendingInvitations invitations={invitations} />}
 
       {people.length === 0 ? (
         query ? (
@@ -49,6 +73,13 @@ export default async function PeoplePage({
           <EmptyState
             title="No one here yet"
             description="Invite colleagues to give them access to work, projects, and their own workspace."
+            action={
+              mayInvite ? (
+                <ButtonLink href="/people/invite" variant="primary">
+                  Invite someone
+                </ButtonLink>
+              ) : undefined
+            }
           />
         )
       ) : (

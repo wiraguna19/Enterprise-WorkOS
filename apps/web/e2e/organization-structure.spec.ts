@@ -1,21 +1,22 @@
 import { expect } from "@playwright/test";
-import { call, type Session } from "./support/api";
+import { call } from "./support/api";
 import { test, signedInPhone } from "./support/auth";
 
 /**
  * docs/11 §4, flow 2 — "Admin: create department → team → invite person →
  * assign role".
  *
- * **Two of those four steps exist, and this flow says so rather than pretending
- * otherwise.** Creating a department and creating a team were built in Phase 2
- * and had no interface until now; inviting a person and assigning a role have
- * no ENDPOINT at all. `person.invite` is granted to managers and to org admins
- * with nothing behind it — the same shape as `activity.view`, which was granted
- * to every role for five phases with no endpoint and then no reader.
+ * **All four steps exist now, and this flow finally covers all four.** It
+ * covered two for a phase and asserted the absence of the other two at the
+ * bottom — `person.invite` was granted to managers and org admins with nothing
+ * behind it since Phase 1, and nothing could assign a role at all. That
+ * assertion is what failed the day the endpoints landed, which is exactly what
+ * it was for: a flow quietly written to two-thirds of its description is how a
+ * gap stops being visible.
  *
- * So the flow covers the half that exists, end to end through the interface,
- * and the assertion at the bottom names the half that does not. A flow quietly
- * written to two-thirds of its description is how a gap stops being visible.
+ * The invitation half runs in TWO browser contexts, because the second half of
+ * an invitation is performed by somebody the product has never met: a person
+ * with no session, holding a link.
  *
  * Driven as Rina: `department.create` belongs to org_admin alone. A manager can
  * create teams and not departments, which is a distinction worth having a test
@@ -31,6 +32,13 @@ test.describe("building the organization", () => {
     browser,
     viewport,
   }) => {
+    // Four steps across two browser contexts, and the first project pays
+    // dev-mode compilation on two routes nothing has hit yet. Marked slow with
+    // the reason written down rather than the timeout quietly raised: the last
+    // time a number moved here it turned a leaked browser context into "the
+    // product is slow" for two rounds.
+    test.slow();
+
     const admin = await signedInPhone(browser, RINA, viewport);
     const page = admin.page;
     const rina = admin.session;
@@ -161,36 +169,89 @@ test.describe("building the organization", () => {
         + "something the server did not store.",
     ).toBe(1);
 
-    // ── The half that does not exist ───────────────────────────────────────
+    // ── Invite a person ────────────────────────────────────────────────────
+    const address = `e2e-newcomer-${stamp}@acme.test`;
+
+    await page.goto("/people");
+    await page.getByRole("link", { name: "Invite someone" }).click();
+
+    await page.getByLabel("Email").fill(address);
+    await page.getByLabel("Role").selectOption("employee");
+    await page.getByRole("button", { name: "Create the invitation" }).click();
+
+    // The link is shown ONCE, because only its digest is stored. Reading it off
+    // the screen is not a shortcut here — it is the product's only delivery
+    // mechanism, and a test that fetched the token from the database would be
+    // testing a path no person can take.
+    const link = await page.locator("code").first().innerText();
+
+    expect(link, "The invitation was created and no link was shown.").toContain("/invite/");
+
+    await expect(
+      page.getByText("Nothing was emailed", { exact: false }),
+      "The screen must say no mail was sent. Implying an email is on its way is "
+        + "the difference between a limitation and a lie.",
+    ).toBeVisible();
+
+    // ── Accept it, as somebody the product has never met ───────────────────
     //
-    // Stated as an assertion rather than a comment, so it fails the day
-    // somebody builds the endpoint without finishing this flow. `person.invite`
-    // has been in the permission catalogue and granted to two roles since
-    // Phase 1; nothing answers it.
+    // A context of its own, with no session: this is the only write in the
+    // product made by a person who has not signed in. Closed by hand because
+    // `signedInPhone`'s auto fixture only knows about the contexts it made.
+    const stranger = await browser.newContext({ viewport });
+
+    try {
+      const strangerPage = await stranger.newPage();
+
+      await strangerPage.goto(new URL(link).pathname);
+
+      await expect(strangerPage.getByRole("heading", { level: 1 })).toContainText("Acme");
+      await expect(strangerPage.getByText(address)).toBeVisible();
+
+      await strangerPage.getByLabel("Your name").fill(`E2E Newcomer ${stamp}`);
+      await strangerPage.getByLabel("Password").fill("a-long-enough-password");
+      await strangerPage.getByRole("button", { name: "Join" }).click();
+
+      // Sent to sign in rather than signed in: accepting creates the account,
+      // and logging in is the account's own act.
+      await expect(strangerPage).toHaveURL(/\/login/);
+    } finally {
+      await stranger.close();
+    }
+
+    const joined = await call<Array<{ id: string; name: string }>>(
+      rina,
+      `/people?limit=100&q=${encodeURIComponent(`E2E Newcomer ${stamp}`)}`,
+    );
+
     expect(
-      await inviteEndpointExists(rina),
-      "An invite endpoint now exists. Flow 2 is 'create department → team → "
-        + "invite person → assign role' and this spec covers the first half only "
-        + "— finish it rather than leaving the description longer than the test.",
-    ).toBe(false);
+      joined[0],
+      "They accepted and the directory does not have them, so the membership "
+        + "was never written.",
+    ).toBeDefined();
+
+    // ── Assign a role — on the team this flow just built ───────────────────
+    //
+    // The fourth step, and scoped: authority over ONE thing is what a grant is
+    // for, and it is what lets a lead manage their own team without the
+    // hardcoded role check docs/06 §2 rules out by name (ADR 0016).
+    await page.goto(`/people/${joined[0].id}`);
+
+    await page.getByLabel("Give them").selectOption("manager");
+    await page.getByLabel("On a").selectOption("team");
+    await page.getByLabel("Which one").selectOption(team!.id);
+    await page.getByRole("button", { name: "Grant" }).click();
+
+    await expect(page.getByText(`on team E2E Team ${stamp}`)).toBeVisible();
+
+    const grants = await call<{ scoped: Array<{ key: string; scope_id: string }> }>(
+      rina,
+      `/people/${joined[0].id}/roles`,
+    );
+
+    expect(
+      grants.scoped.find((grant) => grant.scope_id === team!.id)?.key,
+      "The grant is on screen and not in the API, so the row was never written.",
+    ).toBe("manager");
   });
 });
-
-/**
- * Is there anything behind `person.invite` yet?
- *
- * A 404 is the answer this expects and 405 would be one too — what it must not
- * treat as "absent" is a 403, which would mean the endpoint exists and this
- * caller simply may not use it.
- */
-async function inviteEndpointExists(session: Session): Promise<boolean> {
-  try {
-    await call(session, "/people/invite", { method: "POST", body: {} });
-
-    return true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-
-    return !message.includes("404") && !message.includes("405");
-  }
-}
