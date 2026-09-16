@@ -93,3 +93,18 @@ Route::post('people/{membership}/roles', [PersonRoleController::class, 'store'])
     ->middleware(['permission:role.manage', 'throttle:writes']);
 Route::delete('people/{membership}/roles/{assignment}', [PersonRoleController::class, 'destroy'])
     ->middleware(['permission:role.manage', 'throttle:writes']);
+
+// ── Taking one permission away from one person (ADR 0020) ───────────────────
+// Denials are administered by whoever administers roles: `role.manage` gates
+// the writes and `role.view` the reader, so a deny model does not arrive with a
+// fifth permission nothing else consults.
+Route::post('people/{membership}/denials', [PersonRoleController::class, 'deny'])
+    ->middleware(['permission:role.manage', 'throttle:writes']);
+Route::delete('people/{membership}/denials/{denial}', [PersonRoleController::class, 'liftDenial'])
+    ->middleware(['permission:role.manage', 'throttle:writes']);
+
+// "Why can't I do that." Without this the refusal is a wall with no sign on it:
+// neither the person hitting it nor the administrator they ask can tell a
+// permission never granted from one taken away, and for what reason.
+Route::get('people/{membership}/permissions/explain', [PersonRoleController::class, 'explain'])
+    ->middleware('permission:role.view');

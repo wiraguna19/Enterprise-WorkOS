@@ -8,6 +8,8 @@ use App\Modules\Identity\Application\Service\RoleAssignment;
 use App\Modules\Identity\Application\Service\RoleBuilder;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\RoleModel;
+use App\Modules\Organization\Http\Request\DenyPermissionRequest;
+use App\Modules\Organization\Http\Request\ExplainPermissionRequest;
 use App\Modules\Organization\Http\Request\GrantRoleRequest;
 use App\Modules\Organization\Http\Request\SaveRoleRequest;
 use App\Modules\Platform\Http\Controller\ApiController;
@@ -144,6 +146,60 @@ final class PersonRoleController extends ApiController
         // person can do, and the honest answer to "what did that do" is the
         // list it produced — which is also what the screen re-renders from.
         return $this->created($this->roles->forMembership($membership));
+    }
+
+    /**
+     * Take one permission away from this person (ADR 0020).
+     *
+     * Gated by `role.manage` like the grants beside it, and authorized by the
+     * same policy: denying is an act of role administration, not a lesser one.
+     * It answers with the whole set for the reason `store()` does — a denial
+     * changes what a person can do, and the honest answer to "what did that do"
+     * is the list it produced.
+     */
+    public function deny(DenyPermissionRequest $request, MembershipModel $membership): ApiResponse
+    {
+        $this->authorize('manageRoles', $membership);
+
+        $this->roles->deny(
+            $membership,
+            $request->string('permission')->toString(),
+            $request->scopeType(),
+            $request->scopeId(),
+            $request->string('reason')->toString(),
+        );
+
+        return $this->created($this->roles->forMembership($membership));
+    }
+
+    public function liftDenial(MembershipModel $membership, string $denial): ApiResponse
+    {
+        $this->authorize('manageRoles', $membership);
+
+        $this->roles->liftDenial($membership, $denial);
+
+        return $this->noContent();
+    }
+
+    /**
+     * Why this person can, or cannot, do one thing.
+     *
+     * Read-gated by `role.view` at the route and by the same policy as the
+     * roles list here: the explanation says no more than the two lists above it
+     * already do, arranged around the question somebody actually asks.
+     *
+     * The permission is a query parameter rather than a path segment because a
+     * key contains a dot, and a dotted path segment is a filename to half the
+     * proxies in the world.
+     */
+    public function explain(ExplainPermissionRequest $request, MembershipModel $membership): ApiResponse
+    {
+        $this->authorize('viewRoles', $membership);
+
+        return $this->ok($this->roles->explain(
+            $membership,
+            $request->string('permission')->toString(),
+        ));
     }
 
     public function destroy(MembershipModel $membership, string $assignment): ApiResponse

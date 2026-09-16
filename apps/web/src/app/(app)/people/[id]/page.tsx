@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PersonProfile } from "@/features/people/PersonProfile";
+import { PersonDenials, type Denial } from "@/features/people/PersonDenials";
 import { PersonRoles, type Grant, type Scope } from "@/features/people/PersonRoles";
 import type { PersonDetail, Workload } from "@/features/people/types";
 import type { WorkItem } from "@/features/work-item/types";
@@ -55,6 +56,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     ? await api<{
         organization_wide: Array<{ key: string; name: string }>;
         scoped: Grant[];
+        denials: Denial[];
       }>(`/people/${id}/roles`)
         .then((r) => r.data)
         .catch(() => null)
@@ -69,6 +71,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const [scopes, assignable] = mayManageRoles
     ? await Promise.all([scopeOptions(), assignableRoles()])
     : [{ team: [], department: [], project: [] }, []];
+
+  // The permission catalogue, for the denial form and the explainer. Served,
+  // like every other vocabulary here: a form holding its own copy of the keys
+  // is a form that cannot deny the one added last week (ADR 0020).
+  const permissions = roles ? await permissionCatalogue() : [];
 
   return (
     <div className="space-y-4">
@@ -90,6 +97,16 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           scoped={roles.scoped}
           mayManage={mayManageRoles}
           roles={assignable}
+          scopes={scopes}
+        />
+      )}
+
+      {roles && (
+        <PersonDenials
+          membershipId={id}
+          denials={roles.denials}
+          mayManage={mayManageRoles}
+          permissions={permissions}
           scopes={scopes}
         />
       )}
@@ -120,4 +137,11 @@ async function scopeOptions(): Promise<{ team: Scope[]; department: Scope[]; pro
   ]);
 
   return { team, department, project };
+}
+
+/** Every permission this build has, from the endpoint that owns the list. */
+async function permissionCatalogue(): Promise<Array<{ key: string; description: string | null }>> {
+  return api<Array<{ key: string; description: string | null }>>("/permissions")
+    .then((r) => r.data)
+    .catch(() => []);
 }
