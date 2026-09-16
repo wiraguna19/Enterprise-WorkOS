@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PersonProfile } from "@/features/people/PersonProfile";
+import { ErasePerson } from "@/features/people/ErasePerson";
 import { PersonDenials, type Denial } from "@/features/people/PersonDenials";
 import { PersonRoles, type Grant, type Scope } from "@/features/people/PersonRoles";
 import type { PersonDetail, Workload } from "@/features/people/types";
@@ -98,6 +99,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           mayManage={mayManageRoles}
           roles={assignable}
           scopes={scopes}
+        />
+      )}
+
+      {person.permissions.erase && (
+        <ErasePerson
+          membershipId={id}
+          name={person.name}
+          erasedAt={person.erased_at}
         />
       )}
 

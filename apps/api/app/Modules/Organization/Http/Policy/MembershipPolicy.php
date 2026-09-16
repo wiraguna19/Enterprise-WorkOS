@@ -75,6 +75,28 @@ final class MembershipPolicy
     }
 
     /**
+     * Erasing a person's identity from this organization (ADR 0022).
+     *
+     * Gated on `person.deactivate` rather than a key of its own. Erasure is
+     * what revoking access means when it is permanent, the same person signs
+     * off on both, and a fifth permission would have arrived with nothing else
+     * consulting it — which is the bill `EveryPermissionMeansSomethingTest`
+     * keeps.
+     *
+     * Worth noting what that test could not see: `person.deactivate` has been
+     * granted since Phase 1 and this policy method has existed for as long,
+     * with no route reaching either. A permission consulted only by a policy
+     * nothing routes to passes that test while meaning exactly nothing.
+     *
+     * Self is refused for the reason `deactivate` refuses it, and harder: the
+     * account that ran the erasure would be the account erased.
+     */
+    public function erase(UserModel $user, MembershipModel $membership): bool
+    {
+        return ! $this->isSelf($membership) && $this->can('person.deactivate');
+    }
+
+    /**
      * What this person may do, and where.
      *
      * The gate is about the SCOPED half. A person's org-wide roles are already

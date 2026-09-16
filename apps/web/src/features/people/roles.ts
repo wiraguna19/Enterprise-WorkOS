@@ -110,3 +110,24 @@ export async function explainPermission(
     return { ...failure(error), explanation: null };
   }
 }
+
+/**
+ * "Delete my data" (ADR 0022).
+ *
+ * Lives beside the role actions because it is the same screen and the same
+ * permission family, and because what it removes first is authority. The API
+ * refuses the two erasures that would not mean what they say — a second one,
+ * and an account shared with another organization — with 409 and a sentence.
+ */
+export async function erasePerson(membershipId: string): Promise<RoleResult> {
+  try {
+    await api(`/people/${membershipId}/erase`, { method: "POST" });
+  } catch (error) {
+    return failure(error);
+  }
+
+  revalidatePath(`/people/${membershipId}`);
+  revalidatePath("/people");
+
+  return { error: null };
+}

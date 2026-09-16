@@ -38,6 +38,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property CarbonImmutable|null $mfa_enabled_at
  * @property array<string, mixed>|null $mfa_recovery_codes
  * @property CarbonImmutable|null $deactivated_at
+ * @property CarbonImmutable|null $erased_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  */
@@ -63,6 +64,7 @@ final class UserModel extends BaseModel implements AuthenticatableContract
             'last_login_at' => 'immutable_datetime',
             'mfa_enabled_at' => 'immutable_datetime',
             'deactivated_at' => 'immutable_datetime',
+            'erased_at' => 'immutable_datetime',
         ];
     }
 

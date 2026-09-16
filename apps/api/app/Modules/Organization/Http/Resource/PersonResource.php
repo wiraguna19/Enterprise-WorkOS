@@ -48,6 +48,7 @@ final class PersonResource extends BaseResource
         $permissions = $this->permissions([
             'update' => 'update',
             'deactivate' => 'deactivate',
+            'erase' => 'erase',
             'view_workload' => 'viewWorkload',
         ]);
 
@@ -58,6 +59,10 @@ final class PersonResource extends BaseResource
             'email' => $this->resource->user?->email,
             'avatar_url' => $this->resource->user?->avatar_path,
             'status' => $this->resource->status,
+            // Erased people are still people-shaped rows; the screen has to be
+            // able to say so rather than render a person called "Deleted
+            // person" as though that were somebody's name (ADR 0022).
+            'erased_at' => $this->resource->erased_at,
             'joined_at' => $this->resource->joined_at,
             'job_title' => $profile?->job_title,
             'employment_type' => $profile?->employment_type,

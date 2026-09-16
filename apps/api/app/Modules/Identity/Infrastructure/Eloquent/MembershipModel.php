@@ -25,6 +25,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property CarbonImmutable|null $invited_at
  * @property CarbonImmutable|null $joined_at
  * @property CarbonImmutable|null $revoked_at
+ * @property CarbonImmutable|null $erased_at
+ * @property string|null $erased_by
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  *                                       `employeeProfile` is NOT declared here. The profile is Organization's, and
@@ -45,6 +47,7 @@ final class MembershipModel extends TenantModel
             'invited_at' => 'immutable_datetime',
             'joined_at' => 'immutable_datetime',
             'revoked_at' => 'immutable_datetime',
+            'erased_at' => 'immutable_datetime',
         ];
     }
 

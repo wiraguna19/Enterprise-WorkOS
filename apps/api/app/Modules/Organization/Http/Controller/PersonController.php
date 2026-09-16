@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Organization\Http\Controller;
 
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
+use App\Modules\Organization\Application\Service\PersonErasure;
 use App\Modules\Organization\Http\Resource\PersonResource;
 use App\Modules\Organization\Infrastructure\Eloquent\EmployeeProfileModel;
 use App\Modules\Platform\Application\Query\CursorPage;
@@ -16,6 +17,26 @@ use Illuminate\Http\Request;
 
 final class PersonController extends ApiController
 {
+    public function __construct(private readonly PersonErasure $erasure) {}
+
+    /**
+     * Erase a person from this organization (ADR 0022).
+     *
+     * A POST rather than a DELETE, and the verb is the honest one: nothing is
+     * deleted. The person goes out of the rows and the rows stay, because a
+     * hard delete would take a year of the organization's work with them and
+     * silently change every report computed from it.
+     *
+     * Gated by `person.deactivate` — a permission granted since Phase 1 with no
+     * route behind it, and a policy method with nothing routing to it either.
+     */
+    public function erase(Request $request, MembershipModel $membership): ApiResponse
+    {
+        $this->authorize('erase', $membership);
+
+        return $this->ok($this->erasure->erase($membership, $request));
+    }
+
     public function index(Request $request): ApiResponse
     {
         $query = MembershipModel::query()

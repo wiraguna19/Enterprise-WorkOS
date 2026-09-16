@@ -14,6 +14,8 @@ export type Person = {
   name: string;
   email: string;
   status: string;
+  /** Set once this person has been erased from this organization (ADR 0022). */
+  erased_at: string | null;
   joined_at: string | null;
   job_title: string | null;
   employment_type: string | null;

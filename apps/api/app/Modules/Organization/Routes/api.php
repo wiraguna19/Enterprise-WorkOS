@@ -54,6 +54,14 @@ Route::get('people', [PersonController::class, 'index'])
 Route::get('people/{membership}', [PersonController::class, 'show'])
     ->middleware('permission:person.view');
 
+// ── "Delete my data" (ADR 0022) ─────────────────────────────────────────────
+// Behind `person.deactivate`, which has been granted to two roles since Phase 1
+// with no route behind it. Not a DELETE: nothing is deleted. The person is
+// taken out of the rows and the rows stay, because deleting them would delete
+// the organization's history of work they did.
+Route::post('people/{membership}/erase', [PersonController::class, 'erase'])
+    ->middleware(['permission:person.deactivate', 'throttle:writes']);
+
 // ── Who may do what, and where (ADR 0016) ───────────────────────────────────
 // A grant is always scoped to one project, team or department. Making an
 // organization-wide administrator is a different act with a different blast
