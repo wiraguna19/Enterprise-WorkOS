@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { erasePerson } from "./roles";
 
 /**
@@ -37,32 +38,30 @@ export function ErasePerson({
 
   if (erasedAt !== null) {
     return (
-      <section aria-labelledby="erased-heading" className="space-y-2">
-        <h2 id="erased-heading" className="text-h2 font-semibold text-n-900">
-          Erased
-        </h2>
-        <p className="text-body-sm text-n-500">
+      <Panel id="erased" title="Erased" tone="danger">
+        <p className="text-body-sm text-n-700">
           This person was erased from this organization. Their work, comments and history remain;
           nothing here identifies them any more, except the append-only activity and audit records,
           which age out on the retention window.
         </p>
-      </section>
+      </Panel>
     );
   }
 
   return (
-    <section aria-labelledby="erase-heading" className="space-y-3">
-      <h2 id="erase-heading" className="text-h2 font-semibold text-n-900">
-        Erase this person
-      </h2>
-
+    <Panel
+      id="erase"
+      title="Erase this person"
+      tone="danger"
+      description="Permanent, and there is no undo."
+    >
       <p className="text-body-sm text-n-700">
-        Removes their name, address and profile from this organization and revokes their access,
-        permanently and with no undo. Their work items, comments and the history of what they did
-        stay — they stop being about a named person.
+        Removes their name, address and profile from this organization and revokes their access.
+        Their work items, comments and the history of what they did stay — they stop being about a
+        named person.
       </p>
 
-      <p className="text-body-sm text-n-500">
+      <p className="mt-2 text-body-sm text-n-500">
         Two records are not touched: the activity history and the security audit log are
         append-only at the database level, so their name remains in those until they age out on the
         retention window. This erasure is itself recorded there.
@@ -71,14 +70,14 @@ export function ErasePerson({
       {error && (
         <p
           role="alert"
-          className="border border-s-danger/40 px-3 py-2 text-body-sm text-s-danger rounded-md"
+          className="mt-3 border border-s-danger/40 px-3 py-2 text-body-sm text-s-danger rounded-md"
         >
           {error}
         </p>
       )}
 
       <form
-        className="flex flex-wrap items-end gap-3 border border-s-danger/40 p-3 rounded-md"
+        className="mt-3 flex flex-wrap items-end gap-3"
         onSubmit={(event) => {
           event.preventDefault();
 
@@ -105,6 +104,6 @@ export function ErasePerson({
           Erase
         </Button>
       </form>
-    </section>
+    </Panel>
   );
 }

@@ -21,7 +21,7 @@
   --color-n-50: #f6f6f5;
   --color-n-100: #ececea;
   --color-n-200: #dcdcd9;
-  --color-n-300: #c2c2be; /* borders and disabled ONLY — 1.79:1, never text */
+  --color-n-300: #c2c2be; /* CONTAINER borders and disabled ONLY — 1.79:1, never text */
   --color-n-500: #71716a; /* secondary text — 4.92:1 on --color-n-0, verified */
   --color-n-700: #45453f; /* body text */
   --color-n-900: #1c1c19; /* headings */
@@ -61,10 +61,20 @@
   --text-display: 1.5rem; /* 24 — page titles only */
   --text-display--line-height: 2rem;
 
-  /* ── Radius — 16px+ reads as consumer app, not tooling ────────────────── */
+  /* ── Radius — it scales with the ELEMENT, not with taste ───────────────
+     16px+ still reads as a consumer app. But the first version applied one
+     small radius to everything, so a 900px panel had the same corner as a 28px
+     button and read as a plain rectangle — and containers are exactly where a
+     visible corner does its work.
+
+     So the scale now has a container step. 12px on a wide panel looks
+     deliberate; the same 12px on a 28px button is a capsule, and on a 32px
+     input it squeezes the text. Controls stay at 6. */
   --radius-xs: 2px;
   --radius-sm: 4px;
-  --radius-md: 6px;
+  --radius-md: 6px;   /* buttons, inputs, badges — anything you click or type in */
+  --radius-lg: 10px;  /* tables, empty states, inline cards */
+  --radius-xl: 12px;  /* panels: the outermost container on a screen */
 
   /* ── Elevation — exactly four levels exist ────────────────────────────── */
   --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.05);

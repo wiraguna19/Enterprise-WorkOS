@@ -1,8 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { PersonProfile } from "@/features/people/PersonProfile";
 import { ErasePerson } from "@/features/people/ErasePerson";
+import { PageBody } from "@/components/ui/PageBody";
 import { PersonDenials, type Denial } from "@/features/people/PersonDenials";
+import {
+  PersonAside,
+  PersonEmployment,
+  PersonIdentity,
+  PersonWork,
+} from "@/features/people/PersonProfile";
 import { PersonRoles, type Grant, type Scope } from "@/features/people/PersonRoles";
 import type { PersonDetail, Workload } from "@/features/people/types";
 import type { WorkItem } from "@/features/work-item/types";
@@ -85,46 +91,46 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const permissions = roles ? await permissionCatalogue() : [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <Link href="/people" className="text-body-sm text-n-500 hover:text-a-700">
         ← People
       </Link>
 
-      <PersonProfile
-        person={person}
-        openWork={openWork}
-        workload={workload}
-        timeZone={me.user.timezone}
-      />
+      <PersonIdentity person={person} />
 
-      {roles && (
-        <PersonRoles
-          membershipId={id}
-          organizationWide={roles.organization_wide}
-          scoped={roles.scoped}
-          mayManage={mayManageRoles}
-          roles={assignable}
-          scopes={scopes}
-        />
-      )}
+      {/* Main and aside, from one place. The profile used to centre itself at
+          `max-w-4xl` while the sections under it ran the full window, so this
+          page had two left edges and a ragged right one (ADR 0024). */}
+      <PageBody aside={<PersonAside person={person} workload={workload} />}>
+        <PersonWork openWork={openWork} timeZone={me.user.timezone} />
 
-      {roles && (
-        <PersonDenials
-          membershipId={id}
-          denials={roles.denials}
-          mayManage={mayManageRoles}
-          permissions={permissions}
-          scopes={scopes}
-        />
-      )}
+        <PersonEmployment person={person} timeZone={me.user.timezone} />
 
-      {person.permissions.erase && (
-        <ErasePerson
-          membershipId={id}
-          name={person.name}
-          erasedAt={person.erased_at}
-        />
-      )}
+        {roles && (
+          <PersonRoles
+            membershipId={id}
+            organizationWide={roles.organization_wide}
+            scoped={roles.scoped}
+            mayManage={mayManageRoles}
+            roles={assignable}
+            scopes={scopes}
+          />
+        )}
+
+        {roles && (
+          <PersonDenials
+            membershipId={id}
+            denials={roles.denials}
+            mayManage={mayManageRoles}
+            permissions={permissions}
+            scopes={scopes}
+          />
+        )}
+
+        {person.permissions.erase && (
+          <ErasePerson membershipId={id} name={person.name} erasedAt={person.erased_at} />
+        )}
+      </PageBody>
     </div>
   );
 }

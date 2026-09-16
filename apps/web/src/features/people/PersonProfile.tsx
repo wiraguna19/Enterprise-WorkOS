@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
+import { Badge } from "@/components/ui/Badge";
+import { KeyValue, KeyValueItem, Unset } from "@/components/ui/KeyValue";
+import { Panel } from "@/components/ui/Panel";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
 import { formatDate } from "@/lib/format";
@@ -7,12 +10,19 @@ import { WorkloadPanel } from "./WorkloadPanel";
 import type { PersonDetail, PersonRef, Workload } from "./types";
 
 /**
- * One person's profile (docs/08 §2).
+ * One person's profile (docs/08 §2, ADR 0024).
  *
  * Ordered by the questions people actually arrive with: who is this, who do
  * they work with, and what are they doing right now. Employment administrivia
- * sits last because it is the rarest question, and a profile that leads with
- * an employee number reads like an HR record rather than a colleague.
+ * sits last because it is the rarest question, and a profile that leads with an
+ * employee number reads like an HR record rather than a colleague.
+ *
+ * Rebuilt on the shared primitives, because the old version demonstrated the
+ * two faults ADR 0024 is about at once: it centred itself in `max-w-4xl` while
+ * the role and denial sections beneath it ran the full window — one page, two
+ * left edges — and it printed eight one-line facts down a column on a display
+ * wide enough for four of them side by side. It looked sparse and crowded
+ * simultaneously, which is what missing structure looks like.
  *
  * Their open work is shown, never their completed work: this page exists to
  * answer "what is this person on", and a scrollback of finished items is the
@@ -21,77 +31,168 @@ import type { PersonDetail, PersonRef, Workload } from "./types";
  * own visibility, so what is missing from it is work the viewer may not see,
  * and a link promising the rest would be a promise the server will not keep.
  */
-export function PersonProfile({
-  person,
+export function PersonIdentity({ person }: { person: PersonDetail }) {
+  return (
+    <header className="flex items-start gap-4 rounded-xl border border-n-300 bg-n-0 px-4 py-3.5">
+      <Avatar id={person.id} name={person.name} size="lg" />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-h1 font-semibold text-n-900">{person.name}</h1>
+
+          {/* Deactivated and erased people stay reachable by link — a work item
+              assigned last month still names them — so the state belongs here
+              rather than only as an absence from the directory. */}
+          {person.erased_at !== null ? (
+            <Badge tone="danger">erased</Badge>
+          ) : (
+            person.status !== "active" && <Badge>{person.status}</Badge>
+          )}
+        </div>
+
+        {/* One line, not four. Job title, department and address are the three
+            facts somebody checks they have the right person by, and stacking
+            them cost three rows to say what a sentence says. */}
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-body-sm text-n-500">
+          <span className="text-n-700">{person.job_title ?? "No job title"}</span>
+          {person.department && <span>· {person.department.name}</span>}
+          <span>·</span>
+          {/* An erased person has no address — the API sends null rather than
+              the placeholder stored in `users`, which is a random string at a
+              domain reserved so it can never be delivered to (ADR 0022). */}
+          {person.email === null ? (
+            <span>no address</span>
+          ) : (
+            <a href={`mailto:${person.email}`} className="text-a-700 hover:underline">
+              {person.email}
+            </a>
+          )}
+        </p>
+
+        {person.roles.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {person.roles.map((role) => (
+              <li key={role.id}>
+                <Badge>{role.name}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </header>
+  );
+}
+
+export function PersonWork({
   openWork,
-  workload,
   timeZone,
 }: {
-  person: PersonDetail;
   openWork: WorkItem[];
-  workload: Workload | null;
   timeZone: string;
 }) {
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <header className="flex items-start gap-4 border-b border-n-100 pb-5">
-        <Avatar id={person.id} name={person.name} size="lg" />
-
-        <div className="min-w-0 flex-1">
-          <h1 className="text-display font-semibold text-n-900">{person.name}</h1>
-
-          <p className="mt-0.5 text-body text-n-500">
-            {person.job_title ?? "No job title"}
-            {person.department && <span> · {person.department.name}</span>}
-          </p>
-
-          {/* An erased person has no address — the API sends null rather than
-              the placeholder stored in `users`, which is a random string at a
-              domain reserved so it can never be delivered to. Rendering that as
-              a mailto: offered a link to write to somebody who has been erased
-              (ADR 0022). */}
-          <p className="mt-1 text-body-sm">
-            {person.email === null ? (
-              <span className="text-n-500">No address</span>
-            ) : (
-              <a href={`mailto:${person.email}`} className="text-a-700 hover:underline">
-                {person.email}
-              </a>
-            )}
-          </p>
+    <Panel
+      id="open-work"
+      title="Open work"
+      description={
+        openWork.length === 0
+          ? "Nothing open."
+          : `${openWork.length} ${openWork.length === 1 ? "item" : "items"}, soonest due first`
+      }
+      bleed
+    >
+      {openWork.length === 0 ? (
+        <p className="px-4 py-3 text-body-sm text-n-500">
+          Nothing assigned and unfinished. Completed work is deliberately not listed here.
+        </p>
+      ) : (
+        <div className="divide-y divide-n-100">
+          {openWork.map((item) => (
+            <WorkItemRow key={item.id} item={item} timeZone={timeZone} />
+          ))}
         </div>
+      )}
+    </Panel>
+  );
+}
 
-        {/* Deactivated people stay reachable by link — a work item assigned last
-            month still names them — so the state has to be visible here rather
-            than only as an absence from the directory. */}
-        {person.status !== "active" && (
-          <span className="shrink-0 rounded-full bg-n-100 px-2 py-0.5 text-caption text-n-600">
-            {person.status}
-          </span>
+export function PersonEmployment({
+  person,
+  timeZone,
+}: {
+  person: PersonDetail;
+  timeZone: string;
+}) {
+  return (
+    <Panel id="employment" title="Employment">
+      <KeyValue>
+        <KeyValueItem label="Capacity">
+          {person.weekly_capacity_hours ? (
+            `${parseFloat(person.weekly_capacity_hours)} h / week`
+          ) : (
+            <Unset />
+          )}
+        </KeyValueItem>
+
+        <KeyValueItem label="Type">
+          {person.employment_type?.replace("_", " ") ?? <Unset />}
+        </KeyValueItem>
+
+        <KeyValueItem label="Location">{person.work_location || <Unset />}</KeyValueItem>
+
+        <KeyValueItem label="Joined">
+          {formatDate(person.hired_at ?? person.joined_at, timeZone)}
+        </KeyValueItem>
+
+        {person.employee_number != null && (
+          <KeyValueItem label="Employee no.">
+            <span className="font-mono">{person.employee_number}</span>
+          </KeyValueItem>
         )}
-      </header>
+      </KeyValue>
+    </Panel>
+  );
+}
 
-      <Section title="Reporting line">
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+/** The glance column: who they answer to, and how full their week is. */
+export function PersonAside({
+  person,
+  workload,
+}: {
+  person: PersonDetail;
+  workload: Workload | null;
+}) {
+  return (
+    <>
+      {workload && (
+        <Panel id="this-week" title="This week">
+          <WorkloadPanel workload={workload} />
+        </Panel>
+      )}
+
+      <Panel id="reporting-line" title="Reporting line">
+        <div className="space-y-3">
           <div>
-            <Dt>Manager</Dt>
-            <dd className="mt-1">
-              {person.manager ? <PersonLink person={person.manager} /> : <Muted>—</Muted>}
-            </dd>
+            <p className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
+              Manager
+            </p>
+            <div className="mt-1">
+              {person.manager ? <PersonLink person={person.manager} /> : <Unset />}
+            </div>
           </div>
 
           <div>
-            <Dt>
+            <p className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
               Direct reports
               {person.direct_reports.length > 0 && (
-                <span className="ml-1 font-normal normal-case tracking-normal text-n-400">
+                <span className="ml-1 font-normal tracking-normal text-n-500">
                   ({person.direct_reports.length})
                 </span>
               )}
-            </Dt>
-            <dd className="mt-1 space-y-1">
+            </p>
+            <div className="mt-1 space-y-1">
               {person.direct_reports.length === 0 ? (
-                <Muted>—</Muted>
+                <Unset />
               ) : (
                 person.direct_reports.map((report) => (
                   <div key={report.id}>
@@ -99,70 +200,11 @@ export function PersonProfile({
                   </div>
                 ))
               )}
-            </dd>
+            </div>
           </div>
-        </dl>
-      </Section>
-
-      {workload && (
-        <Section title="This week">
-          <WorkloadPanel workload={workload} />
-        </Section>
-      )}
-
-      <Section title="Open work">
-        {openWork.length === 0 ? (
-          <Muted>Nothing open.</Muted>
-        ) : (
-          <div className="border-t border-n-100">
-            {openWork.map((item) => (
-              <WorkItemRow key={item.id} item={item} timeZone={timeZone} />
-            ))}
-          </div>
-        )}
-      </Section>
-
-      <Section title="Employment">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-          <Detail label="Capacity">
-            {person.weekly_capacity_hours ? (
-              `${parseFloat(person.weekly_capacity_hours)} h / week`
-            ) : (
-              <Muted>—</Muted>
-            )}
-          </Detail>
-
-          <Detail label="Type">
-            {person.employment_type?.replace("_", " ") ?? <Muted>—</Muted>}
-          </Detail>
-
-          <Detail label="Location">{person.work_location ?? <Muted>—</Muted>}</Detail>
-
-          <Detail label="Joined">{formatDate(person.hired_at ?? person.joined_at, timeZone)}</Detail>
-
-          {person.employee_number != null && (
-            <Detail label="Employee no.">
-              <span className="font-mono">{person.employee_number}</span>
-            </Detail>
-          )}
-        </dl>
-      </Section>
-
-      {person.roles.length > 0 && (
-        <Section title="Access">
-          <ul className="flex flex-wrap gap-1.5">
-            {person.roles.map((role) => (
-              <li
-                key={role.id}
-                className="rounded-full border border-n-200 px-2 py-0.5 text-caption text-n-600"
-              >
-                {role.name}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-    </div>
+        </div>
+      </Panel>
+    </>
   );
 }
 
@@ -177,41 +219,10 @@ function PersonLink({ person }: { person: PersonRef }) {
   return (
     <Link
       href={`/people/${person.id}`}
-      className="inline-flex items-center gap-2 text-body-sm text-n-900 hover:text-a-700"
+      className="inline-flex min-w-0 items-center gap-2 text-body-sm text-n-900 hover:text-a-700"
     >
       <Avatar id={person.id} name={person.name ?? "?"} size="sm" />
       <span className="truncate">{person.name ?? "Unknown"}</span>
-      {person.job_title && (
-        <span className="truncate text-caption text-n-500">{person.job_title}</span>
-      )}
     </Link>
   );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Detail({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <Dt>{label}</Dt>
-      <dd className="mt-1 text-body-sm text-n-900">{children}</dd>
-    </div>
-  );
-}
-
-function Dt({ children }: { children: React.ReactNode }) {
-  return (
-    <dt className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">{children}</dt>
-  );
-}
-
-function Muted({ children }: { children: React.ReactNode }) {
-  return <span className="text-n-400">{children}</span>;
 }

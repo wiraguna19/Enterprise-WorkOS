@@ -14,7 +14,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 const VARIANTS = {
   primary: "bg-a-500 text-white hover:bg-a-700 disabled:bg-n-300",
   secondary:
-    "bg-n-0 text-n-700 border border-n-200 hover:bg-n-50 disabled:text-n-300",
+    "bg-n-0 text-n-700 border border-n-300 hover:bg-n-50 disabled:text-n-300",
   ghost: "text-n-700 hover:bg-n-50 disabled:text-n-300",
   danger: "bg-s-danger text-white hover:brightness-90 disabled:bg-n-300",
 } as const;
@@ -44,7 +44,7 @@ export function Button({
     <button
       {...props}
       className={clsx(
-        "inline-flex items-center justify-center gap-1.5 rounded-sm font-medium",
+        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium",
         "transition-colors duration-[120ms] ease-standard",
         "disabled:cursor-not-allowed",
         VARIANTS[variant],
@@ -82,7 +82,7 @@ export function ButtonLink({
     <Link
       href={href}
       className={clsx(
-        "inline-flex items-center justify-center gap-1.5 rounded-sm font-medium",
+        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium",
         "transition-colors duration-[120ms] ease-standard",
         VARIANTS[variant],
         SIZES[size],

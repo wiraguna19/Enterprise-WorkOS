@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { denyPermission, explainPermission, liftDenial, type Explanation } from "./roles";
 import type { Scope } from "./PersonRoles";
 
@@ -56,62 +59,81 @@ export function PersonDenials({
   const options = where === "everywhere" ? [] : scopes[where];
 
   return (
-    <section aria-labelledby="denials-heading" className="space-y-3">
-      <h2 id="denials-heading" className="text-h2 font-semibold text-n-900">
-        Denials
-      </h2>
-
+    <Panel
+      id="denials"
+      title="Denials"
+      description="A denial beats every grant, including one made after it."
+      actions={
+        denials.length > 0 ? (
+          <Badge tone="danger">
+            {denials.length} {denials.length === 1 ? "permission" : "permissions"} taken away
+          </Badge>
+        ) : undefined
+      }
+      bleed
+    >
       {error && (
         <p
           role="alert"
-          className="border border-s-danger/40 px-3 py-2 text-body-sm text-s-danger rounded-md"
+          className="border-b border-s-danger/40 bg-s-danger/5 px-4 py-2 text-body-sm text-s-danger"
         >
           {error}
         </p>
       )}
 
       {denials.length === 0 ? (
-        <p className="text-body-sm text-n-500">
-          Nothing taken away. A denial beats every grant, including one made after it.
+        <p className="px-4 py-3 text-body-sm text-n-500">
+          Nothing taken away.
         </p>
       ) : (
-        <ul className="divide-y divide-n-100 border-y border-n-100">
-          {denials.map((denial) => (
-            <li key={denial.id} className="flex flex-wrap items-center gap-x-3 py-2 text-body-sm">
-              <span className="min-w-0 flex-1">
-                <span className="text-n-900">{denial.permission}</span>{" "}
-                <span className="text-n-500">
+        <DataTable caption="Permissions taken away from this person">
+          <THead>
+            <Tr>
+              <Th>They may not</Th>
+              <Th>Where</Th>
+              <Th>Because</Th>
+              {mayManage && <Th width="w-20" align="right">Action</Th>}
+            </Tr>
+          </THead>
+          <TBody>
+            {denials.map((denial) => (
+              <Tr key={denial.id}>
+                <Td>
+                  <span className="font-mono text-body-sm">{denial.permission}</span>
+                </Td>
+                <Td muted>
                   {denial.scope_type === null
                     ? "everywhere"
-                    : `on ${denial.scope_type} ${denial.scope_name ?? denial.scope_id}`}
-                </span>
-                <span className="block text-n-500">{denial.reason}</span>
-              </span>
+                    : `${denial.scope_type} ${denial.scope_name ?? denial.scope_id}`}
+                </Td>
+                <Td muted>{denial.reason}</Td>
+                {mayManage && (
+                  <Td align="right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() =>
+                        startAction(async () => {
+                          const result = await liftDenial(membershipId, denial.id);
 
-              {mayManage && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() =>
-                    startAction(async () => {
-                      const result = await liftDenial(membershipId, denial.id);
-
-                      setError(result.error);
-                    })
-                  }
-                >
-                  Lift
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
+                          setError(result.error);
+                        })
+                      }
+                    >
+                      Lift
+                    </Button>
+                  </Td>
+                )}
+              </Tr>
+            ))}
+          </TBody>
+        </DataTable>
       )}
 
       {mayManage && (
         <form
-          className="flex flex-wrap items-end gap-3 border border-n-200 p-3 rounded-md"
+          className="flex flex-wrap items-end gap-3 border-t border-n-200 bg-n-25 px-4 py-3"
           onSubmit={(event) => {
             event.preventDefault();
 
@@ -216,7 +238,7 @@ export function PersonDenials({
         </form>
       )}
 
-      <div className="space-y-2 border border-n-200 p-3 rounded-md">
+      <div className="space-y-2 border-t border-n-200 px-4 py-3">
         <form
           className="flex flex-wrap items-end gap-3"
           onSubmit={(event) => {
@@ -282,6 +304,6 @@ export function PersonDenials({
           </div>
         )}
       </div>
-    </section>
+    </Panel>
   );
 }

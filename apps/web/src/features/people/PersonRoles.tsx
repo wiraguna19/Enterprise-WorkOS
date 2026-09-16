@@ -1,22 +1,30 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { grantRole, revokeRole } from "./roles";
 
 /**
- * What this person may do, and where (docs/06 §2, ADR 0016).
+ * What this person may do, and where (docs/06 §2, ADR 0016, ADR 0024).
  *
- * Two lists, deliberately kept apart. An organization-wide role is read-only
- * here: making somebody an administrator of everything is a different act from
- * putting them in charge of one team, and a control that did both would let a
- * slip of a dropdown do the larger one.
+ * Organization-wide roles are read-only here: making somebody an administrator
+ * of everything is a different act from putting them in charge of one team, and
+ * a control that did both would let a slip of a dropdown do the larger one.
+ * They are badges in the panel header — a fact about the person, not a list to
+ * work through.
  *
  * Scoped grants are what this screen writes, and they are the mechanism behind
  * "the lead of Frontend may manage Frontend" — a row with a grantor, a
  * timestamp and an activity record, rather than an `if (lead)` nobody outside
- * the codebase can see.
+ * the codebase can see. They are a TABLE now: role, scope, and the action, in
+ * three columns instead of one sentence per line.
+ *
+ * The grant form lives in the panel footer, on its own surface. A form that
+ * shared a background with the list read as another row of it.
  */
 export type Grant = {
   id: string;
@@ -40,7 +48,8 @@ export function PersonRoles({
   membershipId: string;
   organizationWide: Array<{ key: string; name: string }>;
   scoped: Grant[];
-  /** False for a viewer, and for an administrator looking at themselves. */
+  /** False for a viewer, for an administrator looking at themselves, and for
+   *  somebody erased (ADR 0022). */
   mayManage: boolean;
   roles: Array<{ key: string; name: string }>;
   scopes: { team: Scope[]; department: Scope[]; project: Scope[] };
@@ -55,149 +64,156 @@ export function PersonRoles({
   const options = scopes[scopeType];
 
   return (
-    <section aria-labelledby="roles-heading" className="space-y-3">
-      <h2 id="roles-heading" className="text-h2 font-semibold text-n-900">
-        Roles
-      </h2>
+    <Panel
+      id="roles"
+      title="Roles"
+      description="Authority here comes from a grant, never from leading a team or heading a department."
+      actions={
+        organizationWide.length === 0 ? (
+          <span className="text-body-sm text-n-500">None across the organization</span>
+        ) : (
+          organizationWide.map((entry) => (
+            <Badge key={entry.key} tone="info">
+              {entry.name} · everywhere
+            </Badge>
+          ))
+        )
+      }
+      bleed
+      footer={
+        mayManage ? (
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
 
+              startAction(async () => {
+                const result = await grantRole(membershipId, {
+                  role,
+                  scope_type: scopeType,
+                  scope_id: scopeId,
+                });
+
+                setError(result.error);
+
+                if (result.error === null) setScopeId("");
+              });
+            }}
+          >
+            <Field
+              id="grant-role"
+              label="Give them"
+              hint="Everything that role can do — here only."
+            >
+              <select
+                id="grant-role"
+                className={INPUT}
+                value={role}
+                onChange={(event) => setRole(event.target.value)}
+              >
+                {roles.map((entry) => (
+                  <option key={entry.key} value={entry.key}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field id="grant-scope-type" label="On a">
+              <select
+                id="grant-scope-type"
+                className={INPUT}
+                value={scopeType}
+                onChange={(event) => {
+                  setScopeType(event.target.value as keyof typeof scopes);
+                  // The previous id belongs to the previous kind of thing, and
+                  // sending it would be refused as a scope that does not
+                  // exist — correctly, and confusingly.
+                  setScopeId("");
+                }}
+              >
+                <option value="team">team</option>
+                <option value="department">department</option>
+                <option value="project">project</option>
+              </select>
+            </Field>
+
+            <Field id="grant-scope" label="Which one">
+              <select
+                id="grant-scope"
+                className={INPUT}
+                value={scopeId}
+                required
+                onChange={(event) => setScopeId(event.target.value)}
+              >
+                <option value="">Choose…</option>
+                {options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Button type="submit" variant="secondary" size="sm" disabled={busy || scopeId === ""}>
+              Grant
+            </Button>
+          </form>
+        ) : undefined
+      }
+    >
       {error && (
         <p
           role="alert"
-          className="border border-s-danger/40 px-3 py-2 text-body-sm text-s-danger rounded-md"
+          className="border-b border-s-danger/40 bg-s-danger/5 px-4 py-2 text-body-sm text-s-danger"
         >
           {error}
         </p>
       )}
 
-      <div>
-        <h3 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-          Across the organization
-        </h3>
-        <p className="mt-1 text-body-sm text-n-700">
-          {organizationWide.length === 0
-            ? "None."
-            : organizationWide.map((entry) => entry.name).join(", ")}
+      {scoped.length === 0 ? (
+        <p className="px-4 py-3 text-body-sm text-n-500">
+          No grants on any one project, team or department.
         </p>
-      </div>
-
-      <div>
-        <h3 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-          On one thing
-        </h3>
-
-        {scoped.length === 0 ? (
-          <p className="mt-1 text-body-sm text-n-500">
-            No grants. Authority here comes from a grant, never from leading a team or heading a
-            department.
-          </p>
-        ) : (
-          <ul className="mt-1 divide-y divide-n-100 border-y border-n-100">
+      ) : (
+        <DataTable caption="Roles granted on one project, team or department">
+          <THead>
+            <Tr>
+              <Th>Role</Th>
+              <Th>On</Th>
+              {mayManage && <Th width="w-24" align="right">Action</Th>}
+            </Tr>
+          </THead>
+          <TBody>
             {scoped.map((grant) => (
-              <li key={grant.id} className="flex flex-wrap items-center gap-x-3 py-2 text-body-sm">
-                <span className="min-w-0 flex-1">
-                  <span className="text-n-900">{grant.name}</span>{" "}
-                  <span className="text-n-500">
-                    on {grant.scope_type} {grant.scope_name ?? grant.scope_id}
-                  </span>
-                </span>
-
+              <Tr key={grant.id}>
+                <Td>{grant.name}</Td>
+                <Td muted>
+                  on {grant.scope_type} {grant.scope_name ?? grant.scope_id}
+                </Td>
                 {mayManage && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() =>
-                      startAction(async () => {
-                        const result = await revokeRole(membershipId, grant.id);
+                  <Td align="right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() =>
+                        startAction(async () => {
+                          const result = await revokeRole(membershipId, grant.id);
 
-                        setError(result.error);
-                      })
-                    }
-                  >
-                    Revoke
-                  </Button>
+                          setError(result.error);
+                        })
+                      }
+                    >
+                      Revoke
+                    </Button>
+                  </Td>
                 )}
-              </li>
+              </Tr>
             ))}
-          </ul>
-        )}
-      </div>
-
-      {mayManage && (
-        <form
-          className="flex flex-wrap items-end gap-3 border border-n-200 p-3 rounded-md"
-          onSubmit={(event) => {
-            event.preventDefault();
-
-            startAction(async () => {
-              const result = await grantRole(membershipId, {
-                role,
-                scope_type: scopeType,
-                scope_id: scopeId,
-              });
-
-              setError(result.error);
-
-              if (result.error === null) setScopeId("");
-            });
-          }}
-        >
-          <Field id="grant-role" label="Give them" hint="Everything that role can do — here only.">
-            <select
-              id="grant-role"
-              className={INPUT}
-              value={role}
-              onChange={(event) => setRole(event.target.value)}
-            >
-              {roles.map((entry) => (
-                <option key={entry.key} value={entry.key}>
-                  {entry.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field id="grant-scope-type" label="On a">
-            <select
-              id="grant-scope-type"
-              className={INPUT}
-              value={scopeType}
-              onChange={(event) => {
-                setScopeType(event.target.value as keyof typeof scopes);
-                // The previous id belongs to the previous kind of thing, and
-                // sending it would be refused as a scope that does not exist —
-                // correctly, and confusingly.
-                setScopeId("");
-              }}
-            >
-              <option value="team">team</option>
-              <option value="department">department</option>
-              <option value="project">project</option>
-            </select>
-          </Field>
-
-          <Field id="grant-scope" label="Which one">
-            <select
-              id="grant-scope"
-              className={INPUT}
-              value={scopeId}
-              required
-              onChange={(event) => setScopeId(event.target.value)}
-            >
-              <option value="">Choose…</option>
-              {options.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Button type="submit" variant="secondary" size="sm" disabled={busy || scopeId === ""}>
-            Grant
-          </Button>
-        </form>
+          </TBody>
+        </DataTable>
       )}
-    </section>
+    </Panel>
   );
 }

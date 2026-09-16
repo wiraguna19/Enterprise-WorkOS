@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
  * what lets a test say `getByLabel("Name")` and a screen reader say it too.
  */
 export const INPUT =
-  "w-full rounded-md border border-n-200 bg-n-0 px-2 py-1.5 text-body-sm text-n-900 placeholder:text-n-400 focus:border-a-500 focus:outline-none focus:ring-2 focus:ring-a-500/30";
+  "w-full rounded-md border border-n-300 bg-n-0 px-2 py-1.5 text-body-sm text-n-900 placeholder:text-n-400 focus:border-a-500 focus:outline-none focus:ring-2 focus:ring-a-500/30";
 
 export function Field({
   id,

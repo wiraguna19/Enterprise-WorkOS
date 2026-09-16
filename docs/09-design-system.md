@@ -120,8 +120,19 @@ Decisions worth stating:
 
 ```text
 SPACE  4-point scale: 2 4 6 8 12 16 20 24 32 40 48 64
-RADIUS 2 (inputs, chips) · 4 (buttons, cards) · 6 (panels) · 999 (avatars)
-BORDER 1px --n-200 default · 1px --n-100 subtle
+RADIUS 6 (buttons, inputs, badges) · 10 (tables, empty states) · 12 (panels)
+       · 999 (avatars, chips)
+       Radius scales with the ELEMENT. 12 on a 900px panel looks deliberate;
+       12 on a 28px button is a capsule and on a 32px input it squeezes the
+       text. 16+ anywhere still reads as a consumer app.
+BORDER 1px --n-300 on CONTAINERS — panels, tables, inputs, the outer edge of
+       anything. --n-200 for the line under a panel header or a table head.
+       --n-100 for row dividers inside one.
+       Three weights, and the order matters: when every line was --n-200 the
+       container had the same edge as the rows inside it, which is a grid of
+       boxes rather than a hierarchy. --n-300 is 1.79:1 — below text contrast
+       and deliberately so, but visible on a bright screen, which --n-200
+       (1.3:1) is not.
 ```
 
 **Elevation ladder — only four levels exist:**
@@ -146,6 +157,56 @@ compact       row 32px   cell padding 6/12      ← the default for lists
 ---
 
 ## 5. Core component specifications
+
+### Panel  ·  the container every section lives in
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Roles                                    [Manager · everywhere]│  header: n-25, border-b
+│ Authority comes from a grant, never from leading a team.      │  description: body-sm n-500
+├──────────────────────────────────────────────────────────────┤
+│ …table or prose…                                              │  body
+├──────────────────────────────────────────────────────────────┤
+│ [Give them ▾] [On a ▾] [Which one ▾]            [ Grant ]     │  footer: n-25, forms
+└──────────────────────────────────────────────────────────────┘
+```
+
+Elevation 0 — border, never shadow. Radius 6. The heading is an `<h2>` with an
+id and the section is `aria-labelledby` it. `tone="danger"` for a section whose
+actions cannot be undone; `bleed` when the body is a table that should meet the
+border (ADR 0024).
+
+### Data table
+
+```text
+ROLE          ON                         ACTION      ← micro, uppercase, n-500, bg n-25
+Manager       on team Frontend           Revoke      ← row height --row-height, hover n-25
+```
+
+A real `<table>`: a screen reader announces the column header with each cell.
+Cells read `--cell-padding-x/y`, so the comfortable/compact switch in §4 is real
+rather than decorative. One strong column, the rest `muted`.
+
+### Badge  ·  states that are not workflow states
+
+```text
+[erased]  danger    [revoked]  neutral    [Manager · everywhere]  info
+```
+
+`StatusChip` is for where a work item is in its workflow. Everything else —
+account state, scope, "this device" — is a `Badge`, and `neutral` is the
+default: colour still carries meaning, not decoration.
+
+### Key/value grid
+
+Facts about one thing, in two to four columns. Eight facts belong in two rows,
+not eight; a `<dl>` so the label/value pair survives being read aloud.
+
+### Page body
+
+One owner of page width and of the main/aside split. The aside holds what
+somebody glances at (reporting line, this week); the main column holds what they
+came to read or change. A page must not set its own max-width.
 
 ### Status chip
 

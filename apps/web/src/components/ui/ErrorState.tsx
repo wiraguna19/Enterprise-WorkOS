@@ -12,7 +12,7 @@ export function ErrorState({
   retry?: React.ReactNode;
 }) {
   return (
-    <div className="border border-n-200 px-6 py-8 rounded-md">
+    <div className="border border-n-300 px-6 py-8 rounded-lg">
       <h3 className="text-h2 font-semibold text-n-900">Something went wrong</h3>
       <p className="mt-1 max-w-prose text-body text-n-500">{message}</p>
       {retry && <div className="mt-3">{retry}</div>}
