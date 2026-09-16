@@ -26,6 +26,12 @@ const SECTIONS: Array<{
     description: "Which interruptions reach you, and where.",
   },
   {
+    href: "/settings/roles",
+    label: "Roles",
+    description: "What each role may do, and the ones you write yourself.",
+    permission: "role.view",
+  },
+  {
     href: "/settings/workflows",
     label: "Workflows",
     description: "The statuses work moves through, and which moves are legal.",

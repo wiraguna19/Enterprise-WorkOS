@@ -73,6 +73,20 @@ Route::delete('invitations/{id}', [InvitationController::class, 'destroy'])
 // organization that has five.
 Route::get('roles', [PersonRoleController::class, 'catalogue'])
     ->middleware('permission:role.view');
+
+// ── Roles a customer writes for themselves (ADR 0018) ───────────────────────
+// Addressed by KEY: it is unique per organization, it is what a grant names,
+// and it is what an audit log records.
+Route::get('permissions', [PersonRoleController::class, 'permissions'])
+    ->middleware('permission:role.view');
+Route::get('roles/{key}', [PersonRoleController::class, 'showRole'])
+    ->middleware('permission:role.view');
+Route::post('roles', [PersonRoleController::class, 'storeRole'])
+    ->middleware(['permission:role.manage', 'throttle:writes']);
+Route::patch('roles/{key}', [PersonRoleController::class, 'updateRole'])
+    ->middleware(['permission:role.manage', 'throttle:writes']);
+Route::delete('roles/{key}', [PersonRoleController::class, 'destroyRole'])
+    ->middleware(['permission:role.manage', 'throttle:writes']);
 Route::get('people/{membership}/roles', [PersonRoleController::class, 'index'])
     ->middleware('permission:role.view');
 Route::post('people/{membership}/roles', [PersonRoleController::class, 'store'])
