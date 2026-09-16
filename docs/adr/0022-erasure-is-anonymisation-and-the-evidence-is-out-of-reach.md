@@ -106,6 +106,14 @@ act in the product and the only one with no undo to offer afterwards.
 - An erased person keeps their membership id, so every foreign key still
   resolves and the work they did still has an author — an anonymous one. That is
   the whole trade this ADR makes.
+- **An erased person is refused every grant and every denial.** The first
+  version left that out, and opening the screen found it in a minute: the
+  product announced somebody as erased and went on offering a form to make them
+  Organization Admin. The controls are gone from the profile and the refusal is
+  in the service, because a control that survives the state it was written for
+  is the defect, not the button. The address is now sent as null for the same
+  reason — `users.email` holds a random placeholder at a reserved domain, and
+  the profile was rendering it as a `mailto:` link.
 - A test asserts that an UPDATE on `audit_logs` still throws. It is not testing
   Postgres; it is testing that nobody has quietly disabled the trigger to make
   an erasure look tidier. If that test ever passes silently, an erasure has been

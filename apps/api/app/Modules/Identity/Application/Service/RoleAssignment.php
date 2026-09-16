@@ -112,6 +112,8 @@ final class RoleAssignment
         string $scopeId,
     ): string {
         return DB::transaction(function () use ($membership, $roleKey, $scopeType, $scopeId): string {
+            $this->refuseErased($membership);
+
             $role = $this->role($roleKey);
 
             if (! in_array($scopeType, self::SCOPES, strict: true)) {
@@ -246,6 +248,8 @@ final class RoleAssignment
         string $reason,
     ): string {
         return DB::transaction(function () use ($membership, $permissionKey, $scopeType, $scopeId, $reason): string {
+            $this->refuseErased($membership);
+
             if (! DB::table('permissions')->where('key', $permissionKey)->exists()) {
                 throw new RoleGrantRefused(
                     "This build has no permission keyed `{$permissionKey}`.",
@@ -357,6 +361,26 @@ final class RoleAssignment
                 'reason' => $row->reason,
             ])->all()),
         ];
+    }
+
+    /**
+     * Nothing is granted to, or taken from, somebody who has been erased.
+     *
+     * Found by opening the screen: a person the product had just announced as
+     * erased was still offered a form to make them Organization Admin. The
+     * interface was fixed in the same commit, but the refusal belongs HERE —
+     * an erased membership holds no roles by definition (the erasure deleted
+     * them), and a grant written against one would be authority handed to an
+     * identity that no longer exists (ADR 0022).
+     */
+    private function refuseErased(MembershipModel $membership): void
+    {
+        if ($membership->erased_at !== null) {
+            throw new RoleGrantRefused(
+                'This person has been erased from this organization.',
+                ['refusal' => 'person_erased'],
+            );
+        }
     }
 
     private function assertScopeExists(string $scopeType, string $scopeId): void

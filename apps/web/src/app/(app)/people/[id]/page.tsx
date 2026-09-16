@@ -66,8 +66,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   // Granting is refused on yourself, so the controls are not offered there
   // either — a control that opens and then refuses is worse than one that was
   // never there.
+  // Not for an erased person. Granting Organization Admin to somebody the
+  // product has just announced as erased is the shape of a control that
+  // survived the state it was written for — and the API refuses it anyway, so
+  // offering it would be a form whose only outcome is a refusal (ADR 0022).
   const mayManageRoles =
-    me.permissions.includes("role.manage") && me.membership.id !== id;
+    me.permissions.includes("role.manage") &&
+    me.membership.id !== id &&
+    person.erased_at === null;
 
   const [scopes, assignable] = mayManageRoles
     ? await Promise.all([scopeOptions(), assignableRoles()])
@@ -102,14 +108,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         />
       )}
 
-      {person.permissions.erase && (
-        <ErasePerson
-          membershipId={id}
-          name={person.name}
-          erasedAt={person.erased_at}
-        />
-      )}
-
       {roles && (
         <PersonDenials
           membershipId={id}
@@ -117,6 +115,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           mayManage={mayManageRoles}
           permissions={permissions}
           scopes={scopes}
+        />
+      )}
+
+      {person.permissions.erase && (
+        <ErasePerson
+          membershipId={id}
+          name={person.name}
+          erasedAt={person.erased_at}
         />
       )}
     </div>

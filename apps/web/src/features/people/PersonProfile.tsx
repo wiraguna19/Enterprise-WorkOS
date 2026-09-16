@@ -45,10 +45,19 @@ export function PersonProfile({
             {person.department && <span> · {person.department.name}</span>}
           </p>
 
+          {/* An erased person has no address — the API sends null rather than
+              the placeholder stored in `users`, which is a random string at a
+              domain reserved so it can never be delivered to. Rendering that as
+              a mailto: offered a link to write to somebody who has been erased
+              (ADR 0022). */}
           <p className="mt-1 text-body-sm">
-            <a href={`mailto:${person.email}`} className="text-a-700 hover:underline">
-              {person.email}
-            </a>
+            {person.email === null ? (
+              <span className="text-n-500">No address</span>
+            ) : (
+              <a href={`mailto:${person.email}`} className="text-a-700 hover:underline">
+                {person.email}
+              </a>
+            )}
           </p>
         </div>
 

@@ -56,7 +56,11 @@ final class PersonResource extends BaseResource
             'id' => $this->resource->id,
             'type' => 'person',
             'name' => $this->resource->user?->name,
-            'email' => $this->resource->user?->email,
+            // Null once erased. `users.email` holds a random placeholder at a
+            // domain reserved so it can never be delivered to — sending it made
+            // the profile offer a mailto: link to somebody who has been erased
+            // (ADR 0022).
+            'email' => $this->resource->erased_at === null ? $this->resource->user?->email : null,
             'avatar_url' => $this->resource->user?->avatar_path,
             'status' => $this->resource->status,
             // Erased people are still people-shaped rows; the screen has to be

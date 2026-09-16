@@ -228,3 +228,46 @@ it('stops answering the door', function (): void {
         'password' => 'a-long-enough-password',
     ])->assertStatus(401);
 });
+
+it('will not hand authority to somebody who no longer exists', function (): void {
+    ['membership' => $membership] = ($this->newcomer)();
+
+    $this->withToken($this->admin)->postJson("/api/v1/people/{$membership}/erase")->assertOk();
+
+    // Found by opening the screen: the product announced the person as erased
+    // and went on offering a form to make them Organization Admin. The form is
+    // gone, and the refusal lives here rather than only there — an erased
+    // membership holds no roles by definition, and a grant against one is
+    // authority handed to an identity that does not exist.
+    $this->withToken($this->admin)
+        ->postJson("/api/v1/people/{$membership}/roles", [
+            'role' => 'manager',
+            'scope_type' => 'team',
+            'scope_id' => '01900000-0000-7000-8000-000000000801',
+        ])
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.refusal', 'person_erased');
+
+    $this->withToken($this->admin)
+        ->postJson("/api/v1/people/{$membership}/denials", [
+            'permission' => 'person.invite',
+            'reason' => 'Pointless.',
+        ])
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.refusal', 'person_erased');
+});
+
+it('shows no address for an erased person', function (): void {
+    ['membership' => $membership] = ($this->newcomer)();
+
+    $this->withToken($this->admin)->postJson("/api/v1/people/{$membership}/erase")->assertOk();
+
+    // `users.email` holds a random placeholder at a reserved domain. Sending it
+    // made the profile render a mailto: link to somebody who has been erased.
+    $this->withToken($this->admin)
+        ->getJson("/api/v1/people/{$membership}")
+        ->assertOk()
+        ->assertJsonPath('data.email', null)
+        ->assertJsonPath('data.name', 'Deleted person')
+        ->assertJsonPath('data.erased_at', fn (?string $at): bool => $at !== null);
+});

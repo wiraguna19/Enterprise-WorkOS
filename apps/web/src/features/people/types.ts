@@ -12,7 +12,8 @@ import type { StateCategory } from "@/features/work-item/types";
 export type Person = {
   id: string;
   name: string;
-  email: string;
+  /** Null once erased: an erased person has no address to show (ADR 0022). */
+  email: string | null;
   status: string;
   /** Set once this person has been erased from this organization (ADR 0022). */
   erased_at: string | null;
