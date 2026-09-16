@@ -268,12 +268,25 @@ final class Invitations
 
             DB::table('invitations')->where('id', $row->id)->update(['accepted_at' => now()]);
 
-            $this->audit->record('invitation.accepted', [
-                'invitation_id' => $row->id,
-                'email' => $row->email,
-                'membership_id' => $membershipId,
-                'created_user' => $user->wasRecentlyCreated,
-            ], $request);
+            // Bound to the organization the INVITATION names, because this
+            // route is public: there is no session, so there is no tenant
+            // context, and `AuditLogger` would file the row with a null
+            // organization. A null-organization row is a platform event and is
+            // invisible in an organization's own audit view — which would hide
+            // the most organization-shaped event there is, somebody joining it.
+            //
+            // `runFor` binds an organization without a membership, which is
+            // exactly this situation: there is no membership until the line
+            // above ran.
+            $this->tenant->runFor(
+                (string) $row->organization_id,
+                fn () => $this->audit->record('invitation.accepted', [
+                    'invitation_id' => $row->id,
+                    'email' => $row->email,
+                    'membership_id' => $membershipId,
+                    'created_user' => $user->wasRecentlyCreated,
+                ], $request, actorUserId: (string) $user->getKey()),
+            );
 
             return [
                 'membership_id' => $membershipId,

@@ -41,10 +41,22 @@ can answer.
 for this: resolving today would rewrite history every time somebody changed
 their name, and would say nothing at all about an account since deleted.
 
-**Tenant-scoped, so platform-mode rows are invisible.** `organization_id` is
-nullable and `AuditLogger` writes null for events with no tenant. An
-organization's audit view is its own events; rows about the platform belong to
-whoever runs it, on a screen this product does not have.
+**Tenant-scoped, so platform-mode rows are invisible** — and that is why two
+events had to be BOUND to an organization explicitly. Signing in happens before
+the tenant resolver runs, and accepting an invitation happens on a public route
+with no session at all, so both were filed with a null `organization_id` while
+being the two most organization-shaped events in the log. `auth.login` even
+named the organization inside its own metadata while the column stayed null.
+Both now run their audit write inside `TenantContext::runFor()`, which binds an
+organization without a membership — precisely this situation, since at those
+moments there is no membership yet or none resolved.
+
+**`auth.login_failed` stays platform-scoped, and that is a real gap.** A failed
+sign-in may name an address no account has, or an account with memberships in
+several organizations; attributing it to one would be a guess written into an
+audit trail. So "who tried to sign in as somebody and failed" is answerable at
+the platform level and not from an organization's view — a screen this product
+does not have. Written down rather than papered over.
 
 **A model, used only for reading.** `CursorPage` needs a paginator, cursor
 pagination is the default across this API, and the ordering carries the id

@@ -10,6 +10,7 @@ use App\Modules\Identity\Domain\Exception\NoActiveMembership;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
+use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,7 @@ final class AuthenticationService
 {
     public function __construct(
         private readonly AuditLogger $audit,
+        private readonly TenantContext $tenant,
     ) {}
 
     /**
@@ -84,10 +86,18 @@ final class AuthenticationService
 
             $user->forceFill(['last_login_at' => now()])->save();
 
-            $this->audit->record('auth.login', [
-                'session_id' => $session->getKey(),
-                'organization_id' => $membership->organization_id,
-            ], $request, actorUserId: (string) $user->getKey());
+            // Bound to the organization, not merely describing it in metadata.
+            // Signing in happens before the tenant resolver has run, so this
+            // row was being written with a null `organization_id` — a platform
+            // event — while naming the organization inside its own metadata.
+            // The audit view is tenant-scoped, so every login in the product
+            // was invisible to the organization it was a login to.
+            $this->tenant->runFor(
+                (string) $membership->organization_id,
+                fn () => $this->audit->record('auth.login', [
+                    'session_id' => $session->getKey(),
+                ], $request, actorUserId: (string) $user->getKey()),
+            );
 
             return [
                 'token' => $session->getKey().'|'.$plainSecret,
