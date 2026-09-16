@@ -105,12 +105,21 @@ export async function api<T>(
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
+    // A response WITHOUT this API's error envelope. It used to be reported as
+    // "The API could not be reached", which was true of exactly one case and
+    // wrong about the common one: a 500 means the API was reached, answered,
+    // and broke. That sentence sent somebody looking for a dropped connection
+    // while the server log held the actual error — which is what happened the
+    // first time this page met a column the dev database did not have yet.
     throw new ApiRequestError(
       response.status,
       payload?.error ?? {
-        code: "network.unreachable",
-        message: "The API could not be reached.",
-        request_id: "",
+        code: response.status >= 500 ? "server.error" : "api.unexpected_response",
+        message:
+          response.status >= 500
+            ? `The server failed to handle that (HTTP ${response.status}). The API log has the reason.`
+            : `The API answered ${response.status} with nothing this app understands.`,
+        request_id: response.headers.get("x-request-id") ?? "",
       },
     );
   }

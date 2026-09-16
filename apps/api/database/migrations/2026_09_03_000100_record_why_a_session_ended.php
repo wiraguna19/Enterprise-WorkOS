@@ -27,6 +27,18 @@ return new class extends Migration
         DB::unprepared(<<<'SQL'
             ALTER TABLE sessions ADD COLUMN revoked_reason varchar(40) NULL;
 
+            -- Every session revoked BEFORE this column existed. Without this
+            -- line the constraint below is violated by history and the
+            -- migration fails on any database that has ever signed somebody
+            -- out — which the test suite cannot show you, because it builds the
+            -- schema from nothing every run. The first installation it met said
+            -- so immediately.
+            --
+            -- `unrecorded` rather than a guessed `signed_out`: the reason
+            -- genuinely was not kept, and a migration that invents history to
+            -- satisfy its own constraint is worse than one that admits the gap.
+            UPDATE sessions SET revoked_reason = 'unrecorded' WHERE revoked_at IS NOT NULL;
+
             ALTER TABLE sessions ADD CONSTRAINT ck_sessions_revoked_reason
                 CHECK (
                     (revoked_at IS NULL AND revoked_reason IS NULL)
