@@ -68,14 +68,30 @@ INSERT INTO roles (id, organization_id, key, name, description, is_system, level
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.key = 'org_admin';
 
--- Manager: structural read, people read + workload, no role or audit access.
+-- Manager: structural read, people read + workload, reports, no role or audit
+-- access.
+--
+-- `report.view` is here because a MIGRATION cannot put it here.
+-- 2026_05_01_000100_seed_report_permissions grants it to the manager role, and
+-- its docblock says the grant is applied "to EXISTING roles too" — but on a
+-- fresh database the roles do not exist yet: migrations run before this seed
+-- creates them, so that grant matched nothing and quietly did nothing.
+--
+-- The effect was invisible for two phases. `org_admin` gets everything by CROSS
+-- JOIN below, so the flow report worked for the only person anybody tested it
+-- as, while every manager — the role docs/06 names as its audience — was shown
+-- no Flow entry in the nav at all, and a 403 if they typed the URL.
+--
+-- Anything a later migration grants to a SEEDED role has to be repeated here,
+-- and the test EveryMigrationGrantSurvivesAFreshBuildTest is what says so.
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.key = 'manager' AND p.key IN (
     'organization.view',
     'department.view','team.view','team.create','team.update','team.manage_members',
     'person.view','person.view_workload','person.invite',
-    'activity.view'
+    'activity.view',
+    'report.view'
 );
 
 -- Employee: sees the org and its people, changes nothing structural.

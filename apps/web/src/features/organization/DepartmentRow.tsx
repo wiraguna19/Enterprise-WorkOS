@@ -54,15 +54,13 @@ export function DepartmentRow({
   };
 
   return (
-    <li className="border-b border-n-100 py-2 last:border-b-0">
-      <div
-        className="flex flex-wrap items-center gap-x-3 gap-y-2"
-        // Indentation is the only thing on this screen that shows the shape of
-        // the tree, and it is inline because the depth is data rather than one
-        // of a handful of classes Tailwind could name ahead of time.
-        style={{ paddingLeft: `${department.depth * 1.25}rem` }}
-      >
-        <span className="w-24 shrink-0 truncate font-mono text-caption text-n-500">
+    <li className="border-b border-n-100 last:border-b-0 hover:bg-n-25">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
+        {/* The code column does NOT indent. Only the name does — indentation is
+            how the tree is read, and indenting the whole row pushed the code out
+            of the panel and left every control on a different vertical line
+            (ADR 0024). Fixed columns at both ends, the name between them. */}
+        <span className="w-28 shrink-0 truncate font-mono text-micro text-n-500">
           {department.code ?? "—"}
         </span>
 
@@ -110,16 +108,16 @@ export function DepartmentRow({
           </form>
         ) : (
           <>
-            <span className="min-w-0 flex-1 truncate font-medium text-n-900">
+            <span
+              className="min-w-0 flex-1 truncate text-body-sm font-medium text-n-900"
+              // The depth is data rather than one of a handful of classes
+              // Tailwind could name ahead of time, so it is inline.
+              style={{ paddingLeft: `${department.depth * 1.25}rem` }}
+            >
               {department.name}
             </span>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setRenaming(true)}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setRenaming(true)}>
               Rename
             </Button>
           </>
@@ -133,7 +131,7 @@ export function DepartmentRow({
           defaultValue={department.parent_id ?? ""}
           disabled={busy}
           onChange={(event) => run(() => moveDepartment(department.id, event.target.value || null))}
-          className={`${INPUT} w-auto max-w-[14rem] text-caption`}
+          className={`${INPUT} w-56 shrink-0 text-caption`}
         >
           <option value="">A top-level department</option>
           {options.map((option) => (
@@ -145,7 +143,7 @@ export function DepartmentRow({
       </div>
 
       {error && (
-        <p role="alert" className="mt-1 text-caption text-s-danger" style={{ paddingLeft: `${department.depth * 1.25}rem` }}>
+        <p role="alert" className="px-4 pb-2 text-caption text-s-danger">
           {error}
         </p>
       )}

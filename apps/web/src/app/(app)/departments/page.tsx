@@ -77,6 +77,12 @@ export default async function DepartmentsPage() {
             description="Indentation is the reporting line. Moving one moves everything under it."
             bleed
           >
+            <div className="flex items-center gap-x-3 border-b border-n-200 bg-n-25 px-4 py-1.5 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
+              <span className="w-28 shrink-0">Code</span>
+              <span className="min-w-0 flex-1">Name</span>
+              <span className="w-56 shrink-0">Reports into</span>
+            </div>
+
             <ul>
           {departments.map((department) => (
             <DepartmentRow
