@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
+import { Panel } from "@/components/ui/Panel";
 import { endOtherSessions, endSession } from "./actions";
 
 /**
@@ -38,71 +41,89 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
   const others = sessions.filter((session) => !session.current).length;
 
   return (
-    <div className="space-y-3">
+    <Panel
+      id="sessions"
+      title="Sessions"
+      description="Ending one signs that device out on its next request, not when its token expires."
+      actions={
+        others > 0 ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={busy}
+            onClick={() =>
+              startAction(async () => {
+                const result = await endOtherSessions();
+
+                setError(result.error);
+              })
+            }
+          >
+            End the other {others === 1 ? "session" : `${others} sessions`}
+          </Button>
+        ) : undefined
+      }
+      bleed
+    >
       {error && (
         <p
           role="alert"
-          className="border border-s-danger/40 px-3 py-2 text-body-sm text-s-danger rounded-md"
+          className="border-b border-s-danger/40 bg-s-danger/5 px-4 py-2 text-body-sm text-s-danger"
         >
           {error}
         </p>
       )}
 
-      <ul className="divide-y divide-n-100 border-y border-n-100">
-        {sessions.map((session) => (
-          <li key={session.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-3">
-            <span className="min-w-0 flex-1">
-              <span className="text-body-sm text-n-900">
-                {session.current ? "This device" : "Another device"}
-              </span>{" "}
-              <span className="text-body-sm text-n-500">{session.ip_address ?? "no address"}</span>
-              {/* The raw agent string, not a guess at a device name: parsing
-                  them is a losing game, and "Chrome on a Mac" derived wrongly is
-                  worse than the string somebody can read themselves. */}
-              <span className="mt-0.5 block break-words font-mono text-micro text-n-500">
-                {session.user_agent ?? "unknown client"}
-              </span>
-            </span>
+      <DataTable caption="Sessions that can act as you">
+        <THead>
+          <Tr>
+            <Th>Client</Th>
+            <Th>Address</Th>
+            <Th>Last used</Th>
+            <Th>Signed in</Th>
+            <Th width="w-28" align="right">
+              Action
+            </Th>
+          </Tr>
+        </THead>
+        <TBody>
+          {sessions.map((session) => (
+            <Tr key={session.id}>
+              <Td>
+                <div className="flex items-center gap-2">
+                  {session.current && <Badge tone="info">this device</Badge>}
+                  {/* The raw agent string, not a guess at a device name:
+                      parsing them is a losing game, and "Chrome on a Mac"
+                      derived wrongly is worse than the string somebody can read
+                      themselves. */}
+                  <span className="truncate font-mono text-micro text-n-500">
+                    {session.user_agent ?? "unknown client"}
+                  </span>
+                </div>
+              </Td>
+              <Td muted>{session.ip_address ?? "no address"}</Td>
+              <Td muted>{session.last_used}</Td>
+              <Td muted>{session.started}</Td>
+              <Td align="right">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    startAction(async () => {
+                      const result = await endSession(session.id);
 
-            <span className="w-56 shrink-0 text-body-sm text-n-500">
-              last used {session.last_used}
-              <span className="block text-micro">signed in {session.started}</span>
-            </span>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() =>
-                startAction(async () => {
-                  const result = await endSession(session.id);
-
-                  setError(result.error);
-                })
-              }
-            >
-              {session.current ? "Sign out here" : "End"}
-            </Button>
-          </li>
-        ))}
-      </ul>
-
-      {others > 0 && (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={() =>
-            startAction(async () => {
-              const result = await endOtherSessions();
-
-              setError(result.error);
-            })
-          }
-        >
-          End the other {others === 1 ? "session" : `${others} sessions`}
-        </Button>
-      )}
-    </div>
+                      setError(result.error);
+                    })
+                  }
+                >
+                  {session.current ? "Sign out here" : "End"}
+                </Button>
+              </Td>
+            </Tr>
+          ))}
+        </TBody>
+      </DataTable>
+    </Panel>
   );
 }

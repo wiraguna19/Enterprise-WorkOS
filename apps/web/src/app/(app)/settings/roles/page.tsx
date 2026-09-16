@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RoleEditor, type Permission, type Role } from "@/features/roles/RoleEditor";
 import { api } from "@/lib/api";
@@ -33,11 +34,13 @@ export default async function RolesPage() {
         description={`${roles.length} · a role can only contain permissions you hold yourself`}
       />
 
-      <RoleEditor
-        roles={roles}
-        permissions={permissions}
-        mayManage={me.permissions.includes("role.manage")}
-      />
+      <PageBody>
+        <RoleEditor
+          roles={roles}
+          permissions={permissions}
+          mayManage={me.permissions.includes("role.manage")}
+        />
+      </PageBody>
     </div>
   );
 }

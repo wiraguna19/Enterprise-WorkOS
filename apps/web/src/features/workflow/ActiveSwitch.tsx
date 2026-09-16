@@ -47,7 +47,7 @@ export function ActiveSwitch({
             {error}
           </span>
         )}
-        <Button variant="secondary" size="sm" disabled={busy} onClick={() => apply(true)}>
+        <Button variant="affirmative" size="sm" disabled={busy} onClick={() => apply(true)}>
           {busy ? "Starting…" : "Switch on"}
         </Button>
       </span>
@@ -56,7 +56,7 @@ export function ActiveSwitch({
 
   if (!confirming) {
     return (
-      <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
+      <Button variant="destructive" size="sm" onClick={() => setConfirming(true)}>
         Switch off
       </Button>
     );

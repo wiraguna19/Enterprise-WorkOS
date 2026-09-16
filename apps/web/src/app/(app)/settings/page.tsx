@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -67,7 +69,9 @@ export default async function SettingsPage() {
     <div className="space-y-5">
       <PageHeader title="Settings" description={`${sections.length} areas`} />
 
-      <ul className="divide-y divide-n-100 border-y border-n-100">
+      <PageBody>
+        <Panel id="areas" title="Areas" description="Only the ones you may open are listed." bleed>
+          <ul className="divide-y divide-n-100">
         {sections.map((section) => {
           // "/settings/rules" → "settings-rules". The leading slash would make
           // an id that starts with a dash — legal HTML, and the kind of thing
@@ -87,7 +91,7 @@ export default async function SettingsPage() {
                 href={section.href}
                 aria-labelledby={`${id}-label`}
                 aria-describedby={`${id}-description`}
-                className="flex flex-col gap-0.5 py-3 transition-colors duration-[120ms] ease-standard hover:bg-n-50"
+                className="flex flex-col gap-0.5 px-4 py-3 transition-colors duration-[120ms] ease-standard hover:bg-n-50"
               >
                 <span id={`${id}-label`} className="font-medium text-n-900">
                   {section.label}
@@ -99,7 +103,9 @@ export default async function SettingsPage() {
             </li>
           );
         })}
-      </ul>
+          </ul>
+        </Panel>
+      </PageBody>
     </div>
   );
 }

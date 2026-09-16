@@ -244,13 +244,31 @@ reveals quick actions on the right; they do not occupy space at rest.
 ### Buttons
 
 ```text
-primary     solid --a-500, white text          one per screen
-secondary   --n-0 with --n-200 border          the common case
-ghost       transparent, hover --n-50          toolbars, table actions
-danger      solid --s-danger                   destructive confirmation only
-sizes       sm 28px · md 32px · lg 36px        (a 48px button belongs on a
-                                                marketing page, not here)
+primary      solid --a-500, white text        one per screen
+secondary    --n-0 with --n-300 border        the common case
+ghost        --n-25 with --n-200 border       quiet: table actions, cancel
+affirmative  --a-50, --a-700 text, a-tinted   it GIVES or STARTS something
+destructive  --s-danger tinted outline        it TAKES something away
+danger       solid --s-danger                 final confirmation only
+sizes        sm 28px · md 32px · lg 36px      (a 48px button belongs on a
+                                               marketing page, not here)
 ```
+
+**Colour follows consequence, not the verb.** Three groups and two hues:
+accent for grant / switch on / save / create, red for end / revoke / deny /
+switch off, neutral for everything else — which is most things. The tempting
+scheme is a colour per kind of action, and it fails the moment a table row
+holds three of them: once every button is coloured, no button stands out.
+
+**Every variant rests with an affordance.** `ghost` used to be bare text until
+hovered, so "Revoke", "End" and "Switch off" read as words in a table — and on
+a touch screen the hover state never arrives at all. All variants also carry a
+`focus-visible` ring: the reset removes the browser outline, and for a while
+nothing replaced it.
+
+**A state is not an action.** "running", "switched off", "expired", "erased"
+are `Badge`s, not coloured prose: they report rather than offer, and that is
+where colour is most at home.
 
 ### Avatars
 

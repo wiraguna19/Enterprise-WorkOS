@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
+import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { AuditFilters } from "@/features/audit/AuditFilters";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -58,51 +61,73 @@ export default async function AuditLogPage({
         description="Who did what, and when. Written by the system; nothing here can be edited."
       />
 
-      <AuditFilters event={params.event ?? ""} since={params.since ?? ""} />
+      <PageBody>
+        <AuditFilters event={params.event ?? ""} since={params.since ?? ""} />
 
-      {retention?.covers_since && (
-        <p className="text-body-sm text-n-500">
-          This log keeps {retention.months} months. Nothing before{" "}
-          {formatDate(retention.covers_since, me.user.timezone)} exists to be found — older months
-          are dropped whole, so an empty result for one of them is not an answer about what
-          happened.
-        </p>
-      )}
-
-      {entries.length === 0 ? (
-        <EmptyState
-          title="Nothing matches"
-          description="The log records sign-ins, invitations, role changes and exports. An empty result here means no such event in this organization — not that nothing was recorded."
-        />
-      ) : (
-        <ul className="divide-y divide-n-100 border-y border-n-100">
-          {entries.map((entry) => (
-            <li key={entry.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2">
-              <span className="w-40 shrink-0 text-caption tabular-nums text-n-500">
-                {formatDateTime(entry.occurred_at, me.user.timezone)}
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span className="font-mono text-body-sm text-n-900">{entry.event}</span>{" "}
-                {/* The address AS IT WAS. The snapshot is the point: resolving
-                    the name today would rewrite history every time somebody
-                    changed theirs, and would say nothing about an account since
-                    deleted. */}
-                <span className="text-body-sm text-n-500">{entry.actor || "the system"}</span>
-                {Object.keys(entry.metadata).length > 0 && (
-                  <span className="mt-0.5 block break-words font-mono text-micro text-n-500">
-                    {JSON.stringify(entry.metadata)}
-                  </span>
-                )}
-              </span>
-
-              <span className="w-32 shrink-0 text-right font-mono text-micro text-n-500">
-                {entry.ip_address ?? "—"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+        {entries.length === 0 ? (
+          <EmptyState
+            title="Nothing matches"
+            description="The log records sign-ins, invitations, role changes and exports. An empty result here means no such event in this organization — not that nothing was recorded."
+          />
+        ) : (
+          <Panel
+            id="entries"
+            title="Events"
+            description={
+              // Where the record ENDS (ADR 0021). An empty result for last
+              // March otherwise reads as "nothing happened in March", which is
+              // indistinguishable from "March was dropped".
+              retention?.covers_since
+                ? `${entries.length} shown. This log keeps ${retention.months} months — nothing before ${formatDate(retention.covers_since, me.user.timezone)} exists to be found, so an empty month is not an answer about what happened.`
+                : `${entries.length} shown, newest first`
+            }
+            bleed
+          >
+            <DataTable caption="Audit log entries">
+              <THead>
+                <Tr>
+                  <Th width="w-44">When</Th>
+                  <Th width="w-56">Event</Th>
+                  <Th>Actor</Th>
+                  <Th>Detail</Th>
+                  <Th align="right">Address</Th>
+                </Tr>
+              </THead>
+              <TBody>
+                {entries.map((entry) => (
+                  <Tr key={entry.id}>
+                    <Td muted>
+                      <span className="whitespace-nowrap tabular-nums">
+                        {formatDateTime(entry.occurred_at, me.user.timezone)}
+                      </span>
+                    </Td>
+                    <Td>
+                      <span className="font-mono text-body-sm">{entry.event}</span>
+                    </Td>
+                    {/* The address AS IT WAS. The snapshot is the point:
+                        resolving the name today would rewrite history every
+                        time somebody changed theirs, and would say nothing at
+                        all about an account since deleted. */}
+                    <Td muted>{entry.actor || "the system"}</Td>
+                    <Td muted>
+                      {Object.keys(entry.metadata).length === 0 ? (
+                        ""
+                      ) : (
+                        <span className="block max-w-xl break-words font-mono text-micro">
+                          {JSON.stringify(entry.metadata)}
+                        </span>
+                      )}
+                    </Td>
+                    <Td align="right" muted>
+                      <span className="font-mono text-micro">{entry.ip_address ?? "—"}</span>
+                    </Td>
+                  </Tr>
+                ))}
+              </TBody>
+            </DataTable>
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }

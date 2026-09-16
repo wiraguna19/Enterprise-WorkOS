@@ -155,7 +155,7 @@ export function PersonRoles({
               </select>
             </Field>
 
-            <Button type="submit" variant="secondary" size="sm" disabled={busy || scopeId === ""}>
+            <Button type="submit" variant="affirmative" size="sm" disabled={busy || scopeId === ""}>
               Grant
             </Button>
           </form>
@@ -194,7 +194,7 @@ export function PersonRoles({
                 {mayManage && (
                   <Td align="right">
                     <Button
-                      variant="ghost"
+                      variant="destructive"
                       size="sm"
                       disabled={busy}
                       onClick={() =>

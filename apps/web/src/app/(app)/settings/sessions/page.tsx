@@ -1,3 +1,4 @@
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SessionList, type Session } from "@/features/sessions/SessionList";
 import { api } from "@/lib/api";
@@ -51,7 +52,9 @@ export default async function SessionsPage() {
         description="Every session that can act as you right now. Ending one signs that device out immediately — not when its token expires."
       />
 
-      <SessionList sessions={sessions} />
+      <PageBody>
+        <SessionList sessions={sessions} />
+      </PageBody>
     </div>
   );
 }

@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
+import { Badge } from "@/components/ui/Badge";
+import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
+import { Unset } from "@/components/ui/KeyValue";
 import { formatDate } from "@/lib/format";
 import type { Person } from "./types";
 
@@ -43,47 +46,52 @@ export function PersonList({ people, timeZone }: { people: Person[]; timeZone: s
         ))}
       </ul>
 
-      {/* ── Desktop: comparison table ───────────────────────────────────── */}
-      <table className="hidden w-full border-collapse text-body md:table">
-        <thead>
-          <tr className="border-b border-n-200 text-left">
-            <Th>Name</Th>
-            <Th>Role</Th>
-            <Th>Department</Th>
-            <Th className="text-right">Capacity</Th>
-            <Th>Joined</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {people.map((person) => (
-            <tr
-              key={person.id}
-              className="border-b border-n-100 transition-colors duration-[120ms] hover:bg-n-25"
-            >
-              <Td>
-                <Link
-                  href={`/people/${person.id}`}
-                  className="flex items-center gap-2 hover:text-a-700"
-                >
-                  <Avatar id={person.id} name={person.name} />
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-n-900">{person.name}</div>
-                    <div className="truncate text-caption text-n-500">{person.email}</div>
-                  </div>
-                </Link>
-              </Td>
-              <Td>{person.job_title ?? "—"}</Td>
-              <Td>{person.department?.name ?? "—"}</Td>
-              <Td className="text-right">
-                <CapacityLabel person={person} />
-              </Td>
-              <Td className="whitespace-nowrap text-n-500">
-                {formatDate(person.joined_at, timeZone)}
-              </Td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* ── Desktop: comparison table ─────────────────────────────────────
+          On the shared primitives now (ADR 0024). It had its own `Th` and `Td`
+          at the bottom of this file — the third private copy of a table in the
+          product, each with slightly different padding, which is what happens
+          when the system has no table to reach for. */}
+      <div className="hidden md:block">
+        <DataTable caption="Everyone in this organization">
+          <THead>
+            <Tr>
+              <Th>Name</Th>
+              <Th>Role</Th>
+              <Th>Department</Th>
+              <Th align="right">Capacity</Th>
+              <Th>Joined</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {people.map((person) => (
+              <Tr key={person.id}>
+                <Td>
+                  <Link
+                    href={`/people/${person.id}`}
+                    className="flex items-center gap-2 hover:text-a-700"
+                  >
+                    <Avatar id={person.id} name={person.name} />
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-n-900">{person.name}</div>
+                      <div className="truncate text-caption text-n-500">{person.email}</div>
+                    </div>
+                  </Link>
+                </Td>
+                <Td>{person.job_title ?? <Unset />}</Td>
+                <Td muted>{person.department?.name ?? <Unset />}</Td>
+                <Td align="right">
+                  <CapacityLabel person={person} />
+                </Td>
+                <Td muted>
+                  <span className="whitespace-nowrap">
+                    {formatDate(person.joined_at, timeZone)}
+                  </span>
+                </Td>
+              </Tr>
+            ))}
+          </TBody>
+        </DataTable>
+      </div>
     </>
   );
 }
@@ -94,7 +102,12 @@ export function PersonList({ people, timeZone }: { people: Person[]; timeZone: s
  * over-committing a part-time colleague (docs/02 §11).
  */
 function CapacityLabel({ person, className = "" }: { person: Person; className?: string }) {
-  if (!person.weekly_capacity_hours) return <span className={className}>—</span>;
+  if (!person.weekly_capacity_hours)
+    return (
+      <span className={className}>
+        <Unset />
+      </span>
+    );
 
   const hours = parseFloat(person.weekly_capacity_hours);
   const isStandard = person.employment_type === "full_time";
@@ -103,25 +116,10 @@ function CapacityLabel({ person, className = "" }: { person: Person; className?:
     <span className={className}>
       <span className="whitespace-nowrap text-body-sm">{hours} h</span>
       {!isStandard && (
-        <span className="ml-1 whitespace-nowrap text-caption text-n-500">
-          {person.employment_type?.replace("_", " ")}
+        <span className="ml-1.5 align-middle">
+          <Badge>{person.employment_type?.replace("_", " ")}</Badge>
         </span>
       )}
     </span>
   );
-}
-
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      scope="col"
-      className={`px-3 py-2 text-micro font-semibold uppercase tracking-[0.04em] text-n-500 ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <td className={`px-3 py-2 align-middle text-body-sm ${className}`}>{children}</td>;
 }

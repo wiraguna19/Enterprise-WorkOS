@@ -1,6 +1,9 @@
-import Link from "next/link";
+import { Badge } from "@/components/ui/Badge";
+import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { StatusChip } from "@/components/ui/StatusChip";
 import type { Workflow, WorkflowState, WorkflowTransition } from "@/features/workflow/types";
 import { api } from "@/lib/api";
@@ -37,16 +40,18 @@ export default async function WorkflowsPage() {
     <div className="space-y-6">
       <PageHeader title="Workflows" description={`${workflows.length} active`} />
 
-      {workflows.length === 0 ? (
-        <EmptyState
-          title="No active workflow"
-          description="Every work item follows a workflow, so an empty list here means work has nowhere to move. This is a configuration problem rather than an empty screen."
-        />
-      ) : (
-        workflows.map((workflow) => (
-          <WorkflowGraph key={workflow.id} workflow={workflow} mayManage={mayManage} />
-        ))
-      )}
+      <PageBody>
+        {workflows.length === 0 ? (
+          <EmptyState
+            title="No active workflow"
+            description="Every work item follows a workflow, so an empty list here means work has nowhere to move. This is a configuration problem rather than an empty screen."
+          />
+        ) : (
+          workflows.map((workflow) => (
+            <WorkflowGraph key={workflow.id} workflow={workflow} mayManage={mayManage} />
+          ))
+        )}
+      </PageBody>
     </div>
   );
 }
@@ -69,29 +74,28 @@ function WorkflowGraph({ workflow, mayManage }: { workflow: Workflow; mayManage:
   const reachable = new Set(workflow.transitions.map((t) => t.to_state_id));
 
   return (
-    <section aria-labelledby={headingId} className="space-y-3">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-n-100 pb-2">
-        <h2 id={headingId} className="text-h2 font-semibold text-n-900">
-          {workflow.name}
-        </h2>
-        <span className="text-caption text-n-500">
-          {workflow.applies_to_type} · version {workflow.version}
-          {workflow.is_default && " · default"}
-        </span>
-
-        {mayManage && (
-          <Link
-            href={`/settings/workflows/${workflow.id}/edit`}
-            className="ml-auto text-body-sm text-a-700 underline"
-          >
-            Edit
-          </Link>
-        )}
-      </div>
-
-      <ol className="divide-y divide-n-100 border-b border-n-100">
+    <Panel
+      id={headingId.replace(/-heading$/, "")}
+      title={workflow.name}
+      description={`${workflow.applies_to_type} · version ${workflow.version}`}
+      actions={
+        <>
+          {workflow.is_default && <Badge tone="info">default</Badge>}
+          {mayManage && (
+            <ButtonLink href={`/settings/workflows/${workflow.id}/edit`} variant="ghost" size="sm">
+              Edit
+            </ButtonLink>
+          )}
+        </>
+      }
+      bleed
+    >
+      <ol className="divide-y divide-n-100">
         {workflow.states.map((state) => (
-          <li key={state.id} className="flex flex-col gap-1.5 py-3 sm:flex-row sm:gap-6">
+          <li
+            key={state.id}
+            className="flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:gap-6"
+          >
             <div className="sm:w-56 sm:shrink-0">
               <StatusChip category={state.category} label={state.label} className="font-medium" />
               <p className="mt-0.5 font-mono text-micro text-n-500">{state.key}</p>
@@ -112,12 +116,12 @@ function WorkflowGraph({ workflow, mayManage }: { workflow: Workflow; mayManage:
       </ol>
 
       {fromAnywhere.length > 0 && (
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-6">
+        <div className="flex flex-col gap-1.5 border-t border-n-200 bg-n-25 px-4 py-3 sm:flex-row sm:gap-6">
           <p className="text-body-sm font-medium text-n-700 sm:w-56 sm:shrink-0">From any state</p>
           <Moves transitions={fromAnywhere} byId={byId} emptyLabel="" />
         </div>
       )}
-    </section>
+    </Panel>
   );
 }
 

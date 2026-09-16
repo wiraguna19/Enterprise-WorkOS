@@ -7,15 +7,57 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
  * marketing page; this is tooling.
  */
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "danger";
-  size?: "sm" | "md" | "lg";
+  /** Keyed off the VARIANTS map, so a new consequence cannot be added to the
+   *  styles and forgotten in the type. */
+  variant?: keyof typeof VARIANTS;
+  size?: keyof typeof SIZES;
 };
 
+/**
+ * Every variant carries a resting affordance (ADR 0024).
+ *
+ * `ghost` used to be bare text until hovered, which is what "Revoke", "End",
+ * "Lift" and "Switch off" were rendered as — words in a table that gave no sign
+ * they did anything. On a touch screen there is no hover at all, so the
+ * affordance simply never appeared. It now rests with a border on a faintly
+ * tinted surface: quieter than `secondary`, and unmistakably a control.
+ */
+/**
+ * Colour follows CONSEQUENCE, not the verb (docs/09 §5, ADR 0024).
+ *
+ * The tempting scheme is one colour per kind of action — a colour for edit,
+ * another for create, green for switch on, amber for switch off. A row of a
+ * table then becomes a set of traffic lights, and once every button is
+ * coloured, no button stands out. docs/09 has said since Phase 1 that colour
+ * carries meaning and that ~90% of a screen is neutral.
+ *
+ * So there are three consequences and two hues, both already in the palette:
+ *
+ * - **accent** — it GIVES or STARTS something: grant, switch on, save, create.
+ * - **destructive / danger** — it TAKES something away: end a session, revoke a
+ *   grant, deny a permission, switch a rule off. Outlined for an action inside
+ *   a row; solid only for a final confirmation, which in this product is
+ *   erasing a person.
+ * - **neutral** — everything else, which is most things: edit, explain,
+ *   navigate.
+ *
+ * The distinction that was missing is the one that matters: "Switch off" and
+ * "Edit" rendered identically, though one opens a form and the other stops the
+ * product doing something for everybody.
+ */
 const VARIANTS = {
-  primary: "bg-a-500 text-white hover:bg-a-700 disabled:bg-n-300",
+  primary: "bg-a-500 text-white hover:bg-a-700 disabled:bg-n-300 disabled:text-n-0",
   secondary:
-    "bg-n-0 text-n-700 border border-n-300 hover:bg-n-50 disabled:text-n-300",
-  ghost: "text-n-700 hover:bg-n-50 disabled:text-n-300",
+    "bg-n-0 text-n-700 border border-n-300 hover:bg-n-50 hover:border-n-500 disabled:text-n-300 disabled:border-n-200",
+  ghost:
+    "bg-n-25 text-n-700 border border-n-200 hover:bg-n-50 hover:border-n-300 disabled:text-n-300 disabled:border-n-100",
+  /** Gives or starts something, without claiming the screen's one primary. */
+  affirmative:
+    "bg-a-50 text-a-700 border border-a-500/40 hover:border-a-500 disabled:text-n-300 disabled:border-n-200 disabled:bg-n-25",
+  /** Takes something away, in place. */
+  destructive:
+    "bg-s-danger/5 text-s-danger border border-s-danger/40 hover:bg-s-danger/10 hover:border-s-danger disabled:text-n-300 disabled:border-n-200 disabled:bg-n-25",
+  /** The final confirmation of something irreversible. */
   danger: "bg-s-danger text-white hover:brightness-90 disabled:bg-n-300",
 } as const;
 
@@ -44,8 +86,11 @@ export function Button({
     <button
       {...props}
       className={clsx(
-        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium",
+        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium",
         "transition-colors duration-[120ms] ease-standard",
+        // Keyboard focus was invisible on every variant: the browser default
+        // outline is removed by the reset and nothing replaced it.
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a-500/40",
         "disabled:cursor-not-allowed",
         VARIANTS[variant],
         SIZES[size],
@@ -82,8 +127,9 @@ export function ButtonLink({
     <Link
       href={href}
       className={clsx(
-        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium",
+        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium",
         "transition-colors duration-[120ms] ease-standard",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-a-500/40",
         VARIANTS[variant],
         SIZES[size],
         className,

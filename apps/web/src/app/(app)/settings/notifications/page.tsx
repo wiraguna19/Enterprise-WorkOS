@@ -1,4 +1,6 @@
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { PreferenceGroup } from "@/features/settings/NotificationPreferences";
 import type { NotificationType, Preference } from "@/features/settings/types";
 import { api } from "@/lib/api";
@@ -94,22 +96,25 @@ export default async function NotificationPreferencesPage() {
     }));
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Notifications"
         description="What reaches you, and how. Anything not listed here does not notify anyone."
       />
 
-      {GROUPS.map((group) => (
-        <section key={group.label} aria-labelledby={`group-${group.label}`}>
-          <h2 id={`group-${group.label}`} className="text-h2 font-semibold text-n-900">
-            {group.label}
-          </h2>
-          <p className="mt-0.5 text-body-sm text-n-500">{group.description}</p>
-
-          <PreferenceGroup entries={entries(group.types)} />
-        </section>
-      ))}
+      <PageBody>
+        {GROUPS.map((group) => (
+          <Panel
+            key={group.label}
+            id={`group-${group.label.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+            title={group.label}
+            description={group.description}
+            bleed
+          >
+            <PreferenceGroup entries={entries(group.types)} />
+          </Panel>
+        ))}
+      </PageBody>
     </div>
   );
 }

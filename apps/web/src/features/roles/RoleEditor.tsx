@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { Field, INPUT } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { createRole, deleteRole, saveRole } from "./actions";
 
 /**
@@ -68,73 +70,79 @@ export function RoleEditor({
 
       <ul className="space-y-3">
         {roles.map((role) => (
-          <li key={role.key} className="border border-n-200 p-4 rounded-md">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <h2 className="font-medium text-n-900">{role.name}</h2>
-              <span className="font-mono text-micro text-n-500">{role.key}</span>
-            </div>
+          <li key={role.key}>
+            {/* One role, one panel (ADR 0024). The key and the "system" flag
+                are facts ABOUT the role, so they belong in the header beside
+                its name rather than as two more lines of body text. */}
+            <Panel
+              id={`role-${role.key}`}
+              title={role.name}
+              description={role.description || "No description."}
+              actions={
+                <>
+                  {role.is_system && <Badge tone="info">system</Badge>}
+                  <Badge>{role.key}</Badge>
+                </>
+              }
+            >
+              <p className="text-body-sm text-n-700">
+                {role.permissions.length} permissions ·{" "}
+                {role.held_by === 1 ? "1 person holds it" : `${role.held_by} people hold it`}
+              </p>
 
-            <p className="mt-0.5 max-w-prose text-caption text-n-500">
-              {role.description || "No description."}
-            </p>
+              {editing === role.key ? (
+                <PermissionForm
+                  byResource={byResource}
+                  initial={role.permissions}
+                  busy={busy}
+                  submitLabel="Save the role"
+                  onCancel={() => setEditing(null)}
+                  onSubmit={(chosen) =>
+                    startAction(async () => {
+                      const result = await saveRole(role.key, { permissions: chosen });
 
-            <p className="mt-2 text-body-sm text-n-700">
-              {role.permissions.length} permissions ·{" "}
-              {role.held_by === 1 ? "1 person holds it" : `${role.held_by} people hold it`}
-            </p>
+                      setError(result.error);
 
-            {editing === role.key ? (
-              <PermissionForm
-                byResource={byResource}
-                initial={role.permissions}
-                busy={busy}
-                submitLabel="Save the role"
-                onCancel={() => setEditing(null)}
-                onSubmit={(chosen) =>
-                  startAction(async () => {
-                    const result = await saveRole(role.key, { permissions: chosen });
+                      if (result.error === null) setEditing(null);
+                    })
+                  }
+                />
+              ) : (
+                mayManage && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {role.is_system ? (
+                      // Shown rather than hidden, and explained rather than
+                      // disabled: every permission test, the seed and docs/06
+                      // assume these four mean what they say.
+                      <p className="text-caption text-n-500">
+                        One of the roles this product ships with — it cannot be changed or removed.
+                      </p>
+                    ) : (
+                      <>
+                        <Button variant="secondary" size="sm" onClick={() => setEditing(role.key)}>
+                          Edit permissions
+                        </Button>
 
-                    setError(result.error);
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() =>
+                            startAction(async () => {
+                              const result = await deleteRole(role.key);
 
-                    if (result.error === null) setEditing(null);
-                  })
-                }
-              />
-            ) : (
-              mayManage && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {role.is_system ? (
-                    // Shown rather than hidden, and explained rather than
-                    // disabled: every permission test, the seed and docs/06
-                    // assume these four mean what they say.
-                    <p className="text-caption text-n-500">
-                      One of the roles this product ships with — it cannot be changed or removed.
-                    </p>
-                  ) : (
-                    <>
-                      <Button variant="secondary" size="sm" onClick={() => setEditing(role.key)}>
-                        Edit permissions
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() =>
-                          startAction(async () => {
-                            const result = await deleteRole(role.key);
-
-                            setError(result.error);
-                          })
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )
-            )}
+                              setError(result.error);
+                            })
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )
+              )}
+            </Panel>
           </li>
         ))}
       </ul>

@@ -1,7 +1,9 @@
-import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { ActiveSwitch } from "@/features/workflow/ActiveSwitch";
 import { isBuildable } from "@/features/workflow/composable";
 import { describeAction, describeCondition, describeTrigger } from "@/features/workflow/describe";
@@ -58,27 +60,29 @@ export default async function RulesPage() {
         }
       />
 
-      {rules.length === 0 ? (
-        <EmptyState
-          title="Nothing is automated"
-          description="A rule watches for something happening — work entering review, an item going overdue — and acts on it."
-          action={
-            mayManage ? (
-              <ButtonLink href="/settings/rules/new" variant="primary">
-                Write the first one
-              </ButtonLink>
-            ) : undefined
-          }
-        />
-      ) : (
-        <ul className="space-y-4">
-          {rules.map((rule) => (
-            <li key={rule.id}>
-              <RuleCard rule={rule} mayManage={mayManage} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <PageBody>
+        {rules.length === 0 ? (
+          <EmptyState
+            title="Nothing is automated"
+            description="A rule watches for something happening — work entering review, an item going overdue — and acts on it."
+            action={
+              mayManage ? (
+                <ButtonLink href="/settings/rules/new" variant="primary">
+                  Write the first one
+                </ButtonLink>
+              ) : undefined
+            }
+          />
+        ) : (
+          <ul className="space-y-4">
+            {rules.map((rule) => (
+              <li key={rule.id}>
+                <RuleCard rule={rule} mayManage={mayManage} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </PageBody>
     </div>
   );
 }
@@ -88,18 +92,38 @@ function RuleCard({ rule, mayManage }: { rule: Rule; mayManage: boolean }) {
   const conditions = describeCondition(rule.conditions);
 
   return (
-    <section aria-labelledby={headingId} className="border border-n-200 p-4 rounded-md">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id={headingId} className="font-medium text-n-900">
-          {rule.name}
-        </h2>
+    <Panel
+      id={headingId}
+      title={rule.name}
+      description={rule.description}
+      // Health sits in the header, where the eye lands first: a rule failing
+      // silently is the thing an administrator most needs to see and the thing
+      // least likely to announce itself (ADR 0024).
+      actions={<Health rule={rule} />}
+      footer={
+        mayManage ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <ButtonLink href={`/settings/rules/${rule.id}`} variant="ghost" size="sm">
+              Why it did or did not fire
+            </ButtonLink>
 
-        <Health rule={rule} />
-      </div>
+            {/* Absent, not disabled, for a rule this form cannot express: a
+                control that opens a screen which then refuses is worse than one
+                that was never offered. The edit page says why if reached. */}
+            {isBuildable(rule) && (
+              <ButtonLink href={`/settings/rules/${rule.id}/edit`} variant="ghost" size="sm">
+                Edit
+              </ButtonLink>
+            )}
 
-      <p className="mt-0.5 max-w-prose text-caption text-n-500">{rule.description}</p>
-
-      <dl className="mt-3 space-y-2 text-body-sm">
+            <span className="ml-auto">
+              <ActiveSwitch id={rule.id} name={rule.name} active={rule.is_active} />
+            </span>
+          </div>
+        ) : undefined
+      }
+    >
+      <dl className="space-y-2 text-body-sm">
         <div className="flex flex-wrap gap-x-3">
           <dt className="w-24 shrink-0 text-caption text-n-500">Runs</dt>
           <dd className="min-w-0 text-n-700">{describeTrigger(rule.trigger)}</dd>
@@ -137,30 +161,7 @@ function RuleCard({ rule, mayManage }: { rule: Rule; mayManage: boolean }) {
         </div>
       </dl>
 
-      {mayManage && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Link href={`/settings/rules/${rule.id}`} className="text-body-sm text-a-700 underline">
-            Why it did or did not fire
-          </Link>
-
-          {/* Absent, not disabled, for a rule this form cannot express: a
-              control that opens a screen which then refuses is worse than one
-              that was never offered. The edit page says why if reached. */}
-          {isBuildable(rule) && (
-            <Link
-              href={`/settings/rules/${rule.id}/edit`}
-              className="text-body-sm text-a-700 underline"
-            >
-              Edit
-            </Link>
-          )}
-
-          <span className="ml-auto">
-            <ActiveSwitch id={rule.id} name={rule.name} active={rule.is_active} />
-          </span>
-        </div>
-      )}
-    </section>
+    </Panel>
   );
 }
 
@@ -182,18 +183,29 @@ function Action({ action }: { action: RuleAction }) {
   );
 }
 
+/**
+ * A state, not an action — which is where colour is most at home (ADR 0024).
+ *
+ * "running" and "switched off" were both grey prose in the corner of a card,
+ * and a rule that has been failing silently is the single thing an
+ * administrator most needs to see.
+ */
 function Health({ rule }: { rule: Rule }) {
   if (rule.health.healthy) {
-    return <span className="text-caption text-n-500">running</span>;
+    return <Badge tone="success">running</Badge>;
+  }
+
+  // A rule somebody switched off is not a rule in trouble: it is doing exactly
+  // what was asked of it, and colouring it like a failure trains people to
+  // ignore the colour.
+  if (!rule.is_active && rule.health.disabled_reason === null) {
+    return <Badge>switched off</Badge>;
   }
 
   return (
-    <span className="text-caption text-s-danger">
-      {rule.health.disabled_reason ??
-        (rule.is_active
-          ? `${rule.health.failure_count} recent failures`
-          : "switched off")}
-    </span>
+    <Badge tone="danger">
+      {rule.health.disabled_reason ?? `${rule.health.failure_count} recent failures`}
+    </Badge>
   );
 }
 

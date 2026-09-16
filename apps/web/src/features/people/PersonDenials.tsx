@@ -110,7 +110,7 @@ export function PersonDenials({
                 {mayManage && (
                   <Td align="right">
                     <Button
-                      variant="ghost"
+                      variant="affirmative"
                       size="sm"
                       disabled={busy}
                       onClick={() =>
@@ -229,7 +229,7 @@ export function PersonDenials({
 
           <Button
             type="submit"
-            variant="secondary"
+            variant="destructive"
             size="sm"
             disabled={busy || reason.trim().length < 3 || (where !== "everywhere" && scopeId === "")}
           >

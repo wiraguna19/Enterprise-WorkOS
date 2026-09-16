@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { DataTable, TBody, THead, Th, Tr } from "@/components/ui/DataTable";
 import { saveNotificationPreference } from "./actions";
 import type { NotificationType, Preference } from "./types";
 
@@ -36,7 +37,7 @@ export function PreferenceGroup({
   return (
     <>
       {/* ── Phone: one block per type ───────────────────────────────────── */}
-      <ul className="mt-3 divide-y divide-n-100 border-y border-n-100 md:hidden">
+      <ul className="divide-y divide-n-100 px-4 md:hidden">
         {entries.map((entry) => (
           <PreferenceRow
             key={entry.type.key}
@@ -47,36 +48,38 @@ export function PreferenceGroup({
         ))}
       </ul>
 
-      {/* ── Desktop: comparison table ───────────────────────────────────── */}
-      <table className="mt-3 hidden w-full text-body-sm md:table">
-        <thead>
-          <tr className="border-b border-n-100 text-left text-caption text-n-500">
-            <th scope="col" className="py-1.5 font-normal">
-              Event
-            </th>
-            <th scope="col" className="w-20 py-1.5 text-center font-normal">
-              In app
-            </th>
-            <th scope="col" className="w-20 py-1.5 text-center font-normal">
-              Email
-            </th>
-            <th scope="col" className="w-28 py-1.5 text-center font-normal">
-              Digest
-            </th>
-          </tr>
-        </thead>
+      {/* ── Desktop: comparison table ─────────────────────────────────────
+          On the shared primitives (ADR 0024), so the padding and the row height
+          are the product's rather than this file's fourth private opinion. */}
+      <div className="hidden md:block">
+        <DataTable caption="Notification preferences">
+          <THead>
+            <Tr>
+              <Th>Event</Th>
+              <Th width="w-24" align="right">
+                In app
+              </Th>
+              <Th width="w-24" align="right">
+                Email
+              </Th>
+              <Th width="w-32" align="right">
+                Digest
+              </Th>
+            </Tr>
+          </THead>
 
-        <tbody className="divide-y divide-n-100">
-          {entries.map((entry) => (
-            <PreferenceRow
-              key={entry.type.key}
-              type={entry.type}
-              saved={entry.saved}
-              layout="row"
-            />
-          ))}
-        </tbody>
-      </table>
+          <TBody>
+            {entries.map((entry) => (
+              <PreferenceRow
+                key={entry.type.key}
+                type={entry.type}
+                saved={entry.saved}
+                layout="row"
+              />
+            ))}
+          </TBody>
+        </DataTable>
+      </div>
     </>
   );
 }
@@ -179,8 +182,11 @@ function PreferenceRow({
   }
 
   return (
-    <tr>
-      <th scope="row" className="py-2 text-left font-normal text-n-900">
+    <tr className="h-[var(--row-height)] hover:bg-n-25">
+      <th
+        scope="row"
+        className="px-[var(--cell-padding-x)] py-[var(--cell-padding-y)] text-left text-body-sm font-normal text-n-900"
+      >
         {type.label}
         {type.alwaysInApp && (
           <span className="ml-1.5 text-caption text-n-500">· always in app</span>
@@ -192,7 +198,7 @@ function PreferenceRow({
         )}
       </th>
 
-      <td className="py-2 text-center">
+      <td className="px-[var(--cell-padding-x)] py-[var(--cell-padding-y)] text-right">
         <input
           type="checkbox"
           aria-label={`${type.label} in app`}
@@ -202,7 +208,7 @@ function PreferenceRow({
         />
       </td>
 
-      <td className="py-2 text-center">
+      <td className="px-[var(--cell-padding-x)] py-[var(--cell-padding-y)] text-right">
         <input
           type="checkbox"
           aria-label={`${type.label} by email`}
@@ -215,7 +221,7 @@ function PreferenceRow({
         />
       </td>
 
-      <td className="py-2 text-center">
+      <td className="px-[var(--cell-padding-x)] py-[var(--cell-padding-y)] text-right">
         <DigestSelect
           type={type}
           preference={preference}

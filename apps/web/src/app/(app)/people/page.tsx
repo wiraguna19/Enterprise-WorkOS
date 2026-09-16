@@ -1,6 +1,8 @@
 import { ButtonLink } from "@/components/ui/Button";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { PeopleSearch } from "@/features/people/PeopleSearch";
 import { PendingInvitations, type Pending } from "@/features/people/PendingInvitations";
 import { PersonList } from "@/features/people/PersonList";
@@ -58,33 +60,42 @@ export default async function PeoplePage({
         }
       />
 
-      {mayInvite && <PendingInvitations invitations={invitations} />}
+      <PageBody>
+        {mayInvite && <PendingInvitations invitations={invitations} />}
 
-      {people.length === 0 ? (
-        query ? (
-          // Distinct from the empty organization below: "nobody matched" is a
-          // dead end the user can back out of, and offering to invite someone
-          // here would answer a question they did not ask.
-          <EmptyState
-            title="No one matched"
-            description={`Nobody in ${me.organization.name} matches "${query}".`}
-          />
+        {people.length === 0 ? (
+          query ? (
+            // Distinct from the empty organization below: "nobody matched" is a
+            // dead end the user can back out of, and offering to invite someone
+            // here would answer a question they did not ask.
+            <EmptyState
+              title="No one matched"
+              description={`Nobody in ${me.organization.name} matches "${query}".`}
+            />
+          ) : (
+            <EmptyState
+              title="No one here yet"
+              description="Invite colleagues to give them access to work, projects, and their own workspace."
+              action={
+                mayInvite ? (
+                  <ButtonLink href="/people/invite" variant="primary">
+                    Invite someone
+                  </ButtonLink>
+                ) : undefined
+              }
+            />
+          )
         ) : (
-          <EmptyState
-            title="No one here yet"
-            description="Invite colleagues to give them access to work, projects, and their own workspace."
-            action={
-              mayInvite ? (
-                <ButtonLink href="/people/invite" variant="primary">
-                  Invite someone
-                </ButtonLink>
-              ) : undefined
-            }
-          />
-        )
-      ) : (
-        <PersonList people={people} timeZone={me.user.timezone} />
-      )}
+          <Panel
+            id="directory"
+            title="Directory"
+            description={`${people.length} ${people.length === 1 ? "person" : "people"}, newest first`}
+            bleed
+          >
+            <PersonList people={people} timeZone={me.user.timezone} />
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }
