@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { AuditFilters } from "@/features/audit/AuditFilters";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 
 /**
  * The security audit log (ADR 0019).
@@ -43,7 +43,13 @@ export default async function AuditLogPage({
   if (params.event) query.set("event", params.event);
   if (params.since) query.set("since", params.since);
 
-  const { data: entries } = await api<Entry[]>(`/audit-logs?${query.toString()}`);
+  const { data: entries, meta } = await api<Entry[]>(`/audit-logs?${query.toString()}`);
+
+  // Where the record ENDS (ADR 0021). Partitions past the retention window are
+  // dropped monthly, so an empty result for last March reads as "nothing
+  // happened in March" — the most dangerous sentence an audit log can imply,
+  // and indistinguishable from "March was dropped" unless the screen says so.
+  const retention = (meta?.retention ?? null) as { months: number | null; covers_since: string | null } | null;
 
   return (
     <div className="space-y-5">
@@ -53,6 +59,15 @@ export default async function AuditLogPage({
       />
 
       <AuditFilters event={params.event ?? ""} since={params.since ?? ""} />
+
+      {retention?.covers_since && (
+        <p className="text-body-sm text-n-500">
+          This log keeps {retention.months} months. Nothing before{" "}
+          {formatDate(retention.covers_since, me.user.timezone)} exists to be found — older months
+          are dropped whole, so an empty result for one of them is not an answer about what
+          happened.
+        </p>
+      )}
 
       {entries.length === 0 ? (
         <EmptyState

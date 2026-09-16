@@ -56,3 +56,15 @@ Schedule::command('work:roll-up-project-progress')
 Schedule::command('insights:prune-expired-exports')
     ->dailyAt('04:00')
     ->onOneServer();
+
+// The other half of partitioning (ADR 0021). Ensure creates; nothing dropped
+// one for seven phases, so six append-only tables grew forever.
+//
+// Monthly on the 2nd, the day after the partitions ahead are built: the two
+// commands touch the same catalogue and there is no reason to have them do it
+// in the same minute. Dropping is a catalogue update rather than a delete, so
+// it costs minutes of nobody's time even on a large installation.
+Schedule::command('governance:prune-log-partitions')
+    ->monthlyOn(2, '02:30')
+    ->onOneServer()
+    ->withoutOverlapping();

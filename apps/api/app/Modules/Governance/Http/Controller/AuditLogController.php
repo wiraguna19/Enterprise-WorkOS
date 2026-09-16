@@ -69,8 +69,39 @@ final class AuditLogController extends ApiController
 
         return ApiResponse::collection(
             array_map($this->present(...), $page->paginator->items()),
-            $page->meta(),
+            $page->meta() + ['retention' => $this->retention()],
         );
+    }
+
+    /**
+     * How far back this log goes (ADR 0021).
+     *
+     * Served with the page rather than printed on the screen, for the reason
+     * every other vocabulary here is served: the window lives in one config
+     * file, and an interface holding its own copy is an interface that promises
+     * two years after somebody sets it to one.
+     *
+     * It matters most where it is least visible. An empty result for last March
+     * reads as "nothing happened in March" — which is the most dangerous
+     * sentence an audit log can imply, and is indistinguishable from "March was
+     * dropped" unless the screen says where the record ends.
+     *
+     * The floor is a MONTH boundary because partitions are dropped whole: rows
+     * survive up to a month past the window, and claiming the window exactly
+     * would understate what is actually still there.
+     *
+     * @return array<string, mixed>
+     */
+    private function retention(): array
+    {
+        $months = config('governance.retention.audit_logs');
+
+        return [
+            'months' => $months,
+            'covers_since' => is_int($months)
+                ? now()->startOfMonth()->subMonths($months)->toIso8601String()
+                : null,
+        ];
     }
 
     /**

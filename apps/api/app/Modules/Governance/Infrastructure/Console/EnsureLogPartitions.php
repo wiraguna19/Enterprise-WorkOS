@@ -44,6 +44,19 @@ final class EnsureLogPartitions extends Command
         'notifications' => 'created_at',
     ];
 
+    /**
+     * The column a table is ranged on, for anything that has to ask a question
+     * in the partition key's own units — `PruneLogPartitions` counting rows
+     * stranded in a DEFAULT partition, for one.
+     *
+     * The list stays private and this is the door: a second hand-written copy
+     * of it elsewhere is how the two drift apart.
+     */
+    public static function partitionColumn(string $table): ?string
+    {
+        return self::PARTITIONED[$table] ?? null;
+    }
+
     public function handle(): int
     {
         $months = max(1, (int) $this->option('months'));
