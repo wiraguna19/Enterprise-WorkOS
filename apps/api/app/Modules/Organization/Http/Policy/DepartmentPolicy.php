@@ -31,13 +31,15 @@ use App\Modules\Platform\Domain\Tenancy\TenantContext;
  * unreachable endpoint is not merely unused, it is UNPOLICED — and the reason
  * the entry now records what its absence was hiding.
  *
- * Note what this policy does NOT do: it does not let a department's head
- * rename their own department. `if (head)` is the hardcoded role check
- * docs/06 §2 rules out by name; the mechanism for "this person may administer
- * THIS department" is a scoped grant, which PermissionResolver already resolves
- * and which the roadmap puts in Phase 7. Hardcoding it now would be the thing
- * that has to be torn out then — the same reasoning TeamPolicy records for
- * team leads.
+ * **This policy refused to let a department's head rename their own
+ * department**, and that refusal is now paid rather than reversed: `update`
+ * asks whether the actor holds `department.update` across the organization OR
+ * on THIS department, and Phase 7 can finally write the grant that answers
+ * yes. `if (head)` would have been the hardcoded role check docs/06 §2 rules
+ * out by name — one invisible rule for one relationship, where a grant is a row
+ * somebody can see, revoke and audit (ADR 0016).
+ *
+ * `delete` is deliberately NOT scoped. See its own note.
  */
 final class DepartmentPolicy
 {
@@ -67,7 +69,14 @@ final class DepartmentPolicy
      */
     public function update(UserModel $user, DepartmentModel $department): bool
     {
-        return $this->can('department.update');
+        $actor = $this->actor();
+
+        return $actor !== null && $this->permissions->hasOnScope(
+            $actor,
+            'department.update',
+            'department',
+            (string) $department->getKey(),
+        );
     }
 
     /**
@@ -76,6 +85,11 @@ final class DepartmentPolicy
      * A department that existed is referenced by projects, by people's
      * reporting lines and by every report grouped on it, so removing it is an
      * organization-level act.
+     *
+     * Unscoped on purpose, where `update` is scoped: a grant ON a department is
+     * authority over what happens inside it, and erasing the department is not
+     * something that happens inside it. Scoping this one would let a head who
+     * was given a rename remove the thing every report groups on.
      */
     public function delete(UserModel $user, DepartmentModel $department): bool
     {

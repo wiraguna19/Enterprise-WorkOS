@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Organization\Http\Controller\DepartmentController;
 use App\Modules\Organization\Http\Controller\PersonController;
+use App\Modules\Organization\Http\Controller\PersonRoleController;
 use App\Modules\Organization\Http\Controller\TeamController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,15 +12,28 @@ use Illuminate\Support\Facades\Route;
  * Endpoints are named after the domain, not after the screens that consume
  * them (docs/05 §1). `permission:` is the coarse gate; per-record checks live
  * in policies inside the controllers.
+ *
+ * **Four routes below carry no `permission:` gate on purpose** — the ones whose
+ * policy asks a SCOPED question (ADR 0016). A coarse gate can only ask "do you
+ * hold this across the organization", so leaving it in front of a scoped policy
+ * refuses the grant before the policy is ever consulted: the weaker layer wins
+ * and the feature silently does not exist. That is this codebase's
+ * two-layers-disagree defect in its most confusing form, because every test of
+ * the POLICY passes.
+ *
+ * They are not ungated. `auth:sanctum` and the tenant resolver still run, and
+ * the policy is stricter than the gate it replaced.
  */
 Route::get('departments', [DepartmentController::class, 'index'])
     ->middleware('permission:department.view');
 Route::post('departments', [DepartmentController::class, 'store'])
     ->middleware(['permission:department.create', 'throttle:writes']);
+// No `permission:` gate: DepartmentPolicy::update asks whether the actor holds
+// `department.update` org-wide OR on THIS department.
 Route::patch('departments/{department}', [DepartmentController::class, 'update'])
-    ->middleware(['permission:department.update', 'throttle:writes']);
+    ->middleware('throttle:writes');
 Route::post('departments/{department}/move', [DepartmentController::class, 'move'])
-    ->middleware(['permission:department.update', 'throttle:writes']);
+    ->middleware('throttle:writes');
 
 Route::get('teams', [TeamController::class, 'index'])
     ->middleware('permission:team.view');
@@ -27,12 +41,29 @@ Route::get('teams/{team}', [TeamController::class, 'show'])
     ->middleware('permission:team.view');
 Route::post('teams', [TeamController::class, 'store'])
     ->middleware(['permission:team.create', 'throttle:writes']);
+// Same: TeamPolicy::manageMembers asks the scoped question, so the coarse gate
+// would refuse a team lead their own team before the policy could allow it.
 Route::post('teams/{team}/members', [TeamController::class, 'addMember'])
-    ->middleware(['permission:team.manage_members', 'throttle:writes']);
+    ->middleware('throttle:writes');
 Route::delete('teams/{team}/members/{membership}', [TeamController::class, 'removeMember'])
-    ->middleware(['permission:team.manage_members', 'throttle:writes']);
+    ->middleware('throttle:writes');
 
 Route::get('people', [PersonController::class, 'index'])
     ->middleware('permission:person.view');
 Route::get('people/{membership}', [PersonController::class, 'show'])
     ->middleware('permission:person.view');
+
+// ── Who may do what, and where (ADR 0016) ───────────────────────────────────
+// A grant is always scoped to one project, team or department. Making an
+// organization-wide administrator is a different act with a different blast
+// radius, and it does not belong behind the same control.
+// The roles that exist, so a grant form cannot offer four keys to an
+// organization that has five.
+Route::get('roles', [PersonRoleController::class, 'catalogue'])
+    ->middleware('permission:role.view');
+Route::get('people/{membership}/roles', [PersonRoleController::class, 'index'])
+    ->middleware('permission:role.view');
+Route::post('people/{membership}/roles', [PersonRoleController::class, 'store'])
+    ->middleware(['permission:role.manage', 'throttle:writes']);
+Route::delete('people/{membership}/roles/{assignment}', [PersonRoleController::class, 'destroy'])
+    ->middleware(['permission:role.manage', 'throttle:writes']);

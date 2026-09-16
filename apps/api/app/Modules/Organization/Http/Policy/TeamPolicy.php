@@ -21,12 +21,16 @@ use App\Modules\Platform\Domain\Tenancy\TenantContext;
  * Gate had no policy to call, and Gate's answer to that is deny. Every team
  * endpoint answered 403 to everyone, org admins included.
  *
- * Note what this policy does NOT do: it does not let a team's lead manage their
- * own team. That rule is tempting and wrong here. `if (lead)` is the hardcoded
- * role check docs/06 §2 rules out by name — the mechanism for "this person may
- * manage THIS team" is a scoped grant (`scoped_role_assignments`), which
- * PermissionResolver already resolves and which the roadmap puts in Phase 7.
- * Hardcoding it now would be the thing that has to be torn out then.
+ * **This policy twice refused to let a team's lead manage their own team**, and
+ * the refusal is now paid rather than reversed. `if (lead)` would have been the
+ * hardcoded role check docs/06 §2 rules out by name; the mechanism is a SCOPED
+ * GRANT, and as of Phase 7 something can write one. So the question below is
+ * "does this person hold team.update, or hold it ON THIS TEAM" — which is the
+ * same sentence, asked of data instead of of an `if`.
+ *
+ * The difference is not cosmetic. A hardcoded lead check is one rule for one
+ * relationship that the customer cannot see, change, or audit; a grant is a row
+ * with a grantor, a timestamp and an activity record (ADR 0016).
  */
 final class TeamPolicy
 {
@@ -46,12 +50,12 @@ final class TeamPolicy
 
     public function update(UserModel $user, TeamModel $team): bool
     {
-        return $this->can('team.update');
+        return $this->canOn('team.update', $team);
     }
 
     public function manageMembers(UserModel $user, TeamModel $team): bool
     {
-        return $this->can('team.manage_members');
+        return $this->canOn('team.manage_members', $team);
     }
 
     /**
@@ -64,6 +68,25 @@ final class TeamPolicy
     public function delete(UserModel $user, TeamModel $team): bool
     {
         return $this->can('team.delete');
+    }
+
+    /**
+     * Held across the organization, or held ON THIS TEAM.
+     *
+     * `hasOnScope()` answers the org-wide question first, so a grant is only
+     * consulted for somebody who would otherwise be refused — which keeps the
+     * common path one cached array lookup.
+     */
+    private function canOn(string $permission, TeamModel $team): bool
+    {
+        $actor = $this->actor();
+
+        return $actor !== null && $this->permissions->hasOnScope(
+            $actor,
+            $permission,
+            'team',
+            (string) $team->getKey(),
+        );
     }
 
     private function can(string $permission): bool

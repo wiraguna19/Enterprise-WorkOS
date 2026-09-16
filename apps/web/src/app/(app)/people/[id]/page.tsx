@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PersonProfile } from "@/features/people/PersonProfile";
+import { PersonRoles, type Grant, type Scope } from "@/features/people/PersonRoles";
 import type { PersonDetail, Workload } from "@/features/people/types";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
@@ -44,6 +45,31 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       "&sort=due_at&limit=10",
   ).catch(() => ({ data: [] as WorkItem[] }));
 
+  // Their authority, and where it applies. Asked for only by somebody the
+  // server would answer — a person's grants name the teams, projects and
+  // departments they have power over, which is a map of the organization
+  // `role.view` is trusted with (ADR 0016).
+  const mayReadRoles = me.permissions.includes("role.view");
+
+  const roles = mayReadRoles
+    ? await api<{
+        organization_wide: Array<{ key: string; name: string }>;
+        scoped: Grant[];
+      }>(`/people/${id}/roles`)
+        .then((r) => r.data)
+        .catch(() => null)
+    : null;
+
+  // Granting is refused on yourself, so the controls are not offered there
+  // either — a control that opens and then refuses is worse than one that was
+  // never there.
+  const mayManageRoles =
+    me.permissions.includes("role.manage") && me.membership.id !== id;
+
+  const [scopes, assignable] = mayManageRoles
+    ? await Promise.all([scopeOptions(), assignableRoles()])
+    : [{ team: [], department: [], project: [] }, []];
+
   return (
     <div className="space-y-4">
       <Link href="/people" className="text-body-sm text-n-500 hover:text-a-700">
@@ -56,6 +82,42 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         workload={workload}
         timeZone={me.user.timezone}
       />
+
+      {roles && (
+        <PersonRoles
+          membershipId={id}
+          organizationWide={roles.organization_wide}
+          scoped={roles.scoped}
+          mayManage={mayManageRoles}
+          roles={assignable}
+          scopes={scopes}
+        />
+      )}
     </div>
   );
+}
+
+/**
+ * The roles a grant may name, from the endpoint that owns the answer.
+ *
+ * Not a list in this file. Roles are ROWS — a customer's own role is as real as
+ * a system one — and a form offering the four seeded keys is a form that cannot
+ * grant the fifth. This codebase has paid for a list kept beside the thing that
+ * owns it four times already.
+ */
+async function assignableRoles(): Promise<Array<{ key: string; name: string }>> {
+  return api<Array<{ key: string; name: string }>>("/roles")
+    .then((r) => r.data)
+    .catch(() => []);
+}
+
+/** What a grant can be scoped TO, from the endpoints that own each list. */
+async function scopeOptions(): Promise<{ team: Scope[]; department: Scope[]; project: Scope[] }> {
+  const [team, department, project] = await Promise.all([
+    api<Scope[]>("/teams?limit=100").then((r) => r.data).catch(() => []),
+    api<Scope[]>("/departments?limit=100").then((r) => r.data).catch(() => []),
+    api<Scope[]>("/projects?limit=100").then((r) => r.data).catch(() => []),
+  ]);
+
+  return { team, department, project };
 }

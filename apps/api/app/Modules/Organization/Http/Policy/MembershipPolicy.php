@@ -74,6 +74,34 @@ final class MembershipPolicy
         return ! $this->isSelf($membership) && $this->can('person.deactivate');
     }
 
+    /**
+     * What this person may do, and where.
+     *
+     * Not self-readable by default, and not a mistake: a person's grants name
+     * the projects, teams and departments they have authority over, which is a
+     * map of the organization somebody with `role.view` is trusted with and an
+     * ordinary employee is not. Nothing stops that being widened later; it is
+     * harder to narrow.
+     */
+    public function viewRoles(UserModel $user, MembershipModel $membership): bool
+    {
+        return $this->can('role.view');
+    }
+
+    /**
+     * Granting and revoking.
+     *
+     * Editing your OWN grants is refused whatever the permission, for the
+     * reason `deactivate` refuses self: the person who can widen their own
+     * authority without a second pair of eyes is the shape of an escalation,
+     * and an administrator who genuinely needs it can be granted it by another
+     * administrator.
+     */
+    public function manageRoles(UserModel $user, MembershipModel $membership): bool
+    {
+        return ! $this->isSelf($membership) && $this->can('role.manage');
+    }
+
     public function viewWorkload(UserModel $user, MembershipModel $membership): bool
     {
         return $this->isSelf($membership)
