@@ -7,6 +7,7 @@ namespace App\Modules\Governance\Providers;
 use App\Modules\Governance\Application\Service\ActivityLogger;
 use App\Modules\Governance\Application\Service\AuditLogger;
 use App\Modules\Governance\Infrastructure\Console\EnsureLogPartitions;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 final class GovernanceServiceProvider extends ServiceProvider
@@ -24,5 +25,9 @@ final class GovernanceServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([EnsureLogPartitions::class]);
         }
+
+        Route::prefix('api/v1')
+            ->middleware(['api', 'auth:sanctum'])
+            ->group(__DIR__.'/../Routes/api.php');
     }
 }

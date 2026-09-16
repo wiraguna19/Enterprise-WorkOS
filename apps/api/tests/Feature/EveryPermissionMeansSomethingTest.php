@@ -53,11 +53,13 @@ const MEANING_OWED = [
     // enforces something.
     'organization.view' => 'The web nav gates Settings on it; no server code asks. Either the API must check it or the nav must stop pretending.',
 
-    // `audit_logs` has been written since Phase 1 — every login failure, every
-    // invitation, every role change — and read by nothing but the partition
-    // command. A write path with no read path, which is this codebase's oldest
-    // shape, and the permission audit view in docs/10 Phase 7 is where it pays.
-    'audit_log.view' => 'Phase 7 — the security audit log has no reader at all.',
+    // `audit_log.view` was here — the log had been written since Phase 1 and
+    // read by nothing but the partition command, a write path with no read
+    // path. `GET /audit-logs` and `/settings/audit` pay it (ADR 0019). Worth
+    // recording what its absence had been hiding: nothing, for once. The log
+    // was correct, complete and unreadable — which is its own kind of defect,
+    // because an audit trail nobody can open is indistinguishable from one
+    // that was never written.
 
     'organization.update' => 'No organization endpoint of any kind exists; the org profile is read from /auth/me and changed by nobody.',
     'organization.manage_settings' => 'Same: organization-wide settings have a `settings` table and no endpoint.',

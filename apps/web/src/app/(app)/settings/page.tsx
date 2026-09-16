@@ -32,6 +32,12 @@ const SECTIONS: Array<{
     permission: "role.view",
   },
   {
+    href: "/settings/audit",
+    label: "Audit log",
+    description: "Who did what, and when — sign-ins, invitations, role changes.",
+    permission: "audit_log.view",
+  },
+  {
     href: "/settings/workflows",
     label: "Workflows",
     description: "The statuses work moves through, and which moves are legal.",

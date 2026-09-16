@@ -52,6 +52,10 @@ function minimalRowFor(string $table, string $organizationId): array
     $base = ['id' => $id, 'organization_id' => $organizationId];
 
     return match ($table) {
+        // Partitioned by `occurred_at`, with no `updated_at` and a composite
+        // primary key — the probe only needs a row that lands in a partition.
+        'audit_logs' => $base + ['event' => 'probe.written', 'occurred_at' => now()],
+
         'roles' => $base + ['key' => 'probe-'.substr($id, 0, 8), 'name' => 'Probe'],
         'departments' => $base + [
             'name' => 'Probe', 'code' => 'P'.substr($id, 0, 6),
