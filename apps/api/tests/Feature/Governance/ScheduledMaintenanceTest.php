@@ -88,7 +88,14 @@ it('prunes sessions that can no longer authenticate anyone', function (): void {
 it('keeps a freshly revoked session long enough to explain itself', function (): void {
     $sessionId = explode('|', $this->loginAs('sarah@acme.test'))[0];
 
-    DB::table('sessions')->where('id', $sessionId)->update(['revoked_at' => now()]);
+    // The reason travels with the timestamp — a CHECK added in Phase 7 refuses
+    // one without the other, which is how this line was found: it had been
+    // revoking a session without saying why, exactly like the two places in the
+    // application it was standing in for (ADR 0023).
+    DB::table('sessions')->where('id', $sessionId)->update([
+        'revoked_at' => now(),
+        'revoked_reason' => 'signed_out',
+    ]);
 
     $this->artisan('identity:prune-expired-sessions')->assertSuccessful();
 

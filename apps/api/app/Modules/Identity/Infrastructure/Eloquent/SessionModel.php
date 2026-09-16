@@ -36,6 +36,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  * @property CarbonImmutable|null $last_used_at
  * @property CarbonImmutable $expires_at
  * @property CarbonImmutable|null $revoked_at
+ * @property string|null $revoked_reason
  * @property CarbonImmutable $created_at
  */
 final class SessionModel extends PersonalAccessToken
@@ -100,8 +101,21 @@ final class SessionModel extends PersonalAccessToken
         return $this->belongsTo(UserModel::class, 'user_id');
     }
 
+    /**
+     * End this session, and say why.
+     *
+     * The reason was a parameter that went nowhere from Phase 1 until Phase 7:
+     * every caller passed one and the method wrote `revoked_at` alone. It
+     * matters in exactly the situation revoked rows are kept for — somebody
+     * asking why they were signed out, days later, and the difference between
+     * "you did it from your phone" and "an administrator did it" being the
+     * whole of the answer (ADR 0023).
+     */
     public function revoke(string $reason = 'logout'): void
     {
-        $this->forceFill(['revoked_at' => now()])->save();
+        $this->forceFill([
+            'revoked_at' => now(),
+            'revoked_reason' => $reason,
+        ])->save();
     }
 }

@@ -120,16 +120,24 @@ final class AuthenticationService
     /**
      * Revoke every session for a user.
      *
-     * Called on password change, MFA change, role change, and membership
-     * revocation. This is the reason sessions are opaque and server-side rather
-     * than JWTs: revocation is immediate (docs/06 §1).
+     * This is the reason sessions are opaque and server-side rather than JWTs:
+     * revocation is immediate (docs/06 §1).
+     *
+     * Its docblock said "called on password change, MFA change, role change and
+     * membership revocation" from Phase 1. It is called by NOTHING, and none of
+     * those four flows exists yet. Worse, it took a `$reason`, wrote it into the
+     * audit metadata, and left the row itself unexplained — so the CHECK added
+     * with `revoked_reason` in Phase 7 would have failed the first time anybody
+     * called it. **A constraint found a defect in code no test ever ran.**
+     * ADR 0023 records it as owed; the password-change slice is its first
+     * caller.
      */
     public function revokeAllSessions(string $userId, string $reason, ?Request $request = null): int
     {
         $count = SessionModel::query()
             ->where('user_id', $userId)
             ->whereNull('revoked_at')
-            ->update(['revoked_at' => now()]);
+            ->update(['revoked_at' => now(), 'revoked_reason' => $reason]);
 
         $this->audit->record('auth.session_revoked', [
             'user_id' => $userId,

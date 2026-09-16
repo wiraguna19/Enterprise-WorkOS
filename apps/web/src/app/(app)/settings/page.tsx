@@ -26,6 +26,11 @@ const SECTIONS: Array<{
     description: "Which interruptions reach you, and where.",
   },
   {
+    href: "/settings/sessions",
+    label: "Signed in",
+    description: "Every device that can act as you, and how to end one.",
+  },
+  {
     href: "/settings/roles",
     label: "Roles",
     description: "What each role may do, and the ones you write yourself.",

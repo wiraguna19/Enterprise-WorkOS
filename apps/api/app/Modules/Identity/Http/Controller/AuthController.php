@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Http\Controller;
 
 use App\Modules\Identity\Application\Service\AuthenticationService;
 use App\Modules\Identity\Application\Service\PermissionResolver;
+use App\Modules\Identity\Application\Service\SessionDirectory;
 use App\Modules\Identity\Http\Request\LoginRequest;
 use App\Modules\Identity\Http\Resource\UserResource;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
@@ -26,6 +27,7 @@ final class AuthController extends ApiController
         private readonly AuthenticationService $auth,
         private readonly PermissionResolver $permissions,
         private readonly OrganizationDirectory $organizations,
+        private readonly SessionDirectory $sessions,
     ) {}
 
     public function login(LoginRequest $request): ApiResponse
@@ -57,6 +59,54 @@ final class AuthController extends ApiController
         $this->auth->logout($session, $request);
 
         return $this->noContent();
+    }
+
+    /**
+     * What else is signed in as me (ADR 0023).
+     *
+     * No permission gates these three: they are not an administrative power
+     * over somebody, they are an account looking at itself. Every one of them
+     * is scoped to the user in the request, and a session that belongs to
+     * anybody else is a 404 — a session id is a uuid, and "that exists but is
+     * not yours" would confirm a guess about another account.
+     */
+    public function sessions(Request $request): ApiResponse
+    {
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        /** @var SessionModel $session */
+        $session = $user->currentAccessToken();
+
+        return $this->ok($this->sessions->forUser($user, (string) $session->getKey()));
+    }
+
+    public function revokeSession(Request $request, string $id): ApiResponse
+    {
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        /** @var SessionModel $session */
+        $session = $user->currentAccessToken();
+
+        $this->sessions->revoke($user, $id, (string) $session->getKey(), $request);
+
+        return $this->noContent();
+    }
+
+    /** Everything except this device — the button for "I think I have been
+     *  compromised". */
+    public function revokeOtherSessions(Request $request): ApiResponse
+    {
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        /** @var SessionModel $session */
+        $session = $user->currentAccessToken();
+
+        return $this->ok([
+            'ended' => $this->sessions->revokeOthers($user, (string) $session->getKey(), $request),
+        ]);
     }
 
     /**

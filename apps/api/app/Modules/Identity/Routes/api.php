@@ -20,6 +20,18 @@ Route::prefix('auth')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('auth.me');
+
+        // What else is signed in as me, and stopping it (ADR 0023). No
+        // `permission:` gate on purpose: these are an account looking at
+        // itself, not authority over anybody, and every one is scoped to the
+        // user in the request.
+        Route::get('sessions', [AuthController::class, 'sessions'])->name('auth.sessions');
+        Route::delete('sessions/{id}', [AuthController::class, 'revokeSession'])
+            ->middleware('throttle:writes')
+            ->name('auth.sessions.revoke');
+        Route::delete('sessions', [AuthController::class, 'revokeOtherSessions'])
+            ->middleware('throttle:writes')
+            ->name('auth.sessions.revoke_others');
     });
 });
 
