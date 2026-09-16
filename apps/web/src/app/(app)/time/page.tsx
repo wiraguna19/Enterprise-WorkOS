@@ -1,5 +1,7 @@
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
+import { Panel } from "@/components/ui/Panel";
 import { Timesheet } from "@/features/time/Timesheet";
 import type { TimesheetDay, TimesheetMeta } from "@/features/time/types";
 import { api } from "@/lib/api";
@@ -36,14 +38,25 @@ export default async function TimePage({
         }`}
       />
 
-      {days.length === 0 ? (
-        <EmptyState
-          title="No time logged"
-          description="Time is logged on the work item you spent it on — open one and use the time panel."
-        />
-      ) : (
-        <Timesheet days={days} window={window} timeZone={me.user.timezone} />
-      )}
+      <PageBody>
+        {days.length === 0 ? (
+          <EmptyState
+            title="No time logged"
+            description="Time is logged on the work item you spent it on — open one and use the time panel."
+          />
+        ) : (
+          <Panel
+            id="timesheet"
+            title="This window"
+            description={`${window.total_hours} h across ${window.days_logged} ${
+              window.days_logged === 1 ? "day" : "days"
+            }`}
+            bleed
+          >
+            <Timesheet days={days} window={window} timeZone={me.user.timezone} />
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }

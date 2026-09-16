@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
+import { Panel } from "@/components/ui/Panel";
 import type { Team } from "@/features/teams/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -31,49 +34,64 @@ export default async function TeamsPage() {
         }
       />
 
-      {teams.length === 0 ? (
-        <EmptyState
-          title="No teams yet"
-          description="Teams group people who work together, so work can be found by the group that owns it rather than person by person."
-          action={
-            // The empty state is the worse of the two dead buttons to leave
-            // behind: it is what a brand-new organization sees first.
-            me.permissions.includes("team.create") ? (
-              <ButtonLink href="/teams/new" variant="primary">
-                Create the first team
-              </ButtonLink>
-            ) : undefined
-          }
-        />
-      ) : (
-        <ul className="divide-y divide-n-100 border-y border-n-100">
-          {teams.map((team) => (
-            <li key={team.id}>
-              <Link
-                href={`/teams/${team.id}`}
-                className="flex items-center gap-3 py-2.5 transition-colors duration-[120ms] hover:bg-n-25"
-              >
-                <span className="w-14 shrink-0 font-mono text-caption text-n-500">{team.key}</span>
-
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-n-900">{team.name}</span>
-                  <span className="block truncate text-caption text-n-500">
-                    {team.description || "—"}
-                  </span>
-                </span>
-
-                <span className="shrink-0 text-caption text-n-500">
-                  {team.department?.name ?? "No department"}
-                </span>
-
-                <span className="w-16 shrink-0 text-right text-caption text-n-500">
-                  {team.member_count ?? 0} {team.member_count === 1 ? "person" : "people"}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <PageBody>
+        {teams.length === 0 ? (
+          <EmptyState
+            title="No teams yet"
+            description="Teams group people who work together, so work can be found by the group that owns it rather than person by person."
+            action={
+              // The empty state is the worse of the two dead buttons to leave
+              // behind: it is what a brand-new organization sees first.
+              me.permissions.includes("team.create") ? (
+                <ButtonLink href="/teams/new" variant="primary">
+                  Create the first team
+                </ButtonLink>
+              ) : undefined
+            }
+          />
+        ) : (
+          <Panel
+            id="teams"
+            title="Teams"
+            description={`${teams.length} ${teams.length === 1 ? "team" : "teams"}`}
+            bleed
+          >
+            <DataTable caption="Teams in this organization">
+              <THead>
+                <Tr>
+                  <Th width="w-20">Key</Th>
+                  <Th>Name</Th>
+                  <Th>Department</Th>
+                  <Th width="w-24" align="right">
+                    People
+                  </Th>
+                </Tr>
+              </THead>
+              <TBody>
+                {teams.map((team) => (
+                  <Tr key={team.id}>
+                    <Td muted>
+                      <span className="font-mono text-micro">{team.key}</span>
+                    </Td>
+                    <Td>
+                      <Link href={`/teams/${team.id}`} className="block min-w-0 hover:text-a-700">
+                        <span className="block truncate font-medium text-n-900">{team.name}</span>
+                        <span className="block truncate text-caption text-n-500">
+                          {team.description || "—"}
+                        </span>
+                      </Link>
+                    </Td>
+                    <Td muted>{team.department?.name ?? "No department"}</Td>
+                    <Td align="right" muted>
+                      <span className="tabular-nums">{team.member_count ?? 0}</span>
+                    </Td>
+                  </Tr>
+                ))}
+              </TBody>
+            </DataTable>
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }

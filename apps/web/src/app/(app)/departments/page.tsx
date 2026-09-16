@@ -1,5 +1,7 @@
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
+import { Panel } from "@/components/ui/Panel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DepartmentRow, type DepartmentNode } from "@/features/organization/DepartmentRow";
 import { api } from "@/lib/api";
@@ -44,20 +46,27 @@ export default async function DepartmentsPage() {
         }
       />
 
-      {departments.length === 0 ? (
-        <EmptyState
-          title="No departments yet"
-          description="Departments are how work, people and projects are grouped for reporting. A project can name one, and a person's reporting line follows it."
-          action={
-            mayCreate ? (
-              <ButtonLink href="/departments/new" variant="primary">
-                Create the first department
-              </ButtonLink>
-            ) : undefined
-          }
-        />
-      ) : (
-        <ul className="border-y border-n-100">
+      <PageBody>
+        {departments.length === 0 ? (
+          <EmptyState
+            title="No departments yet"
+            description="Departments are how work, people and projects are grouped for reporting. A project can name one, and a person's reporting line follows it."
+            action={
+              mayCreate ? (
+                <ButtonLink href="/departments/new" variant="primary">
+                  Create the first department
+                </ButtonLink>
+              ) : undefined
+            }
+          />
+        ) : (
+          <Panel
+            id="departments"
+            title="Departments"
+            description="Indentation is the reporting line. Moving one moves everything under it."
+            bleed
+          >
+            <ul>
           {departments.map((department) => (
             <DepartmentRow
               key={department.id}
@@ -75,9 +84,11 @@ export default async function DepartmentsPage() {
                   label: `${"— ".repeat(option.depth)}${option.name}`,
                 }))}
             />
-          ))}
-        </ul>
-      )}
+            ))}
+            </ul>
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }

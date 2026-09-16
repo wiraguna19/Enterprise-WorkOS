@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
+import { Panel } from "@/components/ui/Panel";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
 import { api } from "@/lib/api";
@@ -112,18 +114,24 @@ export default async function MyWorkPage({
         })}
       </nav>
 
-      {items.length === 0 ? (
-        <EmptyState
-          title={emptyTitle(view)}
-          description={emptyDescription(view)}
-        />
-      ) : (
-        <div>
-          {items.map((item) => (
-            <WorkItemRow key={item.id} item={item} timeZone={me.user.timezone} />
-          ))}
-        </div>
-      )}
+      <PageBody>
+        {items.length === 0 ? (
+          <EmptyState title={emptyTitle(view)} description={emptyDescription(view)} />
+        ) : (
+          <Panel
+            id="my-work"
+            title={VIEWS.find((v) => v.key === view)?.label ?? "My work"}
+            description={`${items.length} ${items.length === 1 ? "item" : "items"}`}
+            bleed
+          >
+            <div className="divide-y divide-n-100">
+              {items.map((item) => (
+                <WorkItemRow key={item.id} item={item} timeZone={me.user.timezone} />
+              ))}
+            </div>
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }

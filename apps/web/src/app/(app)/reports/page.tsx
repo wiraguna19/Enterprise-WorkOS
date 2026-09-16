@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
+import { Panel } from "@/components/ui/Panel";
 import { FlowTable } from "@/features/insights/FlowTable";
 import { DepartmentSplit } from "@/features/insights/DepartmentSplit";
 import { BottleneckTable } from "@/features/insights/BottleneckTable";
@@ -48,24 +50,25 @@ export default async function ReportsPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Flow"
         description={`${flow.throughput} completed between ${flow.from} and ${flow.to}`}
       />
 
-      {flow.throughput === 0 ? (
-        <EmptyState
-          title="Nothing completed in this window"
-          description="Cycle time is measured from work items moving through the workflow. Once work starts being completed, its throughput and cycle time appear here."
-        />
-      ) : (
-        <>
-          <section aria-labelledby="headline" className="space-y-2">
-            <h2 id="headline" className="sr-only">
-              Headline figures
-            </h2>
-
+      <PageBody>
+        {flow.throughput === 0 ? (
+          <EmptyState
+            title="Nothing completed in this window"
+            description="Cycle time is measured from work items moving through the workflow. Once work starts being completed, its throughput and cycle time appear here."
+          />
+        ) : (
+          <>
+          <Panel
+            id="headline"
+            title="Headline figures"
+            description={`${flow.throughput} completed between ${flow.from} and ${flow.to}`}
+          >
             <dl className="flex flex-wrap gap-x-10 gap-y-3">
               <Figure
                 term="Median cycle time"
@@ -118,46 +121,38 @@ export default async function ReportsPage({
                 )}
               </div>
             </dl>
-          </section>
+          </Panel>
 
-          <FlowTable flow={flow} timeZone={me.user.timezone} />
+          <Panel id="by-week" title="By week" bleed>
+            <FlowTable flow={flow} timeZone={me.user.timezone} />
+          </Panel>
 
           {flow.departments.length > 0 && (
-            <section aria-labelledby="departments" className="space-y-2">
-              <h2
-                id="departments"
-                className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-              >
-                Where it was delivered
-              </h2>
-
+            <Panel id="departments" title="Where it was delivered">
               <DepartmentSplit
                 departments={flow.departments}
                 total={flow.throughput}
                 window={{ from: flow.from, to: flow.to }}
               />
-            </section>
+            </Panel>
           )}
 
           {bottlenecks.length > 0 && (
-            <section aria-labelledby="bottlenecks" className="space-y-2">
-              <h2
-                id="bottlenecks"
-                className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-              >
-                Where it waited
-              </h2>
-
+            <Panel
+              id="bottlenecks"
+              title="Where it waited"
+              description="Ordered by the wait, not by the queue: the backlog is where work is supposed to sit."
+              bleed
+            >
               <BottleneckTable rows={bottlenecks} />
 
-              <p className="max-w-[72ch] text-caption text-n-500">
+              <p className="max-w-[72ch] border-t border-n-100 px-4 py-3 text-caption text-n-500">
                 A wait is counted in the window it ENDED in, and a wait still going has no
                 duration yet — so the median describes waits that finished, and
                 &ldquo;sitting there now&rdquo; is a snapshot that changes when time passes
-                rather than when work happens. Ordered by the wait, not by the queue: the
-                backlog is where work is supposed to sit.
+                rather than when work happens.
               </p>
-            </section>
+            </Panel>
           )}
 
           {/*
@@ -200,8 +195,9 @@ export default async function ReportsPage({
             is counted once across the whole span. Percentiles are nearest-rank, so every
             figure above is a duration something actually took.
           </p>
-        </>
-      )}
+          </>
+        )}
+      </PageBody>
     </div>
   );
 }

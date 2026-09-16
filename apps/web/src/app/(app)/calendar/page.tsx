@@ -1,5 +1,6 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { FeedSubscription } from "@/features/calendar/FeedSubscription";
 import { Agenda } from "@/features/calendar/Agenda";
 import { MonthGrid } from "@/features/calendar/MonthGrid";
@@ -73,28 +74,42 @@ export default async function CalendarPage({
     <div className="space-y-4">
       <PageHeader title="Calendar" description={label} action={<FeedSubscription feed={feed} />} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav className="flex items-center gap-4 text-body-sm">
-          <Link href={`/calendar?${monthQuery(month, -1, params.sources)}`} className="text-a-700 hover:underline">
-            ← Previous
-          </Link>
-          <Link href={`/calendar?${monthQuery(month, 1, params.sources)}`} className="text-a-700 hover:underline">
-            Next →
-          </Link>
-        </nav>
+      <Panel
+        id="month"
+        title={label}
+        description={`${events.length} ${events.length === 1 ? "date" : "dates"} in view`}
+        actions={
+          <nav className="flex items-center gap-2" aria-label="Month">
+            <ButtonLink
+              href={`/calendar?${monthQuery(month, -1, params.sources)}`}
+              variant="ghost"
+              size="sm"
+            >
+              ← Previous
+            </ButtonLink>
+            <ButtonLink
+              href={`/calendar?${monthQuery(month, 1, params.sources)}`}
+              variant="ghost"
+              size="sm"
+            >
+              Next →
+            </ButtonLink>
+          </nav>
+        }
+        footer={<SourceFilter active={active} />}
+        bleed
+      >
+        {/* Two components, one dataset: a grid to compare a month across
+            columns, a list to answer "what is coming" with a thumb
+            (docs/08 §6). */}
+        <div className="px-4 py-3 md:hidden">
+          <Agenda events={events} timeZone={me.user.timezone} />
+        </div>
 
-        <SourceFilter active={active} />
-      </div>
-
-      {/* Two components, one dataset: a grid to compare a month across columns,
-          a list to answer "what is coming" with a thumb (docs/08 §6). */}
-      <div className="md:hidden">
-        <Agenda events={events} timeZone={me.user.timezone} />
-      </div>
-
-      <div className="hidden md:block">
-        <MonthGrid month={month} events={events} timeZone={me.user.timezone} />
-      </div>
+        <div className="hidden px-4 py-3 md:block">
+          <MonthGrid month={month} events={events} timeZone={me.user.timezone} />
+        </div>
+      </Panel>
     </div>
   );
 }
