@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { ToastProvider } from "@/components/ui/Toast";
 import { clsx } from "@/lib/clsx";
 import { AccountMenu } from "@/features/auth/AccountMenu";
 import { CommandPalette } from "@/features/search/CommandPalette";
@@ -95,7 +96,8 @@ export function AppShell({
   const can = (permission?: string) => !permission || permissions.includes(permission);
 
   return (
-    <div className="min-h-dvh bg-n-0 text-n-700">
+    <ToastProvider>
+      <div className="min-h-dvh bg-n-0 text-n-700">
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-n-100 bg-n-0 px-3">
         {/* The command palette is the primary navigation for experienced users
@@ -196,7 +198,16 @@ export function AppShell({
 
         {/* Bottom padding on phones only: the bar below is fixed, so without it
             the last row of every list sits underneath it. */}
-        <main className="min-w-0 flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-6">{children}</main>
+        {/* `overflow-x-clip`, so the BOARD is the only thing that scrolls
+            sideways. The board's scroller escapes this padding with negative
+            margins, which made its content box wider than the column it sits
+            in — and a page that scrolls horizontally behind a panel that also
+            scrolls horizontally gives you two scrollbars and no idea which one
+            moves what. `clip` rather than `hidden`: `hidden` would make this a
+            scroll container and break every `sticky` inside it. */}
+        <main className="min-w-0 flex-1 overflow-x-clip px-4 pb-24 pt-6 md:px-8 md:pb-6">
+          {children}
+        </main>
       </div>
 
       <BottomNav pathname={pathname} counts={counts} onMore={() => setSidebarOpen(true)} />
@@ -204,8 +215,9 @@ export function AppShell({
       {/* Renders nothing. The badges above are server-rendered; this only says
           when to ask for them again, and does nothing at all when real-time is
           unconfigured (docs/07 §8). */}
-      <RealtimeProvider organizationId={organization.id} userId={user.id} />
-    </div>
+        <RealtimeProvider organizationId={organization.id} userId={user.id} />
+      </div>
+    </ToastProvider>
   );
 }
 

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Panel } from "@/components/ui/Panel";
+import { useToast } from "@/components/ui/Toast";
 import { revokeInvitation } from "./invitations";
 
 /**
@@ -26,6 +27,7 @@ export type Pending = {
 export function PendingInvitations({ invitations }: { invitations: Pending[] }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const toast = useToast();
 
   if (invitations.length === 0) return null;
 
@@ -81,6 +83,10 @@ export function PendingInvitations({ invitations }: { invitations: Pending[] }) 
                       const result = await revokeInvitation(invitation.id);
 
                       setError(result.error);
+
+                      if (result.error === null) {
+                        toast({ tone: "removed", message: "Revoked. That link no longer opens anything." });
+                      }
                     })
                   }
                 >

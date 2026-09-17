@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { stopRecurrence } from "./actions";
 
 /**
@@ -21,6 +22,7 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const toast = useToast();
 
   if (!confirming) {
     return (
@@ -49,6 +51,10 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
             const result = await stopRecurrence(id);
 
             setError(result.error);
+
+            if (result.error === null) {
+              toast({ tone: "removed", message: `“${schedule}” is stopped. No more work appears from it.` });
+            }
 
             // Left open on failure. The commonest refusal is one somebody else
             // already stopped, and closing the control would hide the sentence

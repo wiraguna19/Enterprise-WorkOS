@@ -126,6 +126,23 @@
   html {
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
+
+    /* This product has exactly ONE horizontal surface — the board — and it
+       carries its own scroller. Nothing else is ever meant to scroll the page
+       sideways, so the page says so here rather than leaving each screen to
+       avoid it.
+     *
+     * It is not belt and braces for the sake of it. `main` already clips on X,
+     * and the board's content still reached the root: hiding the board took
+     * the document from 2100px wide to 1920px on a 1905px viewport, which is
+     * the measurement that found this. A page that scrolls horizontally behind
+     * a panel that also scrolls horizontally gives somebody two scrollbars and
+     * no way to tell which one moves what.
+     *
+     * `clip` rather than `hidden`: `hidden` makes the root a scroll container
+     * and takes `position: sticky` with it — the header, the sidebar and the
+     * work item's action bar all depend on sticky. */
+    overflow-x: clip;
   }
 
   body {

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { setRuleActive } from "./actions";
 
 /**
@@ -27,6 +28,7 @@ export function ActiveSwitch({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const toast = useToast();
 
   const apply = (next: boolean) =>
     startAction(async () => {
@@ -36,7 +38,18 @@ export function ActiveSwitch({
 
       // Left open on failure, so the sentence explaining the refusal has
       // somewhere to sit.
-      if (result.error === null) setConfirming(false);
+      if (result.error === null) {
+        setConfirming(false);
+
+        // The effect is everywhere except this screen: a rule that stopped
+        // running stops running for everybody (ADR 0025).
+        toast({
+          tone: next ? "done" : "removed",
+          message: next
+            ? `“${name}” is running again.`
+            : `“${name}” is switched off. Nothing it does will happen until it is switched back on.`,
+        });
+      }
     });
 
   if (!active) {

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Panel } from "@/components/ui/Panel";
+import { useToast } from "@/components/ui/Toast";
 import { endOtherSessions, endSession } from "./actions";
 
 /**
@@ -37,6 +38,7 @@ export type Session = {
 export function SessionList({ sessions }: { sessions: Session[] }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const toast = useToast();
 
   const others = sessions.filter((session) => !session.current).length;
 
@@ -56,6 +58,10 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
                 const result = await endOtherSessions();
 
                 setError(result.error);
+
+                if (result.error === null) {
+                  toast({ tone: "removed", message: `Ended ${others} other ${others === 1 ? "session" : "sessions"}.` });
+                }
               })
             }
           >
@@ -114,6 +120,13 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
                       const result = await endSession(session.id);
 
                       setError(result.error);
+
+                      // The device that just lost its session is not this one,
+                      // unless it is — and then the sign-out is the
+                      // confirmation (ADR 0025).
+                      if (result.error === null && !session.current) {
+                        toast({ tone: "removed", message: "That device is signed out." });
+                      }
                     })
                   }
                 >

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import { useToast } from "@/components/ui/Toast";
 import { denyPermission, explainPermission, liftDenial, type Explanation } from "./roles";
 import type { Scope } from "./PersonRoles";
 
@@ -47,6 +48,7 @@ export function PersonDenials({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const toast = useToast();
 
   const [permission, setPermission] = useState(permissions[0]?.key ?? "");
   const [where, setWhere] = useState<"everywhere" | keyof typeof scopes>("everywhere");
@@ -118,6 +120,10 @@ export function PersonDenials({
                           const result = await liftDenial(membershipId, denial.id);
 
                           setError(result.error);
+
+                          if (result.error === null) {
+                            toast({ message: "Lifted. Their roles decide again." });
+                          }
                         })
                       }
                     >
@@ -150,6 +156,7 @@ export function PersonDenials({
               if (result.error === null) {
                 setScopeId("");
                 setReason("");
+                toast({ tone: "removed", message: "Taken away. A denial beats every grant they hold." });
               }
             });
           }}

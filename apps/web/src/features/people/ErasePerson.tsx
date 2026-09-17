@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import { useToast } from "@/components/ui/Toast";
 import { erasePerson } from "./roles";
 
 /**
@@ -35,6 +36,7 @@ export function ErasePerson({
   const [error, setError] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
   const [busy, startAction] = useTransition();
+  const toast = useToast();
 
   if (erasedAt !== null) {
     return (
@@ -86,7 +88,10 @@ export function ErasePerson({
 
             setError(result.error);
 
-            if (result.error === null) setTyped("");
+            if (result.error === null) {
+              setTyped("");
+              toast({ tone: "removed", message: `${name} is erased. The audit log keeps a record that it happened.` });
+            }
           });
         }}
       >

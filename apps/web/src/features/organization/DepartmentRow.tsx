@@ -131,7 +131,11 @@ export function DepartmentRow({
           defaultValue={department.parent_id ?? ""}
           disabled={busy}
           onChange={(event) => run(() => moveDepartment(department.id, event.target.value || null))}
-          className={`${INPUT} w-56 shrink-0 text-caption`}
+          // INPUT carries `w-full`, so appending a width does nothing reliable
+          // — the two utilities collide and stylesheet order decides. The
+          // select took the whole row and pushed itself onto a line of its own,
+          // which is the misalignment this layout had just been fixed for.
+          className={`${INPUT.replace("w-full", "w-56")} shrink-0 text-caption`}
         >
           <option value="">A top-level department</option>
           {options.map((option) => (

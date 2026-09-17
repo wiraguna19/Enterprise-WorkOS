@@ -197,6 +197,22 @@ rather than decorative. One strong column, the rest `muted`.
 account state, scope, "this device" — is a `Badge`, and `neutral` is the
 default: colour still carries meaning, not decoration.
 
+### Toast  ·  saying that something happened
+
+```text
+┌──────────────────────────────────────────────┐
+│ Granted. It applies on their next request. ✕ │   bottom-right, 5s, dismissible
+└──────────────────────────────────────────────┘
+```
+
+Only for an effect that happens OUT OF SIGHT, or an act consequential enough to
+say out loud: grant, revoke, deny, erase, end a session, revoke an invitation,
+switch a rule off. If the effect is visible where the person is standing, the
+screen is the confirmation and a toast is noise (ADR 0025).
+
+Errors are never toasts. They stay inline beside the control that failed.
+`aria-live="polite"`, because this announces something that already went right.
+
 ### Key/value grid
 
 Facts about one thing, in two to four columns. Eight facts belong in two rows,

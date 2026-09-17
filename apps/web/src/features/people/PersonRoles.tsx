@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import { useToast } from "@/components/ui/Toast";
 import { grantRole, revokeRole } from "./roles";
 
 /**
@@ -56,6 +57,7 @@ export function PersonRoles({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const toast = useToast();
 
   const [role, setRole] = useState(roles[0]?.key ?? "");
   const [scopeType, setScopeType] = useState<keyof typeof scopes>("team");
@@ -96,7 +98,10 @@ export function PersonRoles({
 
                 setError(result.error);
 
-                if (result.error === null) setScopeId("");
+                if (result.error === null) {
+                  setScopeId("");
+                  toast({ message: "Granted. It applies on their next request." });
+                }
               });
             }}
           >
@@ -202,6 +207,10 @@ export function PersonRoles({
                           const result = await revokeRole(membershipId, grant.id);
 
                           setError(result.error);
+
+                          if (result.error === null) {
+                            toast({ tone: "removed", message: "Revoked. It stops applying immediately." });
+                          }
                         })
                       }
                     >

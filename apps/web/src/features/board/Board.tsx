@@ -222,7 +222,16 @@ export function Board({
 
       <div
         ref={boardRef}
-        className="-mx-4 overflow-x-auto px-4 pb-4 md:-mx-8 md:px-8"
+        // Contained, not full-bleed. It used to escape the page's padding with
+        // `-mx-4 px-4 md:-mx-8 md:px-8` so the board could run to the edges of
+        // the window — and that made its box 64px WIDER than the column it sits
+        // in, which the page then had to scroll to reveal. The result was two
+        // horizontal scrollbars: one for the board, one for the page behind it,
+        // and no way to tell which moved what.
+        //
+        // A board is a horizontal surface, so it keeps its own scroller. It
+        // just no longer sticks out of the page to get one.
+        className="overflow-x-auto pb-4"
         onKeyDown={(event) => {
           if (!picked) return;
 
