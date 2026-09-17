@@ -140,6 +140,46 @@ final class MultiFactor
     }
 
     /**
+     * Ten new recovery codes, and ten dead ones.
+     *
+     * Exists because the first person to lose their list was told, by this
+     * product's own copy, to turn the factor off and set it up again — which
+     * leaves the account with no second factor for as long as it takes to
+     * re-scan a QR code, to solve a problem that is not about the factor at
+     * all. The password is asked for here exactly as it is for turning the
+     * factor off: ten new ways into the account is not a small act.
+     *
+     * The sessions are left alone. Nothing about the account's factors has
+     * changed — the app still holds the same secret — so signing every device
+     * out would be a punishment for good housekeeping.
+     *
+     * @return list<string>
+     */
+    public function regenerateRecoveryCodes(UserModel $user, string $password, Request $request): array
+    {
+        if (! $user->hasMfaEnabled()) {
+            throw new MultiFactorRefused(
+                'Two-factor authentication is not on for this account.',
+                ['refusal' => 'not_enabled'],
+            );
+        }
+
+        $this->requirePassword($user, $password, 'auth.mfa_recovery_regenerate_failed', $request);
+
+        $codes = $this->freshRecoveryCodes();
+
+        $user->forceFill([
+            'mfa_recovery_codes' => array_map(self::hashRecoveryCode(...), $codes),
+        ])->save();
+
+        $this->audit->record('auth.mfa_recovery_regenerated', [
+            'codes' => count($codes),
+        ], $request, actorUserId: (string) $user->getKey());
+
+        return $codes;
+    }
+
+    /**
      * Turn it off, with the password in hand.
      *
      * A session is not enough. Removing a factor is the one act in this feature
@@ -156,13 +196,7 @@ final class MultiFactor
             );
         }
 
-        if ($user->password_hash === null || ! Hash::check($password, $user->password_hash)) {
-            $this->audit->record('auth.mfa_disable_failed', [
-                'reason' => 'invalid_password',
-            ], $request, actorUserId: (string) $user->getKey());
-
-            throw new InvalidCredentials('That password is not correct.');
-        }
+        $this->requirePassword($user, $password, 'auth.mfa_disable_failed', $request);
 
         $user->forceFill([
             'mfa_secret_encrypted' => null,
@@ -247,6 +281,20 @@ final class MultiFactor
         }
 
         $user->forceFill(['mfa_last_counter' => $counter])->save();
+    }
+
+    /** The password, or nothing happens — recorded either way. */
+    private function requirePassword(UserModel $user, string $password, string $event, Request $request): void
+    {
+        if ($user->password_hash !== null && Hash::check($password, $user->password_hash)) {
+            return;
+        }
+
+        $this->audit->record($event, [
+            'reason' => 'invalid_password',
+        ], $request, actorUserId: (string) $user->getKey());
+
+        throw new InvalidCredentials('That password is not correct.');
     }
 
     /** @return list<string> */

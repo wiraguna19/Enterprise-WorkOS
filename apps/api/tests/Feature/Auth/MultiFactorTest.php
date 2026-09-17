@@ -246,3 +246,49 @@ it('refuses to enrol an account that is already enrolled', function (): void {
         ->assertStatus(409)
         ->assertJsonPath('error.details.refusal', 'already_enabled');
 });
+
+it('replaces the recovery codes without taking the factor off', function (): void {
+    $token = $this->loginAs('sarah@acme.test');
+    $old = enrol($token, 'sarah@acme.test');
+
+    $new = $this->withToken($token)
+        ->postJson('/api/v1/auth/mfa/recovery-codes', ['password' => 'password'])
+        ->assertOk()
+        ->json('data.recovery_codes');
+
+    expect($new)->toHaveCount(10)->and($new)->not->toBe($old);
+
+    // The factor is still on, and the app still holds the same secret. The
+    // first person to lose their list was told, by this product's own copy, to
+    // turn two-factor off and set it up again — which leaves the account
+    // unprotected for as long as it takes to re-scan a QR code, to solve a
+    // problem that was never about the factor.
+    expect(DB::table('users')->where('email', 'sarah@acme.test')->value('mfa_enabled_at'))
+        ->not->toBeNull();
+
+    $challenge = $this->postJson('/api/v1/auth/login', [
+        'email' => 'sarah@acme.test', 'password' => 'password',
+    ])->json('data.challenge');
+
+    // And the old list is dead.
+    $this->postJson('/api/v1/auth/mfa/verify', ['challenge' => $challenge, 'code' => $old[0]])
+        ->assertUnauthorized();
+});
+
+it('will not replace the recovery codes without the password', function (): void {
+    $token = $this->loginAs('sarah@acme.test');
+    $codes = enrol($token, 'sarah@acme.test');
+
+    $this->withToken($token)
+        ->postJson('/api/v1/auth/mfa/recovery-codes', ['password' => 'not-the-password'])
+        ->assertUnauthorized();
+
+    $challenge = $this->postJson('/api/v1/auth/login', [
+        'email' => 'sarah@acme.test', 'password' => 'password',
+    ])->json('data.challenge');
+
+    // Refused means nothing changed: the list somebody already saved still
+    // works. A half-applied refusal here would be the worst of both.
+    $this->postJson('/api/v1/auth/mfa/verify', ['challenge' => $challenge, 'code' => $codes[0]])
+        ->assertOk();
+});

@@ -78,3 +78,26 @@ export async function disableTwoFactor(form: FormData): Promise<DisableResult> {
 
   return { error: null };
 }
+
+/**
+ * Ten new recovery codes, without taking the factor off first.
+ *
+ * The screen used to say "turn two-factor off with your password and set it up
+ * again", which somebody read the first time they lost their list. That leaves
+ * the account with no second factor for as long as it takes to re-scan a QR
+ * code, to solve a problem that was never about the factor.
+ */
+export async function regenerateRecoveryCodes(form: FormData): Promise<ConfirmResult> {
+  const password = String(form.get("password") ?? "");
+
+  try {
+    const { data } = await api<{ recovery_codes: string[] }>("/auth/mfa/recovery-codes", {
+      method: "POST",
+      body: { password },
+    });
+
+    return { error: null, codes: data.recovery_codes };
+  } catch (error) {
+    return { error: describeApiError(error).error, codes: [] };
+  }
+}

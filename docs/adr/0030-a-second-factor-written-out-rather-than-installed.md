@@ -73,10 +73,13 @@ nothing to brute force, so a slow hash buys nothing and costs ten comparisons on
 every challenge. They are spent by removal, not marked as used — a spent code
 left in the row is a code somebody can try again.
 
-**Turning the factor OFF needs the password; turning it ON does not.** Removing
-a factor is the only act here that makes the account weaker, and it is what
-somebody does with a laptop left unlocked — so it asks for something they would
-have to know rather than something they merely have.
+**Turning the factor OFF needs the password, and so does replacing the recovery
+codes; turning it ON does not.** Removing a factor makes the account weaker and
+ten new codes are ten new ways in — both are what somebody does with a laptop
+left unlocked, so both ask for something the person would have to know rather
+than merely have. Turning it on asks for nothing extra, because the worst an
+intruder can do with it is lock themselves in beside a password the owner can
+still change.
 
 **Both changes end every other session**, with the reason `mfa_changed`. This is
 the caller `revokeAllSessions` was documented as having since Phase 1 and never
@@ -110,6 +113,15 @@ administrator could be refused their own security settings.
   side of this same feature never leaked anything. Both actions take `FormData`
   now. Worth recording as a rule rather than a fix: **a secret crosses the
   Server Action boundary as `FormData`, never as an argument.**
+- **Losing the codes is a supported event now, not a lesson.** The screen that
+  shows them once shipped without a copy button, without a download, and with
+  copy telling anybody who lost their list to turn the factor off and set it up
+  again — which leaves the account with no second factor for as long as it takes
+  to re-scan a QR code, to solve a problem that was never about the factor.
+  `POST /auth/mfa/recovery-codes` replaces the list in place, behind the same
+  password as turning the factor off, and leaves the sessions alone because
+  nothing about the account's factors has changed. Found within an hour of the
+  feature existing, by somebody losing their own codes.
 - The web app gained one dependency, `qrcode.react`, which has none of its own
   and renders an SVG. The alternative was asking people to type a 32-character
   secret, which is the kind of decision that makes a security feature optional

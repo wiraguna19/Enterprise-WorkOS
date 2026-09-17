@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
-import { beginEnrolment, confirmEnrolment, disableTwoFactor } from "./actions";
+import {
+  beginEnrolment,
+  confirmEnrolment,
+  disableTwoFactor,
+  regenerateRecoveryCodes,
+} from "./actions";
 
 /**
  * Enrolling, and un-enrolling, a second factor (ADR 0030).
@@ -51,12 +56,32 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
 
         <p className="mt-3 max-w-prose text-caption text-n-500">
           Keep them somewhere that is not the phone running your authenticator app — the point of
-          them is the day that phone is gone. If you lose them, turn two-factor off with your
-          password and set it up again.
+          them is the day that phone is gone. If you lose them, you can replace them below with
+          your password; the factor stays on.
         </p>
 
-        <div className="mt-4">
-          <Button variant="secondary" size="sm" onClick={() => setStage("idle")}>
+        {/* Copy and download, because "this is the only time they are shown"
+            and a screenshot are a bad pair — which is how the first person to
+            use this screen lost theirs. */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard
+                ?.writeText(codes.join("\n"))
+                .then(() => toast({ tone: "done", message: "Recovery codes copied." }))
+                .catch(() => setError("Your browser would not let the page copy. Select them and copy by hand."));
+            }}
+          >
+            Copy
+          </Button>
+
+          <Button variant="secondary" size="sm" onClick={() => download(codes)}>
+            Download
+          </Button>
+
+          <Button variant="ghost" size="sm" onClick={() => setStage("idle")}>
             I have saved them
           </Button>
         </div>
@@ -159,7 +184,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
           <Field
             id="mfa-password"
             label="Password"
-            hint="Turning the factor off needs something you know, not only the session you are in."
+            hint="Replacing the codes or turning the factor off needs something you know, not only the session you are in."
           >
             <input
               id="mfa-password"
@@ -172,25 +197,51 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
             />
           </Field>
 
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={busy || password === ""}
-            onClick={() =>
-              startAction(async () => {
-                const result = await disableTwoFactor(formDataWith("password", password));
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The same password serves both, because both are acts a session
+                alone should not be enough for. */}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy || password === ""}
+              onClick={() =>
+                startAction(async () => {
+                  const result = await regenerateRecoveryCodes(formDataWith("password", password));
 
-                setError(result.error);
-                setPassword("");
+                  setError(result.error);
+                  setPassword("");
 
-                if (result.error === null) {
-                  toast({ tone: "removed", message: "Two-factor is off." });
-                }
-              })
-            }
-          >
-            {busy ? "Turning off…" : "Turn off"}
-          </Button>
+                  if (result.error === null) {
+                    setCodes(result.codes);
+                    setStage("codes");
+                    toast({ tone: "removed", message: "Your old recovery codes no longer work." });
+                  }
+                })
+              }
+            >
+              {busy ? "Working…" : "New recovery codes"}
+            </Button>
+
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={busy || password === ""}
+              onClick={() =>
+                startAction(async () => {
+                  const result = await disableTwoFactor(formDataWith("password", password));
+
+                  setError(result.error);
+                  setPassword("");
+
+                  if (result.error === null) {
+                    toast({ tone: "removed", message: "Two-factor is off." });
+                  }
+                })
+              }
+            >
+              {busy ? "Turning off…" : "Turn off"}
+            </Button>
+          </div>
         </div>
       </Panel>
     );
@@ -253,4 +304,27 @@ function formDataWith(name: string, value: string): FormData {
   form.append(name, value);
 
   return form;
+}
+
+/**
+ * The codes as a file, without a round trip.
+ *
+ * A blob URL built in the page: the codes are already here, and sending them
+ * back to a server to be sent down again as an attachment would put them
+ * through one more place they do not need to be.
+ */
+function download(codes: string[]) {
+  const blob = new Blob(
+    [`Work OS recovery codes\n\nEach code works once, in place of a code from your authenticator app.\n\n${codes.join("\n")}\n`],
+    { type: "text/plain" },
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "work-os-recovery-codes.txt";
+  link.click();
+
+  URL.revokeObjectURL(url);
 }

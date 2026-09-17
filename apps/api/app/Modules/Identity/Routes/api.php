@@ -59,6 +59,9 @@ Route::prefix('auth')->group(function (): void {
         Route::delete('mfa', [AuthController::class, 'disableMfa'])
             ->middleware('throttle:writes')
             ->name('auth.mfa.disable');
+        Route::post('mfa/recovery-codes', [AuthController::class, 'regenerateRecoveryCodes'])
+            ->middleware('throttle:writes')
+            ->name('auth.mfa.recovery_codes');
     });
 });
 

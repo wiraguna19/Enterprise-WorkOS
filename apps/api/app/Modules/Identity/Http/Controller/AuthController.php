@@ -8,9 +8,9 @@ use App\Modules\Identity\Application\Service\AuthenticationService;
 use App\Modules\Identity\Application\Service\MultiFactor;
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Application\Service\SessionDirectory;
-use App\Modules\Identity\Http\Request\DisableMfaRequest;
 use App\Modules\Identity\Http\Request\LoginRequest;
 use App\Modules\Identity\Http\Request\MfaCodeRequest;
+use App\Modules\Identity\Http\Request\PasswordConfirmationRequest;
 use App\Modules\Identity\Http\Resource\UserResource;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
@@ -103,7 +103,7 @@ final class AuthController extends ApiController
         ]);
     }
 
-    public function disableMfa(DisableMfaRequest $request): ApiResponse
+    public function disableMfa(PasswordConfirmationRequest $request): ApiResponse
     {
         /** @var UserModel $user the route is behind auth:sanctum */
         $user = $request->user();
@@ -111,6 +111,29 @@ final class AuthController extends ApiController
         $this->mfa->disable($user, $request->string('password')->toString(), $request);
 
         return $this->noContent();
+    }
+
+    /**
+     * Ten new recovery codes, and ten dead ones.
+     *
+     * Its own endpoint rather than "turn it off and on again", which was the
+     * only way to get a new list when this shipped — and a worse instruction
+     * than it sounds, because it takes the factor off the account for as long
+     * as it takes somebody to re-scan a QR code, to solve a problem that was
+     * never about the factor.
+     */
+    public function regenerateRecoveryCodes(PasswordConfirmationRequest $request): ApiResponse
+    {
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        return $this->ok([
+            'recovery_codes' => $this->mfa->regenerateRecoveryCodes(
+                $user,
+                $request->string('password')->toString(),
+                $request,
+            ),
+        ]);
     }
 
     /**
