@@ -34,6 +34,11 @@ const SECTIONS: Array<{
     description: "Which interruptions reach you, and where.",
   },
   {
+    href: "/settings/two-factor",
+    label: "Two-factor authentication",
+    description: "A code from your phone, on top of your password.",
+  },
+  {
     href: "/settings/sessions",
     label: "Signed in",
     description: "Every device that can act as you, and how to end one.",

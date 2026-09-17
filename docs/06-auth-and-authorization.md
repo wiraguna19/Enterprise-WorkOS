@@ -60,8 +60,13 @@ client-side JavaScript, so an XSS payload cannot exfiltrate it.
   produce worse passwords.
 - Reset tokens: single-use, 60-minute expiry, hashed at rest, invalidate all
   sessions on use.
-- TOTP MFA available from Phase 2, **enforceable per organization** from Phase 7.
-  Recovery codes are single-use and hashed.
+- TOTP MFA, written out against RFC 6238 rather than installed (ADR 0030):
+  two-step enrolment, a code spent when it is used, ten single-use recovery
+  codes hashed with SHA-256. A correct password for an enrolled account yields
+  a two-minute encrypted challenge, not a session. Turning the factor off asks
+  for the password; turning it on or off ends every other session.
+  **Enforceable per organization** is still owed — the policy, not the
+  mechanism.
 - Login responses are constant-time and identical for "unknown email" and "wrong
   password" — no user enumeration.
 

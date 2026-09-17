@@ -17,6 +17,19 @@ Route::prefix('auth')->group(function (): void {
         ->middleware('throttle:login')
         ->name('auth.login');
 
+    /**
+     * The code prompt (ADR 0030).
+     *
+     * Unauthenticated, because the session it leads to does not exist yet — the
+     * challenge in the body is what says who is asking, and it is encrypted
+     * with the application key and dead in two minutes. Throttled as
+     * aggressively as login for the same reason: it is reachable without a
+     * session, and six digits is a small space to guess in.
+     */
+    Route::post('mfa/verify', [AuthController::class, 'verifyMfa'])
+        ->middleware('throttle:login')
+        ->name('auth.mfa.verify');
+
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('auth.me');
@@ -32,6 +45,20 @@ Route::prefix('auth')->group(function (): void {
         Route::delete('sessions', [AuthController::class, 'revokeOtherSessions'])
             ->middleware('throttle:writes')
             ->name('auth.sessions.revoke_others');
+
+        // Enrolling and removing a second factor (ADR 0030). No `permission:`
+        // gate, for the same reason the session endpoints have none: this is an
+        // account deciding about itself, and an organization-wide key would
+        // mean an administrator could be refused their own security settings.
+        Route::post('mfa', [AuthController::class, 'beginMfa'])
+            ->middleware('throttle:writes')
+            ->name('auth.mfa.begin');
+        Route::post('mfa/confirm', [AuthController::class, 'confirmMfa'])
+            ->middleware('throttle:login')
+            ->name('auth.mfa.confirm');
+        Route::delete('mfa', [AuthController::class, 'disableMfa'])
+            ->middleware('throttle:writes')
+            ->name('auth.mfa.disable');
     });
 });
 

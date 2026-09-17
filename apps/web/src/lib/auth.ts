@@ -11,7 +11,15 @@ import { api, ApiRequestError } from "./api";
  */
 
 export type CurrentUser = {
-  user: { id: string; name: string; email: string; timezone: string };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    timezone: string;
+    /** Whether a second factor is on (ADR 0030). The API has reported this
+     *  since Phase 1 and nothing read it, because nothing could turn it on. */
+    mfa_enabled: boolean;
+  };
   membership: { id: string; status: string; job_title: string | null };
   organization: { id: string; name: string; slug: string };
   permissions: string[];

@@ -28,7 +28,8 @@ AUTH
   POST   /auth/login                       POST   /auth/logout
   POST   /auth/refresh                     GET    /auth/me
   POST   /auth/forgot-password             POST   /auth/reset-password
-  POST   /auth/mfa/challenge               POST   /auth/mfa/verify
+  POST|DELETE   /auth/mfa                  POST   /auth/mfa/confirm
+  POST   /auth/mfa/verify
   GET    /auth/sessions                    DELETE /auth/sessions/{id}
 
 ORGANIZATION

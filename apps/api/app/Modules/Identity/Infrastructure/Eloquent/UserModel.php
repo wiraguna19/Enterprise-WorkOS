@@ -37,6 +37,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $mfa_secret_encrypted
  * @property CarbonImmutable|null $mfa_enabled_at
  * @property array<string, mixed>|null $mfa_recovery_codes
+ * @property int|null $mfa_last_counter
  * @property CarbonImmutable|null $deactivated_at
  * @property CarbonImmutable|null $erased_at
  * @property CarbonImmutable $created_at
@@ -60,6 +61,7 @@ final class UserModel extends BaseModel implements AuthenticatableContract
         return [
             'is_platform_admin' => 'boolean',
             'mfa_recovery_codes' => 'array',
+            'mfa_last_counter' => 'integer',
             'email_verified_at' => 'immutable_datetime',
             'last_login_at' => 'immutable_datetime',
             'mfa_enabled_at' => 'immutable_datetime',

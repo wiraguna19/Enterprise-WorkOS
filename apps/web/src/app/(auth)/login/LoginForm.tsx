@@ -3,12 +3,20 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/Button";
-import { login, type LoginState } from "./actions";
+import { login, verifyMfa, type LoginState } from "./actions";
 
 const INITIAL: LoginState = { error: null };
 
 export function LoginForm() {
   const [state, formAction] = useActionState(login, INITIAL);
+
+  // The code prompt replaces the password form rather than appearing beneath
+  // it (ADR 0030). Two forms on screen, one of them already answered, is an
+  // invitation to type the password again into a field that is no longer
+  // listening.
+  if (state.mfaRequired) {
+    return <CodeForm />;
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -41,13 +49,66 @@ export function LoginForm() {
   );
 }
 
-function Submit() {
+function CodeForm() {
+  const [state, formAction] = useActionState(verifyMfa, INITIAL);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <div>
+        <h2 className="text-h2 font-semibold text-n-900">Enter your code</h2>
+        <p className="mt-1 text-body-sm text-n-500">
+          Six digits from your authenticator app. If you have lost the device, use one of the
+          recovery codes you saved.
+        </p>
+      </div>
+
+      {state.error && (
+        <div
+          role="alert"
+          className="rounded-sm border border-s-danger/30 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger"
+        >
+          {state.error}
+        </div>
+      )}
+
+      {/* `one-time-code` is what makes a phone offer the code from its
+          notification, and `inputMode` brings up the number pad. Neither is
+          decoration: this is a field people fill in while holding a second
+          device. */}
+      <Field
+        label="Code"
+        name="code"
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        autoFocus
+        required
+      />
+
+      <Submit label="Verify" pendingLabel="Checking…" />
+
+      <p className="pt-2 text-caption text-n-500">
+        <a href="/login" className="text-a-500 hover:text-a-700 hover:underline">
+          Start again
+        </a>
+      </p>
+    </form>
+  );
+}
+
+function Submit({
+  label = "Sign in",
+  pendingLabel = "Signing in…",
+}: {
+  label?: string;
+  pendingLabel?: string;
+}) {
   // Disabled while pending so a double submit cannot create two sessions.
   const { pending } = useFormStatus();
 
   return (
     <Button type="submit" variant="primary" size="lg" className="w-full" disabled={pending}>
-      {pending ? "Signing in…" : "Sign in"}
+      {pending ? pendingLabel : label}
     </Button>
   );
 }
