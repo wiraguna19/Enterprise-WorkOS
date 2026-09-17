@@ -61,6 +61,12 @@ a session.
 
 ## Consequences
 
+- **A page's own data call can lose the race with the layout's redirect.** The
+  first time the policy was switched on for real, `/settings/sessions` threw an
+  unhandled `ApiRequestError` into the log before the redirect landed: a layout
+  and the page inside it render together, not in order. So the refusal is
+  answered in `api()`, where every server-side call passes, and the layout's
+  redirect stays as the belt to that brace.
 - **The confined shell is empty on purpose.** Its navigation data — teams,
   counters, unread — is refused by the API for exactly the right reason, so the
   layout does not ask for it. An empty sidebar is the honest picture of what
