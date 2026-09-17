@@ -40,8 +40,15 @@ everybody whose QR failed to scan, whose typing slipped, or whose phone clock is
 wrong, and it does so at their next sign-in rather than while they are looking
 at the screen.
 
-**A code is spent when it is used.** `mfa_last_counter` is the one column this
-feature needed and did not have. Without it a valid code stays valid for up to
+**A code is spent when it is used — and what is remembered is the period the
+CODE belongs to, not the period it was accepted in.** `mfa_last_counter` is the
+one column this feature needed and did not have. The first version stored the
+wrong one of those two numbers, and somebody found what that costs within an
+hour of the feature existing: a code used at the end of one period is still
+inside the drift window at the start of the next, where the stored counter has
+already moved past it, so the same six digits signed in twice. `Totp::match()`
+answers with the counter rather than a yes, which is what makes the rule hold
+for the whole of a code's life. Without it a valid code stays valid for up to
 ninety seconds across the drift window, so a code read over a shoulder — or
 captured by a phishing page a moment earlier — signs in a second time. The cost
 is real and is stated in the interface rather than hidden: a second sign-in

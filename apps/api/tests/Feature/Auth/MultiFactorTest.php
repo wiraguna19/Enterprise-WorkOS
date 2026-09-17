@@ -292,3 +292,35 @@ it('will not replace the recovery codes without the password', function (): void
     $this->postJson('/api/v1/auth/mfa/verify', ['challenge' => $challenge, 'code' => $codes[0]])
         ->assertOk();
 });
+
+it('refuses a spent code even after its period has passed', function (): void {
+    enrol($this->loginAs('sarah@acme.test'), 'sarah@acme.test');
+
+    $code = Totp::at(secretOf('sarah@acme.test'), now()->getTimestamp());
+
+    $signIn = function () {
+        return $this->postJson('/api/v1/auth/login', [
+            'email' => 'sarah@acme.test', 'password' => 'password',
+        ])->json('data.challenge');
+    };
+
+    $this->postJson('/api/v1/auth/mfa/verify', ['challenge' => $signIn(), 'code' => $code])
+        ->assertOk();
+
+    // The clock moves into the NEXT period, where that code is still inside
+    // the drift window. This is the case the first implementation got wrong
+    // and somebody found by using the product: it stored the period the code
+    // was ACCEPTED in, which had already moved past the period the code
+    // belonged to, so the same six digits signed in a second time.
+    $this->travel(Totp::PERIOD)->seconds();
+
+    $this->postJson('/api/v1/auth/mfa/verify', ['challenge' => $signIn(), 'code' => $code])
+        ->assertUnauthorized();
+
+    // And the next code still works, so the rule refuses the spent code rather
+    // than the account.
+    $this->postJson('/api/v1/auth/mfa/verify', [
+        'challenge' => $signIn(),
+        'code' => Totp::at(secretOf('sarah@acme.test'), now()->getTimestamp()),
+    ])->assertOk();
+});

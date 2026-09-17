@@ -104,8 +104,9 @@ final class MultiFactor
         }
 
         $secret = $this->pendingSecret($user);
+        $matched = Totp::match($secret, $code, now()->getTimestamp());
 
-        if (! Totp::verify($secret, $code, now()->getTimestamp())) {
+        if ($matched === null) {
             throw new MultiFactorRefused(
                 'That code does not match. Check the clock on the device running your authenticator app.',
                 ['refusal' => 'code_mismatch'],
@@ -117,12 +118,12 @@ final class MultiFactor
         $user->forceFill([
             'mfa_enabled_at' => now(),
             'mfa_recovery_codes' => array_map(self::hashRecoveryCode(...), $codes),
-            // The enrolment code is spent by enrolling. It cannot then be
-            // typed at a login prompt in the same period — which costs a person
-            // who signs in elsewhere within thirty seconds one wait, and buys
-            // that the code they have just read aloud to a screen-sharing call
-            // is not a sign-in.
-            'mfa_last_counter' => intdiv(now()->getTimestamp(), Totp::PERIOD),
+            // The period the enrolment code BELONGS to, not the period it was
+            // accepted in. The code just typed here is spent, and stays spent
+            // for the whole of its life — so the digits somebody has read aloud
+            // to a screen-sharing call cannot be typed at a login prompt
+            // thirty seconds later.
+            'mfa_last_counter' => $matched,
         ])->save();
 
         $this->audit->record('auth.mfa_enabled', [], $request, actorUserId: (string) $user->getKey());
@@ -254,9 +255,9 @@ final class MultiFactor
         }
 
         $secret = Crypt::decryptString((string) $user->mfa_secret_encrypted);
-        $counter = intdiv(now()->getTimestamp(), Totp::PERIOD);
+        $matched = Totp::match($secret, $code, now()->getTimestamp());
 
-        if (! Totp::verify($secret, $code, now()->getTimestamp())) {
+        if ($matched === null) {
             $this->audit->record('auth.mfa_failed', [
                 'reason' => 'code_mismatch',
             ], $request, actorUserId: (string) $user->getKey());
@@ -264,15 +265,17 @@ final class MultiFactor
             throw new InvalidCredentials('That code is not right.');
         }
 
-        // One-time means once. A valid code lives for up to ninety seconds
-        // across the drift window, and without this the same six digits —
-        // read over a shoulder, or captured by a phishing page a moment
-        // earlier — sign in again inside that window.
+        // One-time means once, and what is remembered is the period the CODE
+        // belongs to rather than the period it was accepted in. The first
+        // version stored the latter, and somebody found what that costs within
+        // an hour: a code used at the end of one period is still inside the
+        // drift window at the start of the next, where the stored counter has
+        // already moved past it — so the same six digits signed in twice.
         //
-        // The cost is real and worth stating: a second sign-in within the same
-        // thirty seconds has to wait for the next code. That is rare, and the
-        // message says what to do rather than calling the code wrong.
-        if ($user->mfa_last_counter !== null && $user->mfa_last_counter >= $counter) {
+        // The cost of the correct rule is worth stating too: a second sign-in
+        // inside the same thirty seconds has to wait for the next code, and the
+        // message says that rather than calling the code wrong.
+        if ($user->mfa_last_counter !== null && $matched <= $user->mfa_last_counter) {
             $this->audit->record('auth.mfa_failed', [
                 'reason' => 'code_reused',
             ], $request, actorUserId: (string) $user->getKey());
@@ -280,7 +283,7 @@ final class MultiFactor
             throw new InvalidCredentials('That code has already been used. Wait for the next one.');
         }
 
-        $user->forceFill(['mfa_last_counter' => $counter])->save();
+        $user->forceFill(['mfa_last_counter' => $matched])->save();
     }
 
     /** The password, or nothing happens — recorded either way. */

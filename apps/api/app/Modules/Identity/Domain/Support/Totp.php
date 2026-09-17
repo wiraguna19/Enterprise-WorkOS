@@ -85,22 +85,42 @@ final class Totp
      */
     public static function verify(string $secret, string $code, ?int $timestamp = null): bool
     {
+        return self::match($secret, $code, $timestamp) !== null;
+    }
+
+    /**
+     * WHICH period's code this is, or null.
+     *
+     * The counter, not merely a yes — and the difference is a defect somebody
+     * found by using the product. Recording "a code was accepted at period C"
+     * makes the code from C-1 usable again at C, because it is still inside the
+     * drift window and the counter has moved on. What has to be remembered is
+     * the period the CODE belongs to, so a spent code stays spent for as long
+     * as it would otherwise be valid.
+     *
+     * Every offset is compared even after a match, and the matched counter is
+     * kept rather than returned early, so the time this takes says nothing
+     * about which period matched — or whether any did.
+     */
+    public static function match(string $secret, string $code, ?int $timestamp = null): ?int
+    {
         $code = preg_replace('/\D/', '', $code) ?? '';
 
         if (strlen($code) !== self::DIGITS) {
-            return false;
+            return null;
         }
 
         $timestamp ??= time();
-        $valid = false;
+        $base = intdiv($timestamp, self::PERIOD);
+        $matched = null;
 
-        // Every offset is checked even after a match, so the time taken says
-        // nothing about WHICH period matched.
         for ($offset = -self::DRIFT; $offset <= self::DRIFT; $offset++) {
-            $valid = hash_equals(self::at($secret, $timestamp, $offset), $code) || $valid;
+            if (hash_equals(self::at($secret, $timestamp, $offset), $code)) {
+                $matched = $base + $offset;
+            }
         }
 
-        return $valid;
+        return $matched;
     }
 
     /**

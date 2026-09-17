@@ -81,3 +81,17 @@ it('names the account and the issuer in the provisioning URI', function (): void
         ->and($uri)->toContain('digits=6')
         ->and($uri)->toContain('period=30');
 });
+
+it('says which period a code belongs to, not when it was checked', function (): void {
+    $secret = Totp::generateSecret();
+    $now = time();
+    $period = intdiv($now, Totp::PERIOD);
+
+    // The distinction the replay rule stands on: a code read in the previous
+    // period answers with THAT period, even though it is being checked in this
+    // one and is still perfectly valid.
+    expect(Totp::match($secret, Totp::at($secret, $now), $now))->toBe($period)
+        ->and(Totp::match($secret, Totp::at($secret, $now - Totp::PERIOD), $now))->toBe($period - 1)
+        ->and(Totp::match($secret, Totp::at($secret, $now + Totp::PERIOD), $now))->toBe($period + 1)
+        ->and(Totp::match($secret, '000000', $now - 10 ** 9))->toBeNull();
+});
