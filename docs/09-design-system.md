@@ -190,12 +190,36 @@ rather than decorative. One strong column, the rest `muted`.
 ### Badge  ·  states that are not workflow states
 
 ```text
-[erased]  danger    [revoked]  neutral    [Manager · everywhere]  info
+✓ running   − switched off   ⚠ 3 recent failures (SOLID)   🛡 system
+[Manager · everywhere]  info      [erased] danger, solid
 ```
 
 `StatusChip` is for where a work item is in its workflow. Everything else —
 account state, scope, "this device" — is a `Badge`, and `neutral` is the
 default: colour still carries meaning, not decoration.
+
+Icons come from the six in `Icon.tsx` (check, alert, clock, minus, cross,
+shield), always BESIDE the word and never instead of it, always `aria-hidden`.
+
+`solid` is reserved for the one state on a screen that must be seen from across
+the room — late work, a failing rule, an erased person. Two solid badges on one
+screen means one of them is wrong (ADR 0027).
+
+#### Navigation counters
+
+```text
+My Work   [ 4 ]  danger, outlined      Inbox   [ 12 ]  accent, outlined
+```
+
+The two counters in the sidebar are pills, not grey text, and they are not the
+same colour: My Work counts work that is overdue or due today (a deadline),
+Inbox counts unread notifications (a pile). They are OUTLINED, never solid —
+the chrome is on every screen at once, so a filled counter would outshout the
+one solid badge each screen is allowed, including the late-work badge on My
+Work itself. The mobile bar is the exception: at 10px over an icon an outline
+is a smudge, so it fills. Numbers are `tabular-nums` and the count is announced
+with its unit ("My Work, 4 due or overdue"). There are still only two counters
+in the whole navigation; if everything has a badge, nothing does.
 
 ### Breadcrumb
 

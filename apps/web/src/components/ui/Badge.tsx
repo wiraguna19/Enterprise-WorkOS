@@ -1,3 +1,4 @@
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { clsx } from "@/lib/clsx";
 import type { ReactNode } from "react";
 
@@ -21,20 +22,44 @@ const TONES = {
   danger: "border-s-danger/30 bg-s-danger/10 text-s-danger",
 } as const;
 
+/**
+ * The filled version, for the ONE state on a screen that has to be seen from
+ * across the room (ADR 0027).
+ *
+ * Bootstrap-style badge sets fill every tone, and then a row of them is a row
+ * of traffic lights in which nothing is louder than anything else. Solid is
+ * reserved: work that is late, a rule that is failing. If a screen shows two
+ * solid badges, one of them is wrong.
+ */
+const SOLID = {
+  neutral: "border-n-700 bg-n-700 text-n-0",
+  info: "border-s-info bg-s-info text-n-0",
+  success: "border-s-success bg-s-success text-n-0",
+  warning: "border-s-active bg-s-active text-n-0",
+  danger: "border-s-danger bg-s-danger text-n-0",
+} as const;
+
 export function Badge({
   tone = "neutral",
+  icon,
+  solid = false,
   children,
 }: {
   tone?: keyof typeof TONES;
+  /** A mark beside the word, never instead of it (docs/09 §5). */
+  icon?: IconName;
+  /** Reserved for the loudest state on the screen. */
+  solid?: boolean;
   children: ReactNode;
 }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center rounded-md border px-1.5 py-0.5 text-micro font-medium",
-        TONES[tone],
+        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-micro font-medium",
+        solid ? SOLID[tone] : TONES[tone],
       )}
     >
+      {icon && <Icon name={icon} />}
       {children}
     </span>
   );

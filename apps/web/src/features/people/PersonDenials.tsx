@@ -67,7 +67,7 @@ export function PersonDenials({
       description="A denial beats every grant, including one made after it."
       actions={
         denials.length > 0 ? (
-          <Badge tone="danger">
+          <Badge tone="danger" icon="minus">
             {denials.length} {denials.length === 1 ? "permission" : "permissions"} taken away
           </Badge>
         ) : undefined

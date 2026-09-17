@@ -44,7 +44,9 @@ export function PersonIdentity({ person }: { person: PersonDetail }) {
               assigned last month still names them — so the state belongs here
               rather than only as an absence from the directory. */}
           {person.erased_at !== null ? (
-            <Badge tone="danger">erased</Badge>
+            <Badge tone="danger" icon="cross" solid>
+              erased
+            </Badge>
           ) : (
             person.status !== "active" && <Badge>{person.status}</Badge>
           )}

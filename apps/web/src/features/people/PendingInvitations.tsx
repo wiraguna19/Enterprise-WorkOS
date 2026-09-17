@@ -38,7 +38,13 @@ export function PendingInvitations({ invitations }: { invitations: Pending[] }) 
       id="invitations"
       title="Waiting to accept"
       description="Revoking is also the answer to “they lost the link”: the token is a digest and cannot be shown again."
-      actions={expired > 0 ? <Badge tone="warning">{expired} expired</Badge> : undefined}
+      actions={
+        expired > 0 ? (
+          <Badge tone="warning" icon="clock">
+            {expired} expired
+          </Badge>
+        ) : undefined
+      }
       bleed
     >
       {error && (
@@ -68,7 +74,9 @@ export function PendingInvitations({ invitations }: { invitations: Pending[] }) 
               <Td muted>{invitation.role_name ?? "no role yet"}</Td>
               <Td>
                 {invitation.has_expired ? (
-                  <Badge tone="warning">expired</Badge>
+                  <Badge tone="warning" icon="clock">
+                    expired
+                  </Badge>
                 ) : (
                   <Badge>waiting</Badge>
                 )}

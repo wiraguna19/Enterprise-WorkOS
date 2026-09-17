@@ -97,7 +97,11 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
             <Tr key={session.id}>
               <Td>
                 <div className="flex items-center gap-2">
-                  {session.current && <Badge tone="info">this device</Badge>}
+                  {session.current && (
+                    <Badge tone="info" icon="check">
+                      this device
+                    </Badge>
+                  )}
                   {/* The raw agent string, not a guess at a device name:
                       parsing them is a losing game, and "Chrome on a Mac"
                       derived wrongly is worse than the string somebody can read

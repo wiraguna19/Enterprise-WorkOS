@@ -80,7 +80,11 @@ export function RoleEditor({
               description={role.description || "No description."}
               actions={
                 <>
-                  {role.is_system && <Badge tone="info">system</Badge>}
+                  {role.is_system && (
+                    <Badge tone="info" icon="shield">
+                      system
+                    </Badge>
+                  )}
                   <Badge>{role.key}</Badge>
                 </>
               }

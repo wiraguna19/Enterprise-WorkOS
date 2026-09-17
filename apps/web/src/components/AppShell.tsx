@@ -24,13 +24,27 @@ type NavItem = {
   href: string;
   label: string;
   count?: number;
+  /** Which of the two counters this is; decides the badge's colour. */
+  counter?: CounterTone;
   permission?: string;
 };
 
+/**
+ * The two counters do not mean the same thing, so they must not look the same
+ * (ADR 0027).
+ *
+ * My Work counts work that is overdue or due today — a number that is a
+ * deadline, and the only one in the chrome that says somebody is late. Inbox
+ * counts unread notifications, which is a pile, not a deadline. Rendering both
+ * in the same grey (which is what they were) told the reader that four late
+ * work items and four unread notices deserve the same reaction.
+ */
+type CounterTone = "late" | "unread";
+
 const PRIMARY: NavItem[] = [
   { href: "/", label: "Home" },
-  { href: "/my-work", label: "My Work", count: 0 },
-  { href: "/inbox", label: "Inbox", count: 0 },
+  { href: "/my-work", label: "My Work", count: 0, counter: "late" },
+  { href: "/inbox", label: "Inbox", count: 0, counter: "unread" },
 ];
 
 const SECONDARY: NavItem[] = [
@@ -247,8 +261,22 @@ function BottomNav({
       className="fixed inset-x-0 bottom-0 z-20 flex border-t border-n-100 bg-n-0 pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label="Primary"
     >
-      <BottomLink href="/my-work" label="My Work" icon="▤" count={counts.myWork} pathname={pathname} />
-      <BottomLink href="/inbox" label="Inbox" icon="▣" count={counts.inbox} pathname={pathname} />
+      <BottomLink
+        href="/my-work"
+        label="My Work"
+        icon="▤"
+        count={counts.myWork}
+        tone="late"
+        pathname={pathname}
+      />
+      <BottomLink
+        href="/inbox"
+        label="Inbox"
+        icon="▣"
+        count={counts.inbox}
+        tone="unread"
+        pathname={pathname}
+      />
 
       <button
         type="button"
@@ -281,12 +309,14 @@ function BottomLink({
   label,
   icon,
   count,
+  tone,
   pathname,
 }: {
   href: string;
   label: string;
   icon: string;
   count: number;
+  tone: CounterTone;
   pathname: string;
 }) {
   const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -306,8 +336,16 @@ function BottomLink({
       <span className="text-micro">{label}</span>
 
       {count > 0 && (
-        <span className="absolute right-1/2 top-1.5 ml-3 translate-x-6 rounded-full bg-a-500 px-1 text-micro text-white">
+        <span
+          className={clsx(
+            // Solid here, where the outlined pill of the sidebar would be a
+            // grey smudge at 10px over an icon.
+            "absolute right-1/2 top-1.5 ml-3 min-w-4 translate-x-6 rounded-full px-1 text-center text-micro font-semibold tabular-nums text-n-0",
+            tone === "late" ? "bg-s-danger" : "bg-a-500",
+          )}
+        >
           {count > 99 ? "99+" : count}
+          <span className="sr-only"> {tone === "late" ? "due or overdue" : "unread"}</span>
         </span>
       )}
     </Link>
@@ -348,9 +386,48 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       >
         <span className="truncate">{item.label}</span>
         {item.count !== undefined && item.count > 0 && (
-          <span className="ml-2 shrink-0 text-caption text-n-500">{item.count}</span>
+          <NavCount count={item.count} tone={item.counter ?? "unread"} label={item.label} />
         )}
       </Link>
     </li>
+  );
+}
+
+/**
+ * A counter in the sidebar, as a pill rather than as grey text.
+ *
+ * Three decisions worth keeping:
+ *
+ * - It is bordered, not filled. A filled badge in the chrome is on every screen
+ *   at once, so it would win every argument with the one solid badge a screen
+ *   is allowed (ADR 0027) — including the late-work badge on My Work itself.
+ * - `tabular-nums` so 8 and 88 do not shift the row's right edge as the number
+ *   changes under a poll.
+ * - The count is announced with its unit. "My Work 4" read aloud says nothing;
+ *   the screen reader now hears "My Work, 4 due or overdue".
+ */
+function NavCount({
+  count,
+  tone,
+  label,
+}: {
+  count: number;
+  tone: CounterTone;
+  label: string;
+}) {
+  const unit = tone === "late" ? "due or overdue" : "unread";
+
+  return (
+    <span
+      className={clsx(
+        "ml-2 shrink-0 rounded-md border px-1.5 py-px text-micro font-semibold tabular-nums",
+        tone === "late"
+          ? "border-s-danger/30 bg-s-danger/10 text-s-danger"
+          : "border-a-500/30 bg-a-50 text-a-700",
+      )}
+      aria-label={`${label}: ${count} ${unit}`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }

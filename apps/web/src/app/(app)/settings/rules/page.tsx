@@ -192,18 +192,26 @@ function Action({ action }: { action: RuleAction }) {
  */
 function Health({ rule }: { rule: Rule }) {
   if (rule.health.healthy) {
-    return <Badge tone="success">running</Badge>;
+    return (
+      <Badge tone="success" icon="check">
+        running
+      </Badge>
+    );
   }
 
   // A rule somebody switched off is not a rule in trouble: it is doing exactly
   // what was asked of it, and colouring it like a failure trains people to
   // ignore the colour.
   if (!rule.is_active && rule.health.disabled_reason === null) {
-    return <Badge>switched off</Badge>;
+    return (
+      <Badge icon="minus">switched off</Badge>
+    );
   }
 
   return (
-    <Badge tone="danger">
+    // Solid, and the only solid badge on this screen: a rule failing silently
+    // is what an administrator came here to find (ADR 0027).
+    <Badge tone="danger" icon="alert" solid>
       {rule.health.disabled_reason ?? `${rule.health.failure_count} recent failures`}
     </Badge>
   );
