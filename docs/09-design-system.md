@@ -197,6 +197,18 @@ rather than decorative. One strong column, the rest `muted`.
 account state, scope, "this device" — is a `Badge`, and `neutral` is the
 default: colour still carries meaning, not decoration.
 
+### Breadcrumb
+
+```text
+Projects › Platform Rebuild › ENG-142
+```
+
+Only where the levels above genuinely CONTAIN the page: a work item under its
+project, a person under People, a board column under its board. Not for the
+settings screens — "Settings › Roles" is an address, not a containment, and a
+trail that is sometimes one and sometimes the other stops being read (ADR 0026).
+Last entry is the page itself, `aria-current="page"`, not a link.
+
 ### Toast  ·  saying that something happened
 
 ```text

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageBody } from "@/components/ui/PageBody";
 import { Panel } from "@/components/ui/Panel";
@@ -110,20 +110,22 @@ export default async function WorkItemPage({
 
   return (
     <article className="space-y-3">
+      {/* Only when the item HAS a project. Requests and incidents exist on
+          their own (docs/02 §3), and a trail that invented a parent for them
+          would be a promise about a page that does not exist (ADR 0026). */}
+      {item.project && (
+        <Breadcrumb
+          items={[
+            { label: "Projects", href: "/projects" },
+            { label: item.project.name, href: `/projects/${item.project.key}/board` },
+            { label: item.reference },
+          ]}
+        />
+      )}
+
       <header className="space-y-3 rounded-xl border border-n-300 bg-n-0 px-4 py-3.5">
         <div className="flex items-center gap-2 text-caption text-n-500">
           <span className="font-mono">{item.reference}</span>
-          {item.project && (
-            <>
-              <span aria-hidden>·</span>
-              <Link
-                href={`/projects/${item.project.key}/board`}
-                className="hover:text-a-700 hover:underline"
-              >
-                {item.project.name}
-              </Link>
-            </>
-          )}
           <span aria-hidden>·</span>
           <PriorityIcon priority={item.priority} withLabel />
         </div>

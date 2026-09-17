@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ErasePerson } from "@/features/people/ErasePerson";
 import { PageBody } from "@/components/ui/PageBody";
 import { PersonDenials, type Denial } from "@/features/people/PersonDenials";
@@ -92,9 +92,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-3">
-      <Link href="/people" className="text-body-sm text-n-500 hover:text-a-700">
-        ← People
-      </Link>
+      {/* Replaces a bare "← People" link: the same navigation, plus where
+          this page actually sits (ADR 0026). */}
+      <Breadcrumb items={[{ label: "People", href: "/people" }, { label: person.name }]} />
 
       <PersonIdentity person={person} />
 

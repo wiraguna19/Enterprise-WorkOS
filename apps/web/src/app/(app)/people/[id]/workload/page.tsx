@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import type { PersonDetail, WorkloadItem, WorkloadItemsMeta } from "@/features/people/types";
@@ -82,9 +83,15 @@ export default async function WorkloadItemsPage({
   return (
     <div className="space-y-5">
       <div className="space-y-3">
-        <Link href={`/people/${id}`} className="text-body-sm text-n-500 hover:text-a-700">
-          ← {person.name}
-        </Link>
+        {/* Three levels, all of them real: the directory, the person, and the
+            week of theirs somebody drilled into (ADR 0026). */}
+        <Breadcrumb
+          items={[
+            { label: "People", href: "/people" },
+            { label: person.name, href: `/people/${id}` },
+            { label: "Committed work" },
+          ]}
+        />
 
         <PageHeader
           title="Committed work"

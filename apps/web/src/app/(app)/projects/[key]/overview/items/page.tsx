@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { HealthItem, HealthItemsMeta } from "@/features/insights/types";
@@ -66,12 +67,13 @@ export default async function HealthItemsPage({
   return (
     <div className="space-y-5">
       <div className="space-y-3">
-        <Link
-          href={`/projects/${key}/overview`}
-          className="text-body-sm text-n-500 hover:text-a-700"
-        >
-          ← {key} overview
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: "Projects", href: "/projects" },
+            { label: key, href: `/projects/${key}/overview` },
+            { label: "Items" },
+          ]}
+        />
 
         <PageHeader title={heading.title} description={`${meta.total} in ${meta.project}`} />
       </div>

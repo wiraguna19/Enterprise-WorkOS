@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CompletionsTable } from "@/features/insights/CompletionsTable";
@@ -41,9 +41,7 @@ export default async function FlowCompletionsPage({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="space-y-3">
-        <Link href="/reports" className="text-body-sm text-n-500 hover:text-a-700">
-          ← Flow
-        </Link>
+        <Breadcrumb items={[{ label: "Flow", href: "/reports" }, { label: "Completions" }]} />
 
         <PageHeader
           title="Completions"

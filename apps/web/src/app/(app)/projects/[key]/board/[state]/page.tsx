@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -59,12 +60,13 @@ export default async function BoardColumnPage({
   return (
     <div className="space-y-5">
       <div className="space-y-3">
-        <Link
-          href={`/projects/${key}/board`}
-          className="text-body-sm text-n-500 hover:text-a-700"
-        >
-          ← {board.project.name} board
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: "Projects", href: "/projects" },
+            { label: board.project.name, href: `/projects/${key}/board` },
+            { label: column.state.label },
+          ]}
+        />
 
         <PageHeader
           title={column.state.label}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
@@ -65,9 +66,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div className="space-y-4">
-        <Link href="/teams" className="text-body-sm text-n-500 hover:text-a-700">
-          ← Teams
-        </Link>
+        <Breadcrumb items={[{ label: "Teams", href: "/teams" }, { label: team.name }]} />
 
         <PageHeader
           title={team.name}
