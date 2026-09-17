@@ -23,6 +23,12 @@ const SECTIONS: Array<{
   permission?: string;
 }> = [
   {
+    href: "/settings/organization",
+    label: "Organization",
+    description: "The place you work, and how long it keeps you signed in.",
+    permission: "organization.view",
+  },
+  {
     href: "/settings/notifications",
     label: "Notifications",
     description: "Which interruptions reach you, and where.",

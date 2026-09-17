@@ -32,7 +32,7 @@ AUTH
   GET    /auth/sessions                    DELETE /auth/sessions/{id}
 
 ORGANIZATION
-  GET    /organizations/current            PATCH  /organizations/current
+  GET    /organization/settings           PATCH  /organization/settings/session-policy
   GET|POST      /departments               GET|PATCH|DELETE /departments/{id}
   GET|POST      /teams                     GET|PATCH|DELETE /teams/{id}
   GET|POST      /teams/{id}/members        DELETE /teams/{id}/members/{mid}

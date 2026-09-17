@@ -26,6 +26,7 @@ final class AuthenticationService
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly TenantContext $tenant,
+        private readonly SessionLifetime $lifetime,
     ) {}
 
     /**
@@ -67,7 +68,13 @@ final class AuthenticationService
 
         $membership = $this->resolveMembership($user, $organizationId);
 
-        return DB::transaction(function () use ($user, $membership, $request): array {
+        // Read BEFORE the transaction and BEFORE the tenant resolver: how long
+        // this session may live belongs to the organization being signed in to
+        // (ADR 0028), not to the thirty days that were written here in Phase 1
+        // and were the same for every tenant in the product.
+        $lifetimeDays = $this->lifetime->daysFor((string) $membership->organization_id);
+
+        return DB::transaction(function () use ($user, $membership, $request, $lifetimeDays): array {
             $plainSecret = Str::random(48);
 
             $session = new SessionModel;
@@ -80,7 +87,7 @@ final class AuthenticationService
                 'abilities' => ['*'],
                 'ip_address' => $request->ip(),
                 'user_agent' => Str::limit((string) $request->userAgent(), 500, ''),
-                'expires_at' => now()->addDays(30),
+                'expires_at' => now()->addDays($lifetimeDays),
                 'created_at' => now(),
             ])->save();
 
@@ -96,6 +103,7 @@ final class AuthenticationService
                 (string) $membership->organization_id,
                 fn () => $this->audit->record('auth.login', [
                     'session_id' => $session->getKey(),
+                    'session_lifetime_days' => $lifetimeDays,
                 ], $request, actorUserId: (string) $user->getKey()),
             );
 

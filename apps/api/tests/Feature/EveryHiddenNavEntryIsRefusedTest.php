@@ -21,27 +21,18 @@ declare(strict_types=1);
  * what calls an endpoint, this one asks what refuses a page. Crude on purpose —
  * a grep, not a type system — because a crude check that runs on every commit
  * beats a precise one nobody writes.
+ *
+ * It carried one exemption, and how that was settled is worth keeping.
+ * `/settings` was gated in the nav on `organization.view` — a permission no
+ * route, policy or service on the server had ever asked for — so adding a
+ * page-level check would have made the pretence deeper rather than smaller: the
+ * interface would refuse on a rule the API did not enforce, and the same person
+ * could still reach everything behind it through the API. ADR 0028 gave the
+ * permission meaning, and the gate came OFF the nav entry rather than onto the
+ * page: half of what the settings index lists is the reader's own account, and
+ * hiding somebody's own notifications behind an organization-reading permission
+ * refuses the wrong thing. The index filters itself, entry by entry.
  */
-/**
- * Entries this test cannot honestly ask about.
- *
- * `/settings` is gated in the nav on `organization.view`, a permission NO route,
- * policy or service on the server has ever asked for — it is the first entry on
- * the bill in `EveryPermissionMeansSomethingTest`, described there as the one
- * that is "not merely unbuilt but actively misleading". Adding a page-level
- * check here would make the pretence deeper rather than smaller: the interface
- * would refuse on a permission the API does not enforce, so the same person
- * could still reach everything behind it through the API.
- *
- * It is exempt until that bill is paid, and the reason is written down rather
- * than the entry being quietly dropped from the nav.
- *
- * @var array<string, string>
- */
-const NAV_GATE_NOT_REAL = [
-    '/settings' => 'Gated on organization.view, which no server code checks (see EveryPermissionMeansSomethingTest).',
-];
-
 it('refuses every page whose nav entry is gated', function (): void {
     $web = dirname(__DIR__, 3).'/web/src';
 
@@ -62,10 +53,6 @@ it('refuses every page whose nav entry is gated', function (): void {
     expect($matches)->not->toBeEmpty();
 
     foreach ($matches as [, $href, $permission]) {
-        if (array_key_exists($href, NAV_GATE_NOT_REAL)) {
-            continue;
-        }
-
         $page = $web.'/app/(app)'.$href.'/page.tsx';
 
         $this->assertFileExists($page, "{$href} is in the nav and has no page.");

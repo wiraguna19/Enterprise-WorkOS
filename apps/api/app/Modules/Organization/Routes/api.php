@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Organization\Http\Controller\DepartmentController;
 use App\Modules\Organization\Http\Controller\InvitationController;
+use App\Modules\Organization\Http\Controller\OrganizationSettingsController;
 use App\Modules\Organization\Http\Controller\PersonController;
 use App\Modules\Organization\Http\Controller\PersonRoleController;
 use App\Modules\Organization\Http\Controller\TeamController;
@@ -116,3 +117,13 @@ Route::delete('people/{membership}/denials/{denial}', [PersonRoleController::cla
 // permission never granted from one taken away, and for what reason.
 Route::get('people/{membership}/permissions/explain', [PersonRoleController::class, 'explain'])
     ->middleware('permission:role.view');
+
+// ── The organization's own settings (ADR 0028) ──────────────────────────────
+// Two permissions that have been ticked in the role builder since Phase 1 and
+// asked about by nothing on the server. Reading the place you work and
+// deciding when everybody in it is signed out are different acts, so they are
+// different keys, as the catalogue already said they were.
+Route::get('organization/settings', [OrganizationSettingsController::class, 'show'])
+    ->middleware('permission:organization.view');
+Route::patch('organization/settings/session-policy', [OrganizationSettingsController::class, 'updateSessionPolicy'])
+    ->middleware(['permission:organization.manage_settings', 'throttle:writes']);

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { api, ApiRequestError } from "@/lib/api";
+import { api, ApiRequestError, describeApiError } from "@/lib/api";
 
 export type StructureResult = { error: string | null; requestId?: string; id?: string };
 
@@ -143,4 +143,29 @@ export async function createTeam(input: {
   revalidateStructure();
 
   return { error: null, id };
+}
+
+/**
+ * How long a session may live here (ADR 0028).
+ *
+ * The count of shortened sessions comes back from the API rather than being
+ * worked out in the browser: only the server knows how many sessions outlived
+ * the new window at the moment the change landed, and that number is the
+ * difference between a setting and a consequence.
+ */
+export type SessionPolicyResult = { error: string | null; shortened: number };
+
+export async function setSessionLifetime(days: number): Promise<SessionPolicyResult> {
+  try {
+    const { data } = await api<{ session_lifetime_days: number; sessions_shortened: number }>(
+      "/organization/settings/session-policy",
+      { method: "PATCH", body: { session_lifetime_days: days } },
+    );
+
+    revalidatePath("/settings/organization");
+
+    return { error: null, shortened: data.sessions_shortened };
+  } catch (error) {
+    return { error: describeApiError(error).error, shortened: 0 };
+  }
 }

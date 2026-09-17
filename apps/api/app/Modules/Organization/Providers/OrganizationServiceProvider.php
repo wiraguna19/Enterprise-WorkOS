@@ -6,6 +6,7 @@ namespace App\Modules\Organization\Providers;
 
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Organization\Application\Service\OrganizationDirectoryReader;
+use App\Modules\Organization\Application\Service\SessionPolicyReader;
 use App\Modules\Organization\Http\Policy\DepartmentPolicy;
 use App\Modules\Organization\Http\Policy\MembershipPolicy;
 use App\Modules\Organization\Http\Policy\TeamPolicy;
@@ -13,6 +14,7 @@ use App\Modules\Organization\Infrastructure\Eloquent\DepartmentModel;
 use App\Modules\Organization\Infrastructure\Eloquent\EmployeeProfileModel;
 use App\Modules\Organization\Infrastructure\Eloquent\TeamModel;
 use App\Modules\Platform\Domain\Contract\OrganizationDirectory;
+use App\Modules\Platform\Domain\Contract\SessionPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -22,6 +24,7 @@ final class OrganizationServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(OrganizationDirectory::class, OrganizationDirectoryReader::class);
+        $this->app->bind(SessionPolicy::class, SessionPolicyReader::class);
 
         // Scoped, for the same reason Work's policies are: Gate resolves a
         // policy from the container on every authorize() call, and this one

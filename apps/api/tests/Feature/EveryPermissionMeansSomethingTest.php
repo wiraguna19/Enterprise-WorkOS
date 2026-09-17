@@ -46,12 +46,11 @@ use Symfony\Component\Finder\Finder;
  * @var array<string, string>
  */
 const MEANING_OWED = [
-    // The one that is not merely unbuilt but actively misleading: the web app's
-    // nav gates the Settings entry on this, and no route, policy or service on
-    // the server has ever asked for it. An interface hiding a control on a
-    // permission the server does not check is a product that LOOKS like it
-    // enforces something.
-    'organization.view' => 'The web nav gates Settings on it; no server code asks. Either the API must check it or the nav must stop pretending.',
+    // `organization.view` was here, and it was the worst entry on the list: the
+    // web app's nav gated the Settings entry on it while no route, policy or
+    // service on the server had ever asked. `GET /organization/settings` pays
+    // it (ADR 0028), and the nav has stopped pretending — it gates on a key the
+    // API now checks.
 
     // `audit_log.view` was here — the log had been written since Phase 1 and
     // read by nothing but the partition command, a write path with no read
@@ -61,8 +60,14 @@ const MEANING_OWED = [
     // because an audit trail nobody can open is indistinguishable from one
     // that was never written.
 
-    'organization.update' => 'No organization endpoint of any kind exists; the org profile is read from /auth/me and changed by nobody.',
-    'organization.manage_settings' => 'Same: organization-wide settings have a `settings` table and no endpoint.',
+    'organization.update' => 'No organization endpoint changes the profile; name and slug are read from /auth/me and written by nobody.',
+
+    // `organization.manage_settings` was here. `PATCH
+    // /organization/settings/session-policy` pays it: an organization can say
+    // how long a session lives, and the setting reaches sessions that already
+    // exist (ADR 0028). What it still does not cover is the rest of docs/10's
+    // security column — enforced MFA, SSO, re-authentication for sensitive
+    // acts — which will gate on the same key when they arrive.
 
     // Features whose tables shipped in Phase 2 and whose endpoints never did.
     // Listed separately from the ones above because the table existing is what

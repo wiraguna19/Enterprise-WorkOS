@@ -68,7 +68,16 @@ const ADMIN: NavItem[] = [
   // of one adds a click and says nothing. The workflow catalogue and the
   // automation rules made it three, so the index exists now — which was always
   // the condition, not a to-do.
-  { href: "/settings", label: "Settings", permission: "organization.view" },
+  //
+  // UNGATED, deliberately. It was gated on `organization.view` from Phase 1,
+  // and that was wrong twice over: the server had never heard of the permission
+  // (ADR 0028 is what finally made it mean something), and half of what the
+  // index lists is the reader's own account — their notifications, the devices
+  // signed in as them. Hiding a person's own settings behind an
+  // organization-reading permission is a gate that refuses the wrong thing. The
+  // index filters itself entry by entry, which is where the question belongs:
+  // each entry is gated on the permission its own page requires.
+  { href: "/settings", label: "Settings" },
 ];
 
 export function AppShell({
