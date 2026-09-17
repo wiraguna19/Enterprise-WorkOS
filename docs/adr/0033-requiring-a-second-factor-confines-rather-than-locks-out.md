@@ -53,20 +53,23 @@ the enrolment screen. The server is still the authority — the middleware refus
 whatever any client does — but a person should meet a form, not an error on
 every link they press.
 
-**`proxy.ts` now forwards the path as a header.** A layout cannot ask which page
-is rendering inside it, and redirecting the enrolment screen to itself is a
-loop. The proxy is the only place that sees the request before Next.js routes
-it, and it still knows nothing about who is signed in: it reads a cookie, never
-a session.
+**One redirect, in `api()`, and not in the layout.** The first attempt put it in
+the app layout, which cannot ask which page is rendering inside it — so it
+needed `proxy.ts` to forward the path as a header, and when that header did not
+arrive the layout redirected the enrolment screen to itself: a blank page and a
+log filling with 200s. The header, the fallback for its absence and the layout
+check are all gone. Every refused call already carries the person to enrolment
+and the enrolment screen makes no refused call, so the mechanism that cannot
+loop is the only one left. **Two mechanisms, one of them half-working, are worse
+than one.**
 
 ## Consequences
 
-- **A page's own data call can lose the race with the layout's redirect.** The
-  first time the policy was switched on for real, `/settings/sessions` threw an
-  unhandled `ApiRequestError` into the log before the redirect landed: a layout
-  and the page inside it render together, not in order. So the refusal is
-  answered in `api()`, where every server-side call passes, and the layout's
-  redirect stays as the belt to that brace.
+- **A page's own data call races the layout anyway.** The first time the policy
+  was switched on for real, `/settings/sessions` threw an unhandled
+  `ApiRequestError` into the log before any redirect landed: a layout and the
+  page inside it render together, not in order. That is half of why the redirect
+  belongs in `api()`; the loop above is the other half.
 - **The confined shell is empty on purpose.** Its navigation data — teams,
   counters, unread — is refused by the API for exactly the right reason, so the
   layout does not ask for it. An empty sidebar is the honest picture of what

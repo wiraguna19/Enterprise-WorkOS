@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { api } from "@/lib/api";
@@ -14,29 +13,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const me = await requireUser();
 
   // An organization that requires a second factor confines everybody who has
-  // not enrolled to the one screen where they can (ADR 0033). The API refuses
-  // them everything else with a 403 regardless; this exists so a person meets a
-  // form rather than an error on every link they press.
+  // not enrolled to the one screen where they can fix that (ADR 0033).
   //
-  // Here rather than in `proxy.ts`, which reads a cookie and never a session
-  // and so cannot know who is signed in — and the path comes from the header
-  // that file now forwards, because a layout cannot ask which page is
-  // rendering inside it and redirecting the enrolment screen to itself is a
-  // loop.
+  // The redirect itself lives in `api()`, not here, and that is the second
+  // attempt. The first put it in this layout, which cannot ask which page is
+  // rendering inside it — so it needed the path forwarded as a header, and when
+  // that header did not arrive the layout redirected the enrolment screen to
+  // itself: a blank page and a log filling with 200s. Two mechanisms, one of
+  // them half-working, are worse than the one that cannot loop: every refused
+  // call already carries the person to enrolment, and the enrolment screen
+  // makes no refused call.
+  //
+  // What stays here is the consequence for the shell.
   const confined = me.organization.requires_second_factor && !me.user.mfa_enabled;
-  const pathname = (await headers()).get("x-pathname") ?? "";
 
-  if (confined && !pathname.startsWith("/settings/two-factor")) {
-    redirect("/settings/two-factor");
-  }
-
-  // Reference data the navigation needs, cached per organization and
-  // invalidated on change rather than on a timer (docs/07 §2).
-  // Belt to `requireUser()`'s braces. A session can be revoked between the two
-  // calls — that is a second, not a hypothetical — and an unhandled 401 here
-  // renders a 500 page to somebody whose only problem is that they need to sign
-  // in again. The person on the other device pressed "End"; what they should
-  // get is the sign-in screen (ADR 0023).
   // A confined session is refused all three of these, correctly, so they are
   // not asked for. The shell renders with an empty sidebar, which is the honest
   // picture of what that session may do.
