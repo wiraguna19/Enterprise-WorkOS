@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeNextPath } from "@/lib/next-path";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = { title: "Sign in — Work OS" };
@@ -7,7 +8,18 @@ export const metadata: Metadata = { title: "Sign in — Work OS" };
  * Deliberately plain. A login screen is a door, not a landing page: no hero,
  * no gradient, no product marketing (docs/09 §1).
  */
-export default function LoginPage() {
+/**
+ * `searchParams` is a promise in Next 16, and the `next` the proxy wrote is
+ * read HERE rather than in the client component: the value is validated on the
+ * server before it is ever rendered into the page (ADR 0032).
+ */
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
+  const { next } = await searchParams;
+
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm">
@@ -22,7 +34,7 @@ export default function LoginPage() {
           <p className="mt-1 text-body text-n-500">Use your organization account.</p>
         </div>
 
-        <LoginForm />
+        <LoginForm next={safeNextPath(Array.isArray(next) ? next[0] : next)} />
       </div>
     </main>
   );

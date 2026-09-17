@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { api, ApiRequestError } from "@/lib/api";
+import { safeNextPath } from "@/lib/next-path";
 import {
   clearMfaChallenge,
   getMfaChallenge,
@@ -36,6 +37,9 @@ export async function login(
 ): Promise<LoginState> {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
+  // Validated here as well as in the page: the form field is an input, and an
+  // input is not trusted because the server rendered it a moment ago.
+  const next = safeNextPath(String(formData.get("next") ?? "/"));
 
   try {
     const { data } = await api<LoginPayload>("/auth/login", {
@@ -64,7 +68,7 @@ export async function login(
     return { error: "We could not reach the server. Please try again." };
   }
 
-  redirect("/");
+  redirect(next);
 }
 
 /**
@@ -79,6 +83,7 @@ export async function verifyMfa(
   formData: FormData,
 ): Promise<LoginState> {
   const code = String(formData.get("code") ?? "");
+  const next = safeNextPath(String(formData.get("next") ?? "/"));
   const challenge = await getMfaChallenge();
 
   if (challenge === null) {
@@ -108,5 +113,5 @@ export async function verifyMfa(
     return { error: "We could not reach the server. Please try again.", mfaRequired: true };
   }
 
-  redirect("/");
+  redirect(next);
 }

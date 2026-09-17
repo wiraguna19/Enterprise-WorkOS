@@ -7,7 +7,7 @@ import { login, verifyMfa, type LoginState } from "./actions";
 
 const INITIAL: LoginState = { error: null };
 
-export function LoginForm() {
+export function LoginForm({ next }: { next: string }) {
   const [state, formAction] = useActionState(login, INITIAL);
 
   // The code prompt replaces the password form rather than appearing beneath
@@ -15,7 +15,7 @@ export function LoginForm() {
   // invitation to type the password again into a field that is no longer
   // listening.
   if (state.mfaRequired) {
-    return <CodeForm />;
+    return <CodeForm next={next} />;
   }
 
   return (
@@ -28,6 +28,11 @@ export function LoginForm() {
           {state.error}
         </div>
       )}
+
+      {/* Where the proxy was taking them when the session ran out. Validated
+          on the server before it reached this page, and validated again in the
+          action — a hidden field is an input like any other (ADR 0032). */}
+      <input type="hidden" name="next" value={next} />
 
       <Field label="Email" name="email" type="email" autoComplete="username" required />
       <Field
@@ -49,11 +54,15 @@ export function LoginForm() {
   );
 }
 
-function CodeForm() {
+function CodeForm({ next }: { next: string }) {
   const [state, formAction] = useActionState(verifyMfa, INITIAL);
 
   return (
     <form action={formAction} className="space-y-4">
+      {/* Carried across the code prompt too: a sign-in interrupted by a second
+          factor is still the same sign-in, and dropping the destination here
+          would make two-factor the reason somebody lands on the wrong page. */}
+      <input type="hidden" name="next" value={next} />
       <div>
         <h2 className="text-h2 font-semibold text-n-900">Enter your code</h2>
         <p className="mt-1 text-body-sm text-n-500">
