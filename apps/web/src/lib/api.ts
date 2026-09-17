@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getSessionToken } from "./session";
 
 /**
@@ -106,20 +105,6 @@ export async function api<T>(
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    // An organization that requires a second factor refuses everything except
-    // enrolment (ADR 0033). Answered HERE, where every server-side call passes,
-    // rather than in each page: the app layout redirects too, but a page's own
-    // data call can lose that race and throw before the redirect lands — which
-    // is how `/settings/sessions` put an unhandled ApiRequestError in the log
-    // the first time somebody switched the policy on.
-    //
-    // `redirect()` throws a signal Next.js understands; a caller that swallows
-    // it with `.catch()` degrades to its own fallback and the layout's redirect
-    // still fires on the same render.
-    if (response.status === 403 && payload?.error?.code === "auth.mfa_required") {
-      redirect("/settings/two-factor");
-    }
-
     // A response WITHOUT this API's error envelope. It used to be reported as
     // "The API could not be reached", which was true of exactly one case and
     // wrong about the common one: a 500 means the API was reached, answered,

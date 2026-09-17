@@ -10,7 +10,11 @@ import { isSignedOut, requireUser } from "@/lib/auth";
  * (docs/07 §2).
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const me = await requireUser();
+  // Permissive: this layout renders around the enrolment screen too, and a
+  // redirect here would be a redirect to the page already being rendered
+  // (ADR 0033). The PAGES decide; every one of them calls `requireUser()`
+  // without this, and the enrolment page is the only one that passes it.
+  const me = await requireUser({ allowUnenrolled: true });
 
   // An organization that requires a second factor confines everybody who has
   // not enrolled to the one screen where they can fix that (ADR 0033).

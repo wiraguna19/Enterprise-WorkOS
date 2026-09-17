@@ -53,7 +53,25 @@ the enrolment screen. The server is still the authority — the middleware refus
 whatever any client does — but a person should meet a form, not an error on
 every link they press.
 
-**One redirect, in `api()`, and not in the layout.** The first attempt put it in
+**One redirect, in `requireUser()`, and it took three attempts.**
+
+1. In the app layout, which cannot ask which page is rendering inside it. It
+   needed `proxy.ts` to forward the path as a header, and when that header did
+   not arrive the layout redirected the enrolment screen to itself: a blank page
+   and a log filling with 200s.
+2. In `api()`, on the 403 itself. That works for a page that lets the error
+   through and fails silently for one that does not — the home screen catches
+   its own data errors and renders "No work assigned to you yet", so a confined
+   person was shown a confident lie about their own work. `redirect()` throws,
+   and a `.catch()` written for a missing list swallows it exactly as well as it
+   swallows a 403.
+3. In `requireUser()`, which every page awaits before it renders anything. No
+   header, no race, no catch to fall into — and no loop, because the one screen
+   that must not redirect asks not to, by name.
+
+The old note, kept because the reasoning still holds:
+
+**Not in the layout.** The first attempt put it in
 the app layout, which cannot ask which page is rendering inside it — so it
 needed `proxy.ts` to forward the path as a header, and when that header did not
 arrive the layout redirected the enrolment screen to itself: a blank page and a

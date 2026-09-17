@@ -14,13 +14,19 @@ import { requireUser } from "@/lib/auth";
  * because nothing could turn it on.
  */
 export default async function TwoFactorPage() {
-  const me = await requireUser();
+  // The one page a confined person may see — so the one page that says so
+  // rather than sending them somewhere else (ADR 0033).
+  const me = await requireUser({ allowUnenrolled: true });
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Two-factor authentication"
-        description="A code from an app on your phone, asked for at sign-in as well as your password."
+        description={
+          me.organization.requires_second_factor && !me.user.mfa_enabled
+            ? `${me.organization.name} requires a second factor. Until you set one up, this is the only page you can use — nothing else has been taken away.`
+            : "A code from an app on your phone, asked for at sign-in as well as your password."
+        }
       />
 
       <PageBody>

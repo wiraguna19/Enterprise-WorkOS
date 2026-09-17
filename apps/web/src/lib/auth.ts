@@ -31,7 +31,35 @@ export type CurrentUser = {
   permissions: string[];
 };
 
-export async function requireUser(): Promise<CurrentUser> {
+/**
+ * The bootstrap read, and the one place the two-factor confinement is decided.
+ *
+ * Every page in the app awaits this before it renders anything, which is what
+ * makes it the right place — and it took three attempts to get here (ADR 0033):
+ *
+ * 1. In the app layout, which cannot tell which page is rendering inside it. It
+ *    needed the path forwarded as a header, and when that header did not arrive
+ *    it redirected the enrolment screen to itself, forever.
+ * 2. In `api()`, on the 403 itself. That works for a page that lets the error
+ *    through and fails silently for one that does not: the home screen catches
+ *    its own data errors and renders "No work assigned to you yet", so a
+ *    confined person was shown a confident lie about their own work. A
+ *    `redirect()` is thrown, and a `.catch()` written for a missing list
+ *    swallows it exactly as well as it swallows a 403.
+ * 3. Here. No header, no race, no catch to fall into — and no loop, because the
+ *    one screen that must not redirect says so itself.
+ */
+export async function requireUser(
+  options: {
+    /**
+     * For the enrolment screen and the shell around it, which must render FOR a
+     * confined person rather than send them away.
+     */
+    allowUnenrolled?: boolean;
+  } = {},
+): Promise<CurrentUser> {
+  let me: CurrentUser;
+
   try {
     // NOT cached, and this is the whole point of the call. It was fetched with
     // `tags: ["session"], revalidate: false` — cached forever behind a tag
@@ -47,12 +75,25 @@ export async function requireUser(): Promise<CurrentUser> {
     // moment old.
     const { data } = await api<CurrentUser>("/auth/me", { revalidate: 0 });
 
-    return data;
+    me = data;
   } catch (error) {
     if (isSignedOut(error)) redirect("/login");
 
     throw error;
   }
+
+  // OUTSIDE the try, deliberately. `redirect()` works by throwing, and a
+  // redirect thrown inside a block that catches "the session is gone" is one
+  // rewrite away from being swallowed by it.
+  if (
+    !options.allowUnenrolled
+    && me.organization.requires_second_factor
+    && !me.user.mfa_enabled
+  ) {
+    redirect("/settings/two-factor");
+  }
+
+  return me;
 }
 
 /**
