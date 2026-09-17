@@ -87,6 +87,7 @@ export function AppShell({
   permissions,
   teams,
   counts,
+  confined = false,
   children,
 }: {
   user: { id: string; name: string; email: string };
@@ -96,6 +97,18 @@ export function AppShell({
   teams: Array<{ id: string; name: string; key: string }>;
   /** Only two counters exist in the whole navigation (docs/08 §1). */
   counts: { myWork: number; inbox: number };
+  /**
+   * This organization requires a second factor and this person has not enrolled
+   * (ADR 0033).
+   *
+   * The navigation is REMOVED, not disabled. It was left in place on the first
+   * pass, and a development log showed what that means: nine links pressed, nine
+   * bounces back to the enrolment screen. A sidebar whose every door leads to
+   * the same room is a sidebar that lies about where you can go, and asking
+   * somebody to discover that one link at a time is the product wasting their
+   * afternoon to preserve its own furniture.
+   */
+  confined?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -128,20 +141,23 @@ export function AppShell({
             the phone icon and the desktop field — live inside it, because the
             thing that opens the palette and the palette itself share one piece
             of state and splitting them would mean lifting it into the shell. */}
-        <CommandPalette />
+        {/* No palette either: it searches what this session may not read. */}
+        {confined ? <span className="text-body-sm font-medium text-n-900">Work OS</span> : <CommandPalette />}
 
         <div className="ml-auto flex items-center gap-1">
           {/* Org switcher sits by identity, not in the sidebar: switching
               tenants is rare and belongs near who you are (docs/08 §1). */}
           <span className="hidden text-body-sm text-n-500 sm:inline">{organization.name}</span>
 
-          <Link
-            href="/inbox"
-            className="relative rounded-sm p-1.5 text-n-500 hover:bg-n-50"
-            aria-label="Notifications"
-          >
-            <span aria-hidden>◔</span>
-          </Link>
+          {!confined && (
+            <Link
+              href="/inbox"
+              className="relative rounded-sm p-1.5 text-n-500 hover:bg-n-50"
+              aria-label="Notifications"
+            >
+              <span aria-hidden>◔</span>
+            </Link>
+          )}
 
           <AccountMenu
             user={user}
@@ -164,6 +180,9 @@ export function AppShell({
         )}
 
         {/* ── Sidebar ───────────────────────────────────────────────────── */}
+        {/* Removed for a confined session, not disabled: every entry in it
+            leads somewhere this session is refused (ADR 0033). */}
+        {!confined && (
         <nav
           className={clsx(
             "fixed inset-y-12 left-0 z-10 w-56 shrink-0 overflow-y-auto border-r border-n-100 bg-n-0 px-2 py-3 md:sticky md:top-12 md:h-[calc(100dvh-3rem)] md:block",
@@ -218,6 +237,7 @@ export function AppShell({
             </div>
           )}
         </nav>
+        )}
 
         {/* Bottom padding on phones only: the bar below is fixed, so without it
             the last row of every list sits underneath it. */}
@@ -233,7 +253,9 @@ export function AppShell({
         </main>
       </div>
 
-      <BottomNav pathname={pathname} counts={counts} onMore={() => setSidebarOpen(true)} />
+      {!confined && (
+        <BottomNav pathname={pathname} counts={counts} onMore={() => setSidebarOpen(true)} />
+      )}
 
       {/* Renders nothing. The badges above are server-rendered; this only says
           when to ask for them again, and does nothing at all when real-time is

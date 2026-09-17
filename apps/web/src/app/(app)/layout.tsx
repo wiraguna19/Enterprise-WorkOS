@@ -61,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       permissions={me.permissions}
       teams={teams}
       counts={{ myWork: counts.overdue + counts.due_today, inbox: unread }}
+      confined={confined}
     >
       {children}
     </AppShell>

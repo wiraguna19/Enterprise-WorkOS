@@ -70,10 +70,16 @@ than one.**
   `ApiRequestError` into the log before any redirect landed: a layout and the
   page inside it render together, not in order. That is half of why the redirect
   belongs in `api()`; the loop above is the other half.
-- **The confined shell is empty on purpose.** Its navigation data — teams,
-  counters, unread — is refused by the API for exactly the right reason, so the
-  layout does not ask for it. An empty sidebar is the honest picture of what
-  that session may do.
+- **The confined shell has no navigation at all**, and this took two passes.
+  The first removed only the navigation's DATA — teams, counters, unread —
+  because the API refuses those, and left the links themselves in place. A
+  development log then showed what that means in practice: nine links pressed,
+  nine bounces back to the enrolment screen. A sidebar whose every door leads to
+  the same room lies about where somebody can go, and making them discover that
+  one link at a time is the product spending their afternoon to keep its own
+  furniture. The sidebar, the bottom bar, the notification bell and the command
+  palette are all removed for a confined session; the account menu stays,
+  because signing out is one of the four things that session may do.
 - `requiresSecondFactor()` joins `SessionPolicy` rather than getting an
   interface of its own. Enrolling a factor belongs to a person and is not
   Organization's business; whether a SESSION here may act without one is
