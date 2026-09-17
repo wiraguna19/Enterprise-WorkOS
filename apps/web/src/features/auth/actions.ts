@@ -30,7 +30,23 @@ export async function beginEnrolment(): Promise<BeginResult> {
 
 export type ConfirmResult = { error: string | null; codes: string[] };
 
-export async function confirmEnrolment(code: string): Promise<ConfirmResult> {
+/**
+ * `FormData`, not a string — and this is not a style preference.
+ *
+ * Next.js logs the arguments of every Server Action it runs in development,
+ * verbatim: `confirmEnrolment("685123")` and `disableTwoFactor("password")`
+ * both appeared in the terminal the first time this screen was used for real,
+ * which puts a live one-time code and somebody's actual password into a dev
+ * log, a CI transcript and any screen share that happens to be running. A
+ * `FormData` argument logs as `{}`, which is why the login form on the other
+ * side of this feature never leaked anything.
+ *
+ * Found by running the product, not by reading it — the same way every defect
+ * this phase has been found.
+ */
+export async function confirmEnrolment(form: FormData): Promise<ConfirmResult> {
+  const code = String(form.get("code") ?? "");
+
   try {
     const { data } = await api<{ recovery_codes: string[] }>("/auth/mfa/confirm", {
       method: "POST",
@@ -47,7 +63,10 @@ export async function confirmEnrolment(code: string): Promise<ConfirmResult> {
 
 export type DisableResult = { error: string | null };
 
-export async function disableTwoFactor(password: string): Promise<DisableResult> {
+/** `FormData` for the same reason as above: a string argument is printed. */
+export async function disableTwoFactor(form: FormData): Promise<DisableResult> {
+  const password = String(form.get("password") ?? "");
+
   try {
     await api("/auth/mfa", { method: "DELETE", body: { password } });
   } catch (error) {

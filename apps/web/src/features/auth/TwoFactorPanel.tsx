@@ -112,7 +112,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
                 disabled={busy || code.trim() === ""}
                 onClick={() =>
                   startAction(async () => {
-                    const result = await confirmEnrolment(code.trim());
+                    const result = await confirmEnrolment(formDataWith("code", code.trim()));
 
                     setError(result.error);
 
@@ -178,7 +178,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
             disabled={busy || password === ""}
             onClick={() =>
               startAction(async () => {
-                const result = await disableTwoFactor(password);
+                const result = await disableTwoFactor(formDataWith("password", password));
 
                 setError(result.error);
                 setPassword("");
@@ -238,4 +238,19 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
       </div>
     </Panel>
   );
+}
+
+/**
+ * One field, as `FormData`.
+ *
+ * Server Actions take the value this way because Next.js prints plain
+ * arguments to the development log and these two are a live one-time code and
+ * a password (see `actions.ts`).
+ */
+function formDataWith(name: string, value: string): FormData {
+  const form = new FormData();
+
+  form.append(name, value);
+
+  return form;
 }

@@ -101,6 +101,15 @@ administrator could be refused their own security settings.
   pair — `mfa_required` true with a challenge, or false with a session — rather
   than a token that is sometimes missing, so neither the controller nor the web
   app can forget to look.
+- **A Server Action argument is printed in the development log.** The first
+  real use of the enrolment screen put `confirmEnrolment("685123")` and
+  `disableTwoFactor("password")` into the terminal — a live one-time code and
+  somebody's actual password, in a dev log, a CI transcript, and any screen
+  share that happens to be running. Next.js logs plain arguments verbatim and
+  logs a `FormData` argument as `{}`, which is why the login form on the other
+  side of this same feature never leaked anything. Both actions take `FormData`
+  now. Worth recording as a rule rather than a fix: **a secret crosses the
+  Server Action boundary as `FormData`, never as an argument.**
 - The web app gained one dependency, `qrcode.react`, which has none of its own
   and renders an SVG. The alternative was asking people to type a 32-character
   secret, which is the kind of decision that makes a security feature optional
