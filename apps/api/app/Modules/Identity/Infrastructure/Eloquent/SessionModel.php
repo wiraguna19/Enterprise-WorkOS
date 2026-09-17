@@ -87,7 +87,12 @@ final class SessionModel extends PersonalAccessToken
             // LEFT, because `sessions.organization_id` is nullable: a session
             // bound to no organization has no policy to answer to.
             ->leftJoin('organizations', 'organizations.id', '=', 'sessions.organization_id')
-            ->addSelect('organizations.idle_timeout_minutes')
+            // Two policy columns, one join, zero extra queries. The second
+            // arrived with ADR 0033 and was a middleware of its own reading the
+            // organizations table on every request — six query budgets caught
+            // it within a minute, which is what they are for. A policy that can
+            // ride along on a query the request already makes should.
+            ->addSelect('organizations.idle_timeout_minutes', 'organizations.require_mfa')
             // UNQUALIFIED, and it has to stay that way: larastan resolves a
             // column name against this model's table, and `sessions.token_hash`
             // is not a property it can find — qualifying them fails the
@@ -121,6 +126,17 @@ final class SessionModel extends PersonalAccessToken
      * A session issued and never used falls back to when it was created, so
      * one that was never touched still ages out.
      */
+    /**
+     * Does this session's organization require a second factor (ADR 0033)?
+     *
+     * Carried by the join in `findToken`, like the idle window above it, rather
+     * than read again by the middleware that asks.
+     */
+    public function organizationRequiresSecondFactor(): bool
+    {
+        return (bool) $this->getAttribute('require_mfa');
+    }
+
     public function hasGoneIdle(): bool
     {
         // Carried by the join in `findToken`, not a column on this table. It

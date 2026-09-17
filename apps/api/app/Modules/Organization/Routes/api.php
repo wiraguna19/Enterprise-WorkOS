@@ -135,3 +135,9 @@ Route::get('organization/settings', [OrganizationSettingsController::class, 'sho
     ->middleware('permission:organization.view');
 Route::patch('organization/settings/session-policy', [OrganizationSettingsController::class, 'updateSessionPolicy'])
     ->middleware(['permission:organization.manage_settings', 'throttle:writes']);
+// Requiring a second factor of everybody (ADR 0033). Its own endpoint rather
+// than a field on the one above: the session policy governs how long somebody
+// stays signed in, and this governs what they must have proved to be signed in
+// at all.
+Route::patch('organization/settings/mfa-policy', [OrganizationSettingsController::class, 'updateMfaPolicy'])
+    ->middleware(['permission:organization.manage_settings', 'throttle:writes']);

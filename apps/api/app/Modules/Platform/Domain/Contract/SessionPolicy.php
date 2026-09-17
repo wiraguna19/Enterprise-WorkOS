@@ -33,4 +33,14 @@ interface SessionPolicy
 
     /** How many days a session issued now may live. */
     public function sessionLifetimeDays(string $organizationId): int;
+
+    /**
+     * Must a session here have proved a second factor (ADR 0033)?
+     *
+     * On this interface rather than one of its own, and the line is worth
+     * drawing: enrolling a factor belongs to a person and would not be
+     * Organization's business, but whether a SESSION in this organization is
+     * allowed to act without one is exactly what this interface is for.
+     */
+    public function requiresSecondFactor(string $organizationId): bool;
 }

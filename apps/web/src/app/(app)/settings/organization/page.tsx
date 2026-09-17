@@ -3,6 +3,7 @@ import { KeyValue, KeyValueItem } from "@/components/ui/KeyValue";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
+import { MfaPolicyForm } from "@/features/organization/MfaPolicyForm";
 import { SessionPolicyForm } from "@/features/organization/SessionPolicyForm";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -28,6 +29,8 @@ type Settings = {
   slug: string;
   session_lifetime_days: number;
   idle_timeout_minutes: number | null;
+  require_mfa: boolean;
+  people_without_mfa: number;
 };
 
 export default async function OrganizationSettingsPage() {
@@ -59,6 +62,12 @@ export default async function OrganizationSettingsPage() {
             </KeyValueItem>
           </KeyValue>
         </Panel>
+
+        <MfaPolicyForm
+          required={data.require_mfa}
+          peopleWithout={data.people_without_mfa}
+          editable={me.permissions.includes("organization.manage_settings")}
+        />
 
         <SessionPolicyForm
           current={data.session_lifetime_days}

@@ -65,8 +65,11 @@ client-side JavaScript, so an XSS payload cannot exfiltrate it.
   codes hashed with SHA-256. A correct password for an enrolled account yields
   a two-minute encrypted challenge, not a session. Turning the factor off asks
   for the password; turning it on or off ends every other session.
-  **Enforceable per organization** is still owed — the policy, not the
-  mechanism.
+  **Enforceable per organization** (ADR 0033): when an organization requires it,
+  somebody without a factor still signs in and is confined to enrolment — four
+  routes reachable, everything else 403 `auth.mfa_required` — rather than locked
+  out. Evaluated per request, so the switch reaches open sessions without ending
+  them, and turning a factor off is refused while it is required.
 - Login responses are constant-time and identical for "unknown email" and "wrong
   password" — no user enumeration.
 

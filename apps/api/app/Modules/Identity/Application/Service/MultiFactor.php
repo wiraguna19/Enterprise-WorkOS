@@ -11,6 +11,7 @@ use App\Modules\Identity\Domain\Support\Totp;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
+use App\Modules\Platform\Domain\Contract\SessionPolicy;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -43,6 +44,7 @@ final class MultiFactor
         private readonly AuditLogger $audit,
         private readonly AuthenticationService $auth,
         private readonly TenantContext $tenant,
+        private readonly SessionPolicy $policy,
     ) {}
 
     /**
@@ -199,6 +201,18 @@ final class MultiFactor
             throw new MultiFactorRefused(
                 'Two-factor authentication is not on for this account.',
                 ['refusal' => 'not_enabled'],
+            );
+        }
+
+        if ($this->tenant->hasTenant()
+            && $this->policy->requiresSecondFactor($this->tenant->organizationId())) {
+            // Refused outright rather than allowed-and-then-confined: taking the
+            // factor off in an organization that requires one leaves somebody
+            // signed in and able to do nothing but put it back (ADR 0033), and
+            // an answer that says so beats a loop that does not.
+            throw new MultiFactorRefused(
+                'This organization requires two-factor authentication, so it cannot be turned off here.',
+                ['refusal' => 'required_by_organization'],
             );
         }
 

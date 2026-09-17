@@ -23,8 +23,18 @@ const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/invite"
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // The path, forwarded to the server components (ADR 0033). A layout cannot
+  // ask which page is rendering inside it, and the one confinement this app
+  // has — an organization that requires a second factor — needs exactly that
+  // to avoid redirecting the enrolment screen to itself. Set here because this
+  // is the only place that sees the request before Next.js routes it.
+  const headers = new Headers(request.headers);
+  headers.set("x-pathname", pathname);
+
+  const forward = { request: { headers } };
+
   if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
-    return NextResponse.next();
+    return NextResponse.next(forward);
   }
 
   const hasSession = request.cookies.has(SESSION_COOKIE);
@@ -36,7 +46,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  return NextResponse.next();
+  return NextResponse.next(forward);
 }
 
 export const config = {

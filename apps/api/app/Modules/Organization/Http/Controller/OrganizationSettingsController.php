@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Organization\Http\Controller;
 
 use App\Modules\Identity\Application\Service\SessionLifetime;
+use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
+use App\Modules\Organization\Http\Request\UpdateMfaPolicyRequest;
 use App\Modules\Organization\Http\Request\UpdateSessionPolicyRequest;
 use App\Modules\Organization\Infrastructure\Eloquent\OrganizationModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * The organization's own settings (ADR 0028).
@@ -43,6 +46,32 @@ final class OrganizationSettingsController extends ApiController
             'slug' => (string) $organization->slug,
             'session_lifetime_days' => (int) $organization->session_lifetime_days,
             'idle_timeout_minutes' => $organization->idle_timeout_minutes,
+            'require_mfa' => $organization->require_mfa,
+            // How many people the policy would confine if it were switched on
+            // right now — or is confining, if it already is. The number is the
+            // difference between a setting and a consequence (ADR 0028), and
+            // here the consequence lands on other people.
+            'people_without_mfa' => $this->peopleWithoutSecondFactor(),
+        ]);
+    }
+
+    /**
+     * Require a second factor of everybody here (ADR 0033).
+     *
+     * Nobody is signed out and nobody is locked out: a person without a factor
+     * keeps their session and can do four things with it — say who they are,
+     * sign out, start enrolment, finish it. Everything else answers 403 until
+     * they do.
+     */
+    public function updateMfaPolicy(UpdateMfaPolicyRequest $request): ApiResponse
+    {
+        $organization = $this->current();
+
+        $organization->forceFill(['require_mfa' => $request->required()])->save();
+
+        return $this->ok([
+            'require_mfa' => $organization->require_mfa,
+            'people_confined' => $request->required() ? $this->peopleWithoutSecondFactor() : 0,
         ]);
     }
 
@@ -84,6 +113,16 @@ final class OrganizationSettingsController extends ApiController
             // is the one who should learn it first.
             'sessions_shortened' => $shortened,
         ]);
+    }
+
+    /** Active people here who would be asked to enrol before their next act. */
+    private function peopleWithoutSecondFactor(): int
+    {
+        return MembershipModel::query()
+            ->where('status', 'active')
+            ->whereNull('revoked_at')
+            ->whereHas('user', fn (Builder $users) => $users->whereNull('mfa_enabled_at'))
+            ->count();
     }
 
     private function current(): OrganizationModel

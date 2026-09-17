@@ -16,6 +16,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
 use App\Modules\Platform\Domain\Contract\OrganizationDirectory;
+use App\Modules\Platform\Domain\Contract\SessionPolicy;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ final class AuthController extends ApiController
         private readonly OrganizationDirectory $organizations,
         private readonly SessionDirectory $sessions,
         private readonly MultiFactor $mfa,
+        private readonly SessionPolicy $sessionPolicy,
     ) {}
 
     public function login(LoginRequest $request): ApiResponse
@@ -236,7 +238,14 @@ final class AuthController extends ApiController
                 'joined_at' => $membership->joined_at,
                 'job_title' => $membership->employeeProfile?->job_title,
             ],
-            'organization' => $this->organizationPayload($membership),
+            // The flag comes off the session row rather than from another read
+            // of `organizations`: this call runs on every page render in the
+            // web app, and `findToken()` has already joined the row that
+            // answers it (ADR 0033).
+            'organization' => $this->organizationPayload(
+                $membership,
+                $session->organizationRequiresSecondFactor(),
+            ),
             'permissions' => $this->permissions->permissionsFor($membership),
             'session' => [
                 'id' => $session->getKey(),
@@ -253,12 +262,25 @@ final class AuthController extends ApiController
      *
      * @return array<string, mixed>
      */
-    private function organizationPayload(MembershipModel $membership): array
-    {
-        return $this->organizations->summary((string) $membership->organization_id) ?? [
-            'id' => (string) $membership->organization_id,
+    private function organizationPayload(
+        MembershipModel $membership,
+        ?bool $requiresSecondFactor = null,
+    ): array {
+        $organizationId = (string) $membership->organization_id;
+
+        $summary = $this->organizations->summary($organizationId) ?? [
+            'id' => $organizationId,
             'name' => '',
             'slug' => '',
+        ];
+
+        // Sent so the interface can take somebody to the enrolment screen
+        // instead of letting them walk into a 403 on every link they press
+        // (ADR 0033). The server is still the authority — the middleware
+        // refuses regardless of what any client does with this.
+        return $summary + [
+            'requires_second_factor' => $requiresSecondFactor
+                ?? $this->sessionPolicy->requiresSecondFactor($organizationId),
         ];
     }
 }

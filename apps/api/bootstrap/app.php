@@ -9,6 +9,7 @@ use App\Modules\Files\Providers\FilesServiceProvider;
 use App\Modules\Governance\Providers\GovernanceServiceProvider;
 use App\Modules\Identity\Http\Middleware\RequireAnyPermission;
 use App\Modules\Identity\Http\Middleware\RequirePermission;
+use App\Modules\Identity\Http\Middleware\RequireSecondFactor;
 use App\Modules\Identity\Http\Middleware\ResolveTenant;
 use App\Modules\Identity\Providers\IdentityServiceProvider;
 use App\Modules\Insights\Providers\InsightsServiceProvider;
@@ -69,6 +70,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api(append: [
             ResolveTenant::class,
+            // After the tenant, because the question it asks — does THIS
+            // organization require a second factor — is answered by the
+            // session's organization and by nothing the client says (ADR 0033).
+            RequireSecondFactor::class,
         ]);
 
         /*
@@ -88,6 +93,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             before: SubstituteBindings::class,
             prepend: ResolveTenant::class,
+        );
+
+        // Immediately after it, and before the bindings for the same reason:
+        // a confined session must be refused before a route model is resolved
+        // for it, or the refusal costs a tenant-scoped query on every request
+        // it was never going to answer.
+        $middleware->prependToPriorityList(
+            before: SubstituteBindings::class,
+            prepend: RequireSecondFactor::class,
         );
 
         $middleware->alias([

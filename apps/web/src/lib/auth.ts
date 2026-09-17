@@ -21,7 +21,13 @@ export type CurrentUser = {
     mfa_enabled: boolean;
   };
   membership: { id: string; status: string; job_title: string | null };
-  organization: { id: string; name: string; slug: string };
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    /** This organization requires a second factor of everybody (ADR 0033). */
+    requires_second_factor: boolean;
+  };
   permissions: string[];
 };
 

@@ -34,4 +34,15 @@ final class SessionPolicyReader implements SessionPolicy
         // anybody should have to debug at a login prompt.
         return is_numeric($days) ? (int) $days : self::DEFAULT_LIFETIME_DAYS;
     }
+
+    public function requiresSecondFactor(string $organizationId): bool
+    {
+        // Asked on every request of every person the policy confines, so it is
+        // one indexed primary-key read and nothing else. Absent — a closed or
+        // missing organization — is false: a policy that cannot be read must
+        // not lock a product's whole tenant out of itself.
+        return (bool) OrganizationModel::query()
+            ->whereKey($organizationId)
+            ->value('require_mfa');
+    }
 }

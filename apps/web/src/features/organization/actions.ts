@@ -176,3 +176,29 @@ export async function setSessionPolicy(
     return { error: describeApiError(error).error, shortened: 0 };
   }
 }
+
+/**
+ * Requiring a second factor of everybody here (ADR 0033).
+ *
+ * The count that comes back is how many people are now confined to the
+ * enrolment screen — not how many were signed out, because nobody is. It is
+ * reported for the same reason the shortened-session count is: an
+ * administrator should learn the size of what they just did from the product,
+ * not from the people it happened to.
+ */
+export type MfaPolicyResult = { error: string | null; confined: number };
+
+export async function setMfaPolicy(required: boolean): Promise<MfaPolicyResult> {
+  try {
+    const { data } = await api<{ require_mfa: boolean; people_confined: number }>(
+      "/organization/settings/mfa-policy",
+      { method: "PATCH", body: { require_mfa: required } },
+    );
+
+    revalidatePath("/settings/organization");
+
+    return { error: null, confined: data.people_confined };
+  } catch (error) {
+    return { error: describeApiError(error).error, confined: 0 };
+  }
+}
