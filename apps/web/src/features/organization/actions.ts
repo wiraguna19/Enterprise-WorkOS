@@ -155,11 +155,18 @@ export async function createTeam(input: {
  */
 export type SessionPolicyResult = { error: string | null; shortened: number };
 
-export async function setSessionLifetime(days: number): Promise<SessionPolicyResult> {
+export async function setSessionPolicy(
+  days: number,
+  /** null is a real answer: no idle timeout. */
+  idleMinutes: number | null,
+): Promise<SessionPolicyResult> {
   try {
     const { data } = await api<{ session_lifetime_days: number; sessions_shortened: number }>(
       "/organization/settings/session-policy",
-      { method: "PATCH", body: { session_lifetime_days: days } },
+      {
+        method: "PATCH",
+        body: { session_lifetime_days: days, idle_timeout_minutes: idleMinutes },
+      },
     );
 
     revalidatePath("/settings/organization");

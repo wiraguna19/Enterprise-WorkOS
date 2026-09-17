@@ -27,6 +27,7 @@ type Settings = {
   name: string;
   slug: string;
   session_lifetime_days: number;
+  idle_timeout_minutes: number | null;
 };
 
 export default async function OrganizationSettingsPage() {
@@ -51,14 +52,37 @@ export default async function OrganizationSettingsPage() {
             <KeyValueItem label="Sessions last">
               {data.session_lifetime_days} {data.session_lifetime_days === 1 ? "day" : "days"}
             </KeyValueItem>
+            <KeyValueItem label="Idle timeout">
+              {data.idle_timeout_minutes === null
+                ? "None"
+                : describeIdle(data.idle_timeout_minutes)}
+            </KeyValueItem>
           </KeyValue>
         </Panel>
 
         <SessionPolicyForm
           current={data.session_lifetime_days}
+          currentIdle={data.idle_timeout_minutes}
           editable={me.permissions.includes("organization.manage_settings")}
         />
       </PageBody>
     </div>
   );
+}
+
+/** Minutes are what the API stores; hours and days are what people say. */
+function describeIdle(minutes: number): string {
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440;
+
+    return `${days} ${days === 1 ? "day" : "days"}`;
+  }
+
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+
+  return `${minutes} minutes`;
 }

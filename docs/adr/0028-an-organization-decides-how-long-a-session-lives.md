@@ -96,9 +96,9 @@ is learning it from the people who were signed out.
   nobody can justify.
 - `docs/06`'s session table said "30 days with sliding refresh" and now says
   what the product does. The **idle timeout** in the row above it — 8 hours,
-  "org-configurable" — is still fiction: nothing measures idleness. It is the
-  next thing this setting's screen should grow, and it is a different mechanism,
-  not a different number.
+  "org-configurable" — was still fiction when this was written: nothing measured
+  idleness. ADR 0029 is the next slice on this screen and closes it, by a
+  different mechanism rather than a different number.
 - **The browser cookie follows for free on the way in, and not on the way
   back.** `setSessionToken` already writes the cookie with the `expires_at` the
   API returns, so a seven-day organization gets a seven-day cookie without a

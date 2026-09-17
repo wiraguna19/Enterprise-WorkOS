@@ -18,8 +18,9 @@ use Laravel\Sanctum\PersonalAccessToken;
  * name it (docs/06 §1).
  *
  * `findToken` is overridden to look up the renamed column and to reject
- * sessions that are expired or revoked, which is how offboarding takes effect
- * within one request rather than at token expiry.
+ * sessions that are expired, revoked, or idle past what the organization allows
+ * (ADR 0029), which is how offboarding takes effect within one request rather
+ * than at token expiry.
  *
  * Column types below are hand-maintained: the schema is raw SQL (docs/03 §0),
  * so nothing can introspect it. Add a column here when you add one there, or
@@ -77,12 +78,69 @@ final class SessionModel extends PersonalAccessToken
 
         /** @var static|null $session */
         $session = self::query()
+            ->select('sessions.*')
+            // The organization's idle window, carried back by the SAME query
+            // (ADR 0029). This runs on every authenticated request in the
+            // product, so a second lookup here would be a query added to every
+            // page in exchange for a setting most organizations leave off.
+            //
+            // LEFT, because `sessions.organization_id` is nullable: a session
+            // bound to no organization has no policy to answer to.
+            ->leftJoin('organizations', 'organizations.id', '=', 'sessions.organization_id')
+            ->addSelect('organizations.idle_timeout_minutes')
+            // UNQUALIFIED, and it has to stay that way: larastan resolves a
+            // column name against this model's table, and `sessions.token_hash`
+            // is not a property it can find — qualifying them fails the
+            // analysis. None of the three exists on `organizations`, so there
+            // is nothing here for Postgres to call ambiguous. A column added
+            // there with one of these names would break this query, which is
+            // the trade being made knowingly.
             ->where('token_hash', hash('sha256', $secret))
             ->whereNull('revoked_at')
             ->where('expires_at', '>', now())
             ->first();
 
-        return $session;
+        if ($session === null) {
+            return null;
+        }
+
+        return $session->hasGoneIdle() ? null : $session;
+    }
+
+    /**
+     * Has nobody used this session for longer than the organization allows?
+     *
+     * Ends the session on the spot rather than merely refusing it. A row that
+     * authenticates nobody and still reads as live in Settings → Signed in is
+     * the product lying about the thing that screen exists to answer, and the
+     * REASON is the whole point of `revoked_reason` (ADR 0023): "signed out for
+     * inactivity" is precisely what somebody asks about the next morning.
+     *
+     * `last_used_at` is Sanctum's, written on every authenticated request since
+     * Phase 1 and — until this — read only to print a date on the session list.
+     * A session issued and never used falls back to when it was created, so
+     * one that was never touched still ages out.
+     */
+    public function hasGoneIdle(): bool
+    {
+        // Carried by the join in `findToken`, not a column on this table. It
+        // arrives as an original attribute rather than a dirty one, so the
+        // `save()` below writes `revoked_at` and `revoked_reason` alone.
+        $minutes = $this->getAttribute('idle_timeout_minutes');
+
+        if (! is_numeric($minutes)) {
+            return false;
+        }
+
+        $since = $this->last_used_at ?? $this->created_at;
+
+        if ($since->addMinutes((int) $minutes)->isFuture()) {
+            return false;
+        }
+
+        $this->revoke('idle_timeout');
+
+        return true;
     }
 
     /**

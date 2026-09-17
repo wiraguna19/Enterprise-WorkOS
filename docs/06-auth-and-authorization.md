@@ -45,7 +45,7 @@ client-side JavaScript, so an XSS payload cannot exfiltrate it.
 
 | Setting | Value |
 |---|---|
-| Idle timeout | 8 hours (org-configurable) |
+| Idle timeout | Set per organization, 5 minutes to 7 days, off by default (ADR 0029). Measured from the session's last request; an idle session is revoked with the reason `idle_timeout` on its next one. |
 | Absolute lifetime | Set per organization, 1–90 days, default 30 (ADR 0028). Lowering it clamps sessions that are already open; raising it governs the next sign-in only. |
 | Rotation | New token on privilege change and on password change |
 | Concurrent sessions | Allowed, all listed in Settings → Security, individually revocable |

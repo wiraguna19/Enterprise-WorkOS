@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
-import { setSessionLifetime } from "./actions";
+import { setSessionPolicy } from "./actions";
 
 /**
  * How long a session may live in this organization (ADR 0028).
@@ -29,21 +29,43 @@ const CHOICES: Array<{ days: number; label: string; note?: string }> = [
   { days: 90, label: "90 days", note: "The longest allowed." },
 ];
 
+/**
+ * The idle window, in minutes, and "never" as a real answer (ADR 0029).
+ *
+ * Off is the first entry and the default, because switching it on signs out
+ * everybody who has stepped away — a thing somebody should choose, not inherit.
+ */
+const IDLE_CHOICES: Array<{ minutes: number | null; label: string; note?: string }> = [
+  { minutes: null, label: "Never", note: "Only the lifetime above ends a session." },
+  { minutes: 30, label: "After 30 minutes" },
+  { minutes: 60, label: "After 1 hour" },
+  { minutes: 480, label: "After 8 hours", note: "A working day." },
+  { minutes: 1440, label: "After 24 hours" },
+  { minutes: 10080, label: "After 7 days", note: "The longest allowed." },
+];
+
 export function SessionPolicyForm({
   current,
+  currentIdle,
   editable,
 }: {
   current: number;
+  currentIdle: number | null;
   /** False for somebody who may read this page but not change it. */
   editable: boolean;
 }) {
   const [days, setDays] = useState(current);
+  const [idle, setIdle] = useState<number | null>(currentIdle);
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
 
-  const changed = days !== current;
+  const changed = days !== current || idle !== currentIdle;
   const shortening = days < current;
+  // Tightening the idle window bites on the next request rather than at save
+  // time, so it is worth saying out loud before the button is pressed.
+  const tightening =
+    idle !== currentIdle && idle !== null && (currentIdle === null || idle < currentIdle);
 
   return (
     <Panel
@@ -83,6 +105,40 @@ export function SessionPolicyForm({
           </select>
         </Field>
 
+        <Field
+          id="idle-timeout"
+          label="Sign out after inactivity"
+          hint={
+            editable
+              ? "Measured from the last request that session made. It takes effect on the next one, including for sessions that are already idle."
+              : "Changing this needs the organization settings permission."
+          }
+        >
+          <select
+            id="idle-timeout"
+            value={idle === null ? "never" : String(idle)}
+            disabled={!editable || busy}
+            onChange={(event) =>
+              setIdle(event.target.value === "never" ? null : Number(event.target.value))
+            }
+            className="w-56 rounded-md border border-n-300 bg-n-0 px-2 py-1.5 text-body-sm text-n-900 focus:border-a-500 focus:outline-none focus:ring-2 focus:ring-a-500/30 disabled:bg-n-50 disabled:text-n-500"
+          >
+            {IDLE_CHOICES.map((choice) => (
+              <option key={choice.label} value={choice.minutes === null ? "never" : choice.minutes}>
+                {choice.label}
+                {choice.note ? ` — ${choice.note}` : ""}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {tightening && (
+          <p className="rounded-md border border-s-active/30 bg-s-active/10 px-3 py-2 text-body-sm text-s-active">
+            Anybody who has already been away longer than that is signed out on their next
+            request — including, if you have been reading this page for a while, you.
+          </p>
+        )}
+
         {changed && shortening && (
           <p className="rounded-md border border-s-active/30 bg-s-active/10 px-3 py-2 text-body-sm text-s-active">
             Sessions open right now that would outlive {days} {days === 1 ? "day" : "days"} will be
@@ -98,7 +154,7 @@ export function SessionPolicyForm({
               disabled={!changed || busy}
               onClick={() =>
                 startAction(async () => {
-                  const result = await setSessionLifetime(days);
+                  const result = await setSessionPolicy(days, idle);
 
                   setError(result.error);
 
@@ -118,7 +174,15 @@ export function SessionPolicyForm({
             </Button>
 
             {changed && (
-              <Button variant="ghost" size="sm" disabled={busy} onClick={() => setDays(current)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setDays(current);
+                  setIdle(currentIdle);
+                }}
+              >
                 Cancel
               </Button>
             )}

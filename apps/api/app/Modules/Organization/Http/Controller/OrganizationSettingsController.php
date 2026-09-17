@@ -42,6 +42,7 @@ final class OrganizationSettingsController extends ApiController
             'name' => (string) $organization->name,
             'slug' => (string) $organization->slug,
             'session_lifetime_days' => (int) $organization->session_lifetime_days,
+            'idle_timeout_minutes' => $organization->idle_timeout_minutes,
         ]);
     }
 
@@ -58,7 +59,16 @@ final class OrganizationSettingsController extends ApiController
         $organization = $this->current();
         $days = $request->days();
 
-        $organization->forceFill(['session_lifetime_days' => $days])->save();
+        $changes = ['session_lifetime_days' => $days];
+
+        // Absent leaves it alone; null switches it off. A PATCH that treated a
+        // missing key as "off" would turn the idle timeout off every time
+        // somebody changed the lifetime beside it.
+        if ($request->touchesIdleWindow()) {
+            $changes['idle_timeout_minutes'] = $request->idleMinutes();
+        }
+
+        $organization->forceFill($changes)->save();
 
         $shortened = $this->lifetime->clampTo(
             (string) $organization->id,
@@ -68,6 +78,7 @@ final class OrganizationSettingsController extends ApiController
 
         return $this->ok([
             'session_lifetime_days' => $days,
+            'idle_timeout_minutes' => $organization->idle_timeout_minutes,
             // Reported, not hidden. This number is the difference between a
             // setting and a consequence, and the person who pressed the button
             // is the one who should learn it first.

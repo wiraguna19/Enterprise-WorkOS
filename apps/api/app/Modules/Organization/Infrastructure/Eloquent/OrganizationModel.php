@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $status
  * @property array<string, mixed> $settings
  * @property int $session_lifetime_days
+ * @property int|null $idle_timeout_minutes
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  * @property CarbonImmutable|null $deleted_at
@@ -38,6 +39,7 @@ final class OrganizationModel extends BaseModel
         return [
             'settings' => 'array',
             'session_lifetime_days' => 'integer',
+            'idle_timeout_minutes' => 'integer',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
             'deleted_at' => 'immutable_datetime',
