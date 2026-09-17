@@ -33,6 +33,9 @@ export type PersonRef = {
 };
 
 export type PersonDetail = Person & {
+  /** Whether a second factor is on — sent only to somebody who may take it
+   *  off, and null to everybody else (ADR 0031). */
+  mfa_enabled: boolean | null;
   roles: Array<{ id: string; key: string; name: string }>;
   manager: PersonRef | null;
   direct_reports: PersonRef[];

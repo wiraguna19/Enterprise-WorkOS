@@ -11,6 +11,7 @@ use App\Modules\Identity\Domain\Support\Totp;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
+use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
@@ -41,6 +42,7 @@ final class MultiFactor
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly AuthenticationService $auth,
+        private readonly TenantContext $tenant,
     ) {}
 
     /**
@@ -85,6 +87,9 @@ final class MultiFactor
                 $secret,
                 (string) $user->email,
                 (string) config('app.name'),
+                // The date this entry was made, so a re-enrolment can be told
+                // apart from the dead entry beside it (ADR 0031).
+                now()->format('j M Y'),
             ),
         ];
     }
@@ -209,6 +214,79 @@ final class MultiFactor
         $this->audit->record('auth.mfa_disabled', [], $request, actorUserId: (string) $user->getKey());
 
         $this->auth->revokeOtherSessions($user, 'mfa_changed', $request);
+    }
+
+    /**
+     * Take somebody else's second factor off, because they cannot (ADR 0031).
+     *
+     * The gap this fills was found the only way it could be: somebody lost
+     * their authenticator entry and their recovery codes on the same afternoon,
+     * and this product's answer was a row in `psql`. In a real organization the
+     * answer is a help desk, and a help desk that has to ask an engineer is a
+     * help desk that does not exist.
+     *
+     * **A factor belongs to a person, not to a membership**, and this is the
+     * uncomfortable part: an administrator of one organization is removing the
+     * protection on an account that may also belong to another. Refusing in
+     * that case would leave exactly the people with the most to lose — somebody
+     * working across two tenants — with no way back in at all, so the act is
+     * allowed and the audit event is written into EVERY organization the person
+     * belongs to. The other tenant does not get a veto; it gets the truth,
+     * immediately, in the log its administrators already read.
+     *
+     * Sessions are left alone. The person whose factor this was did not do
+     * anything wrong, and signing them out of everything on the day they are
+     * already locked out would be the product kicking somebody who is down.
+     * What an attacker gains from this act is nothing they did not need anyway:
+     * the password is still required, and taking a factor off is an audited,
+     * attributed act in a way that quietly knowing a password is not.
+     */
+    public function revokeFor(UserModel $target, Request $request): void
+    {
+        if (! $target->hasMfaEnabled()) {
+            throw new MultiFactorRefused(
+                'Two-factor authentication is not on for this account.',
+                ['refusal' => 'not_enabled'],
+            );
+        }
+
+        $target->forceFill([
+            'mfa_secret_encrypted' => null,
+            'mfa_enabled_at' => null,
+            'mfa_recovery_codes' => null,
+            'mfa_last_counter' => null,
+        ])->save();
+
+        // Platform mode, not `withoutGlobalScopes()`. `TenantIsolationTest`
+        // refuses the second on sight, and it is right to: a crossing between
+        // tenants has to be logged and reviewable, and this one is a crossing
+        // by definition — the whole point is to find the organizations OTHER
+        // than the one the administrator stands in.
+        /** @var list<string> $organizations */
+        $organizations = $this->tenant->runAsPlatform(
+            'mfa revoked by an administrator; the audit entry belongs in every organization this person belongs to',
+            fn (): array => MembershipModel::query()
+                ->where('user_id', $target->getKey())
+                ->where('status', 'active')
+                ->whereNull('revoked_at')
+                ->pluck('organization_id')
+                ->all(),
+        );
+
+        foreach ($organizations as $organizationId) {
+            // Bound to each organization rather than recorded once in the
+            // actor's own: the audit view is tenant-scoped, so an event written
+            // only where the administrator stands is an event the OTHER
+            // organization — the one that also relied on this factor — can
+            // never see. The same trap as the login event in
+            // `AuthenticationService`, which spent six phases invisible to the
+            // organization it was a login to.
+            $this->tenant->runFor((string) $organizationId, fn () => $this->audit->record(
+                'auth.mfa_revoked_by_admin',
+                ['target_user_id' => (string) $target->getKey()],
+                $request,
+            ));
+        }
     }
 
     /**

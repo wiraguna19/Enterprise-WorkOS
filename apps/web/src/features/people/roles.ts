@@ -131,3 +131,22 @@ export async function erasePerson(membershipId: string): Promise<RoleResult> {
 
   return { error: null };
 }
+
+/**
+ * Taking a lost second factor off somebody's account (ADR 0031).
+ *
+ * No password field here, unlike the self-service path: the administrator is
+ * not proving anything about themselves, they are acting on somebody else under
+ * a permission and an audit entry that carries their name.
+ */
+export async function revokeMfa(membershipId: string): Promise<{ error: string | null }> {
+  try {
+    await api(`/people/${membershipId}/mfa`, { method: "DELETE" });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  revalidatePath(`/people/${membershipId}`);
+
+  return { error: null };
+}

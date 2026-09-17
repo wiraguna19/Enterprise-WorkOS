@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
-import { ErasePerson } from "@/features/people/ErasePerson";
 import { PageBody } from "@/components/ui/PageBody";
+import { ErasePerson } from "@/features/people/ErasePerson";
 import { PersonDenials, type Denial } from "@/features/people/PersonDenials";
 import {
   PersonAside,
@@ -10,6 +10,7 @@ import {
   PersonWork,
 } from "@/features/people/PersonProfile";
 import { PersonRoles, type Grant, type Scope } from "@/features/people/PersonRoles";
+import { RevokeMfa } from "@/features/people/RevokeMfa";
 import type { PersonDetail, Workload } from "@/features/people/types";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
@@ -124,6 +125,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             mayManage={mayManageRoles}
             permissions={permissions}
             scopes={scopes}
+          />
+        )}
+
+        {person.permissions.revoke_mfa && person.mfa_enabled !== null && (
+          <RevokeMfa
+            membershipId={id}
+            name={person.name}
+            enabled={person.mfa_enabled}
           />
         )}
 

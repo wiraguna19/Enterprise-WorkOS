@@ -63,6 +63,14 @@ Route::get('people/{membership}', [PersonController::class, 'show'])
 Route::post('people/{membership}/erase', [PersonController::class, 'erase'])
     ->middleware(['permission:person.deactivate', 'throttle:writes']);
 
+// ── Unlocking somebody who has lost their phone (ADR 0031) ──────────────────
+// Behind the same permission as erasure: it is already the key that means "I
+// may take this person's access away", and a help desk trusted with that and
+// not with unlocking somebody is a split nobody could defend. Never on
+// yourself — the self-service path asks for a password for a reason.
+Route::delete('people/{membership}/mfa', [PersonController::class, 'revokeMfa'])
+    ->middleware(['permission:person.deactivate', 'throttle:writes']);
+
 // ── Who may do what, and where (ADR 0016) ───────────────────────────────────
 // A grant is always scoped to one project, team or department. Making an
 // organization-wide administrator is a different act with a different blast

@@ -97,6 +97,29 @@ final class MembershipPolicy
     }
 
     /**
+     * Take somebody else's second factor off, because they cannot (ADR 0031).
+     *
+     * `person.deactivate` rather than a key of its own, and the argument is not
+     * only economy. It is already the permission that means "I may take this
+     * person's access away"; a help desk trusted to end somebody's access
+     * entirely and not trusted to unlock them is a split nobody could defend.
+     * A new key would also have to be granted — in the seed AND by migration to
+     * roles that already exist — and this codebase has already shipped a
+     * permission granted to nobody once (`report.view`, ADR 0028's neighbour),
+     * where the feature simply did not exist for the role it was written for.
+     *
+     * Self is refused, and this is the important half. The self-service path
+     * asks for the password (ADR 0030) precisely because removing a factor is
+     * what somebody does with a laptop left unlocked — and an administrator who
+     * could take their OWN factor off through here would have walked around
+     * that with one click.
+     */
+    public function revokeMfa(UserModel $user, MembershipModel $membership): bool
+    {
+        return ! $this->isSelf($membership) && $this->can('person.deactivate');
+    }
+
+    /**
      * What this person may do, and where.
      *
      * The gate is about the SCOPED half. A person's org-wide roles are already

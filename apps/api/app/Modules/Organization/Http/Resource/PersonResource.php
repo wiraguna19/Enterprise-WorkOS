@@ -12,9 +12,16 @@ use App\Modules\Platform\Http\Resource\BaseResource;
 /**
  * A person, as seen inside one organization.
  *
- * Note what is NOT here: the user's other organizations, their global account
- * state, their MFA status. A membership resource exposes the tenant-local view
- * of a human and nothing that belongs to their identity elsewhere.
+ * Note what is NOT here: the user's other organizations, or their global
+ * account state. A membership resource exposes the tenant-local view of a human
+ * and nothing that belongs to their identity elsewhere.
+ *
+ * ONE exception, added deliberately (ADR 0031): whether a second factor is on,
+ * in the profile view, and only for somebody who may take it off. It is
+ * identity-level state, so it does not belong here by the rule above — but the
+ * alternative is an Unlock control that is always offered and refuses half the
+ * time, which teaches people to press it and see. A permission decides who
+ * learns it, which is the same answer this resource gives everywhere else.
  *
  * One resource serves both the directory and the profile, but the profile
  * fields are opt-in through detail() rather than inferred from whatever the
@@ -49,6 +56,7 @@ final class PersonResource extends BaseResource
             'update' => 'update',
             'deactivate' => 'deactivate',
             'erase' => 'erase',
+            'revoke_mfa' => 'revokeMfa',
             'view_workload' => 'viewWorkload',
         ]);
 
@@ -88,6 +96,11 @@ final class PersonResource extends BaseResource
         $manager = $profile?->manager;
 
         $fields = [
+            // Identity-level, and sent only to whoever may act on it.
+            'mfa_enabled' => ($permissions['revoke_mfa'] ?? false)
+                ? $this->resource->user?->hasMfaEnabled() ?? false
+                : null,
+
             'roles' => $this->resource->roles
                 ->map(static fn (RoleModel $role): array => [
                     'id' => $role->id,

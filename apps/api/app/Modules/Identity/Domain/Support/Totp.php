@@ -129,10 +129,24 @@ final class Totp
      * The issuer appears twice — in the label and as a parameter — because
      * apps disagree about which one they read, and an account listed as
      * "unknown" is one a person deletes by accident.
+     *
+     * The label carries a date when one is given (ADR 0031). Authenticator apps
+     * do not replace an entry whose label matches; they add a second one. So
+     * somebody who enrols twice ends up with two identical "Work OS:
+     * you@example.com" entries, one of them dead, and no way to tell which —
+     * which reads as "the app keeps giving me wrong codes". Found by exactly
+     * that confusion. A date is enough to tell them apart and to know which one
+     * to delete.
      */
-    public static function provisioningUri(string $secret, string $account, string $issuer): string
-    {
-        return 'otpauth://totp/'.rawurlencode($issuer).':'.rawurlencode($account).'?'.http_build_query([
+    public static function provisioningUri(
+        string $secret,
+        string $account,
+        string $issuer,
+        ?string $enrolledOn = null,
+    ): string {
+        $label = $enrolledOn === null ? $account : $account.' ('.$enrolledOn.')';
+
+        return 'otpauth://totp/'.rawurlencode($issuer).':'.rawurlencode($label).'?'.http_build_query([
             'secret' => $secret,
             'issuer' => $issuer,
             'algorithm' => 'SHA1',

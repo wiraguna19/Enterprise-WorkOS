@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Organization\Http\Controller;
 
+use App\Modules\Identity\Application\Service\MultiFactor;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Organization\Application\Service\PersonErasure;
 use App\Modules\Organization\Http\Resource\PersonResource;
@@ -17,7 +18,10 @@ use Illuminate\Http\Request;
 
 final class PersonController extends ApiController
 {
-    public function __construct(private readonly PersonErasure $erasure) {}
+    public function __construct(
+        private readonly PersonErasure $erasure,
+        private readonly MultiFactor $mfa,
+    ) {}
 
     /**
      * Erase a person from this organization (ADR 0022).
@@ -35,6 +39,31 @@ final class PersonController extends ApiController
         $this->authorize('erase', $membership);
 
         return $this->ok($this->erasure->erase($membership, $request));
+    }
+
+    /**
+     * Unlock somebody who has lost both their phone and their recovery codes
+     * (ADR 0031).
+     *
+     * Until this existed the answer was a row in `psql`, which is not an answer
+     * — it was found by somebody locking themselves out of the seed data an
+     * hour after two-factor shipped.
+     */
+    public function revokeMfa(Request $request, MembershipModel $membership): ApiResponse
+    {
+        $this->authorize('revokeMfa', $membership);
+
+        $user = $membership->user;
+
+        if ($user === null) {
+            // A membership whose user is gone: nothing to unlock, and a 404 is
+            // the honest answer rather than a 500 from a null.
+            abort(404);
+        }
+
+        $this->mfa->revokeFor($user, $request);
+
+        return $this->noContent();
     }
 
     public function index(Request $request): ApiResponse
