@@ -55,7 +55,28 @@ type RequestOptions = {
  * graph editor claimed in their own comments to "print the refusal verbatim",
  * and both were printing the metadata instead.
  */
-export function describeApiError(error: unknown): { error: string; requestId?: string } {
+/**
+ * `code` comes back as well as the sentence (ADR 0034).
+ *
+ * Callers branch on the code and never on the message (docs/05 §3), and until
+ * now this helper threw the code away — which was fine while every refusal
+ * meant the same thing to the interface. "Confirm your password" does not: it
+ * is the one refusal a screen answers with a form rather than with red text.
+ */
+/**
+ * The code the API answers with when an act needs the password again
+ * (ADR 0034).
+ *
+ * Here rather than beside the Server Action that uses it: a `"use server"`
+ * module may only export async functions, so a constant in one is a build
+ * error — and the codes this app branches on belong with the client that
+ * receives them anyway.
+ */
+export const REAUTH_CODE = "auth.reauthentication_required";
+
+export function describeApiError(
+  error: unknown,
+): { error: string; code?: string; requestId?: string } {
   if (!(error instanceof ApiRequestError)) {
     return { error: "We could not reach the server. Please try again." };
   }
@@ -66,10 +87,12 @@ export function describeApiError(error: unknown): { error: string; requestId?: s
     const fields = (error.error.details ?? {}) as Record<string, string[]>;
     const messages = Object.values(fields).flat();
 
-    if (messages.length > 0) return { error: messages.join(" "), requestId };
+    if (messages.length > 0) {
+      return { error: messages.join(" "), code: error.error.code, requestId };
+    }
   }
 
-  return { error: error.error.message, requestId };
+  return { error: error.error.message, code: error.error.code, requestId };
 }
 
 export async function api<T>(

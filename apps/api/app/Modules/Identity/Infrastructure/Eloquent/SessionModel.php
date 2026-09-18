@@ -36,6 +36,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  * @property string|null $user_agent
  * @property CarbonImmutable|null $last_used_at
  * @property CarbonImmutable $expires_at
+ * @property CarbonImmutable|null $reauthenticated_at
  * @property CarbonImmutable|null $revoked_at
  * @property string|null $revoked_reason
  * @property CarbonImmutable $created_at
@@ -65,6 +66,7 @@ final class SessionModel extends PersonalAccessToken
             'abilities' => 'array',
             'last_used_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',
+            'reauthenticated_at' => 'immutable_datetime',
             'revoked_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
         ];

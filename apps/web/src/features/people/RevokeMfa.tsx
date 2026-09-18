@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { revokeMfa } from "./roles";
@@ -30,8 +31,23 @@ export function RevokeMfa({
   enabled: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [needsPassword, setNeedsPassword] = useState(false);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+
+  const remove = () =>
+    startAction(async () => {
+      const result = await revokeMfa(membershipId);
+
+      // The refusal that asks for a password is not an error to show in red:
+      // it is a form (ADR 0034).
+      setNeedsPassword(result.needsPassword === true);
+      setError(result.needsPassword === true ? null : result.error);
+
+      if (result.error === null) {
+        toast({ tone: "removed", message: `Two-factor removed for ${name}.` });
+      }
+    });
 
   if (!enabled) {
     return (
@@ -71,21 +87,21 @@ export function RevokeMfa({
           variant="destructive"
           size="sm"
           disabled={busy}
-          onClick={() =>
-            startAction(async () => {
-              const result = await revokeMfa(membershipId);
-
-              setError(result.error);
-
-              if (result.error === null) {
-                toast({ tone: "removed", message: `Two-factor removed for ${name}.` });
-              }
-            })
-          }
+          onClick={remove}
         >
           {busy ? "Removing…" : "Remove two-factor"}
         </Button>
       </div>
+
+      {needsPassword && (
+        <ConfirmPassword
+          action={`remove two-factor for ${name}`}
+          onConfirmed={() => {
+            setNeedsPassword(false);
+            remove();
+          }}
+        />
+      )}
     </Panel>
   );
 }

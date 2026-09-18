@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { api, ApiRequestError, describeApiError } from "@/lib/api";
+import { api, ApiRequestError, describeApiError, REAUTH_CODE } from "@/lib/api";
 
 export type StructureResult = { error: string | null; requestId?: string; id?: string };
 
@@ -153,7 +153,12 @@ export async function createTeam(input: {
  * the new window at the moment the change landed, and that number is the
  * difference between a setting and a consequence.
  */
-export type SessionPolicyResult = { error: string | null; shortened: number };
+export type SessionPolicyResult = {
+  error: string | null;
+  shortened: number;
+  /** The server wants the password again before this act (ADR 0034). */
+  needsPassword?: boolean;
+};
 
 export async function setSessionPolicy(
   days: number,
@@ -173,7 +178,13 @@ export async function setSessionPolicy(
 
     return { error: null, shortened: data.sessions_shortened };
   } catch (error) {
-    return { error: describeApiError(error).error, shortened: 0 };
+    const described = describeApiError(error);
+
+    return {
+      error: described.error,
+      shortened: 0,
+      needsPassword: described.code === REAUTH_CODE,
+    };
   }
 }
 
@@ -186,7 +197,11 @@ export async function setSessionPolicy(
  * administrator should learn the size of what they just did from the product,
  * not from the people it happened to.
  */
-export type MfaPolicyResult = { error: string | null; confined: number };
+export type MfaPolicyResult = {
+  error: string | null;
+  confined: number;
+  needsPassword?: boolean;
+};
 
 export async function setMfaPolicy(required: boolean): Promise<MfaPolicyResult> {
   try {
@@ -199,6 +214,12 @@ export async function setMfaPolicy(required: boolean): Promise<MfaPolicyResult> 
 
     return { error: null, confined: data.people_confined };
   } catch (error) {
-    return { error: describeApiError(error).error, confined: 0 };
+    const described = describeApiError(error);
+
+    return {
+      error: described.error,
+      confined: 0,
+      needsPassword: described.code === REAUTH_CODE,
+    };
   }
 }

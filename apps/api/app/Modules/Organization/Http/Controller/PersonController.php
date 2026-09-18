@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Organization\Http\Controller;
 
 use App\Modules\Identity\Application\Service\MultiFactor;
+use App\Modules\Identity\Application\Service\RecentAuthentication;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Organization\Application\Service\PersonErasure;
 use App\Modules\Organization\Http\Resource\PersonResource;
@@ -21,6 +22,7 @@ final class PersonController extends ApiController
     public function __construct(
         private readonly PersonErasure $erasure,
         private readonly MultiFactor $mfa,
+        private readonly RecentAuthentication $recent,
     ) {}
 
     /**
@@ -37,6 +39,9 @@ final class PersonController extends ApiController
     public function erase(Request $request, MembershipModel $membership): ApiResponse
     {
         $this->authorize('erase', $membership);
+        // Irreversible, and done from a screen somebody may have left open
+        // (ADR 0034).
+        $this->recent->require($request);
 
         return $this->ok($this->erasure->erase($membership, $request));
     }
@@ -52,6 +57,9 @@ final class PersonController extends ApiController
     public function revokeMfa(Request $request, MembershipModel $membership): ApiResponse
     {
         $this->authorize('revokeMfa', $membership);
+        // Taking away somebody else's protection is exactly the act an unlocked
+        // laptop is useful for (ADR 0034).
+        $this->recent->require($request);
 
         $user = $membership->user;
 

@@ -48,6 +48,7 @@ client-side JavaScript, so an XSS payload cannot exfiltrate it.
 | Idle timeout | Set per organization, 5 minutes to 7 days, off by default (ADR 0029). Measured from the session's last request; an idle session is revoked with the reason `idle_timeout` on its next one. |
 | Absolute lifetime | Set per organization, 1–90 days, default 30 (ADR 0028). Lowering it clamps sessions that are already open; raising it governs the next sign-in only. |
 | Rotation | New token on privilege change and on password change |
+| Re-authentication | The password again, within 15 minutes, before erasing a person, removing somebody else's second factor, or changing either organization policy (ADR 0034). Refused with 403 and a prompt, never 401 — the session stays. |
 | Concurrent sessions | Allowed, all listed in Settings → Security, individually revocable |
 | Revoke-all triggers | Password change, MFA change, role change, membership revocation |
 | Storage | `sessions.token_hash` (SHA-256). The raw token is never persisted. |

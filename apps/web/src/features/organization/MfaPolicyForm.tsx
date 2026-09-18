@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { setMfaPolicy } from "./actions";
@@ -29,8 +30,28 @@ export function MfaPolicyForm({
   editable: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [needsPassword, setNeedsPassword] = useState(false);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+
+  const save = () =>
+    startAction(async () => {
+      const result = await setMfaPolicy(!required);
+
+      setNeedsPassword(result.needsPassword === true);
+      setError(result.needsPassword === true ? null : result.error);
+
+      if (result.error === null) {
+        toast({
+          tone: required ? "removed" : "done",
+          message: required
+            ? "Two-factor is optional here again."
+            : result.confined > 0
+              ? `Two-factor is required. ${result.confined} ${result.confined === 1 ? "person has" : "people have"} yet to enrol.`
+              : "Two-factor is required. Everybody here already has one.",
+        });
+      }
+    });
 
   return (
     <Panel
@@ -71,27 +92,20 @@ export function MfaPolicyForm({
             variant={required ? "destructive" : "affirmative"}
             size="sm"
             disabled={busy}
-            onClick={() =>
-              startAction(async () => {
-                const result = await setMfaPolicy(!required);
-
-                setError(result.error);
-
-                if (result.error === null) {
-                  toast({
-                    tone: required ? "removed" : "done",
-                    message: required
-                      ? "Two-factor is optional here again."
-                      : result.confined > 0
-                        ? `Two-factor is required. ${result.confined} ${result.confined === 1 ? "person has" : "people have"} yet to enrol.`
-                        : "Two-factor is required. Everybody here already has one.",
-                  });
-                }
-              })
-            }
+            onClick={save}
           >
             {busy ? "Saving…" : required ? "Stop requiring it" : "Require it"}
           </Button>
+        )}
+
+        {needsPassword && (
+          <ConfirmPassword
+            action={required ? "stop requiring two-factor" : "require two-factor of everybody here"}
+            onConfirmed={() => {
+              setNeedsPassword(false);
+              save();
+            }}
+          />
         )}
       </div>
     </Panel>

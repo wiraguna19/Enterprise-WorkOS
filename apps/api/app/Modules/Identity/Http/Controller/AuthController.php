@@ -7,6 +7,7 @@ namespace App\Modules\Identity\Http\Controller;
 use App\Modules\Identity\Application\Service\AuthenticationService;
 use App\Modules\Identity\Application\Service\MultiFactor;
 use App\Modules\Identity\Application\Service\PermissionResolver;
+use App\Modules\Identity\Application\Service\RecentAuthentication;
 use App\Modules\Identity\Application\Service\SessionDirectory;
 use App\Modules\Identity\Http\Request\LoginRequest;
 use App\Modules\Identity\Http\Request\MfaCodeRequest;
@@ -34,6 +35,7 @@ final class AuthController extends ApiController
         private readonly SessionDirectory $sessions,
         private readonly MultiFactor $mfa,
         private readonly SessionPolicy $sessionPolicy,
+        private readonly RecentAuthentication $recent,
     ) {}
 
     public function login(LoginRequest $request): ApiResponse
@@ -103,6 +105,24 @@ final class AuthController extends ApiController
         return $this->ok([
             'recovery_codes' => $this->mfa->confirm($user, $request->string('code')->toString(), $request),
         ]);
+    }
+
+    /**
+     * Prove the password again, without signing in again (ADR 0034).
+     *
+     * Its own endpoint rather than a field on each sensitive act: the person
+     * has already pressed a button and been asked to confirm, and threading a
+     * password through four different request bodies would put a password field
+     * in four places that do not otherwise have one.
+     */
+    public function reauthenticate(PasswordConfirmationRequest $request): ApiResponse
+    {
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        $this->recent->confirm($user, $request->string('password')->toString(), $request);
+
+        return $this->noContent();
     }
 
     public function disableMfa(PasswordConfirmationRequest $request): ApiResponse

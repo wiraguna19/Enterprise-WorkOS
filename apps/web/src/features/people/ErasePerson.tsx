@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
@@ -34,9 +35,30 @@ export function ErasePerson({
   erasedAt: string | null;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [needsPassword, setNeedsPassword] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, startAction] = useTransition();
   const toast = useToast();
+
+  const erase = () =>
+    startAction(async () => {
+      const result = await erasePerson(membershipId);
+
+      // "Confirm your password" is a form, not red text (ADR 0034). The typed
+      // name is kept while it is answered: making somebody type it twice to
+      // satisfy two different confirmations is how a deliberate act becomes a
+      // chore people learn to rush.
+      setNeedsPassword(result.needsPassword === true);
+      setError(result.needsPassword === true ? null : result.error);
+
+      if (result.error === null) {
+        setTyped("");
+        toast({
+          tone: "removed",
+          message: `${name} is erased. The audit log keeps a record that it happened.`,
+        });
+      }
+    });
 
   if (erasedAt !== null) {
     return (
@@ -83,16 +105,7 @@ export function ErasePerson({
         onSubmit={(event) => {
           event.preventDefault();
 
-          startAction(async () => {
-            const result = await erasePerson(membershipId);
-
-            setError(result.error);
-
-            if (result.error === null) {
-              setTyped("");
-              toast({ tone: "removed", message: `${name} is erased. The audit log keeps a record that it happened.` });
-            }
-          });
+          erase();
         }}
       >
         <Field id="erase-confirm" label={`Type “${name}” to confirm`}>
@@ -109,6 +122,16 @@ export function ErasePerson({
           Erase
         </Button>
       </form>
+
+      {needsPassword && (
+        <ConfirmPassword
+          action={`erase ${name}`}
+          onConfirmed={() => {
+            setNeedsPassword(false);
+            erase();
+          }}
+        />
+      )}
     </Panel>
   );
 }

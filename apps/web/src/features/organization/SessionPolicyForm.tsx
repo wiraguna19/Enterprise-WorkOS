@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Field } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
@@ -57,8 +58,27 @@ export function SessionPolicyForm({
   const [days, setDays] = useState(current);
   const [idle, setIdle] = useState<number | null>(currentIdle);
   const [error, setError] = useState<string | null>(null);
+  const [needsPassword, setNeedsPassword] = useState(false);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+
+  const save = () =>
+    startAction(async () => {
+      const result = await setSessionPolicy(days, idle);
+
+      setNeedsPassword(result.needsPassword === true);
+      setError(result.needsPassword === true ? null : result.error);
+
+      if (result.error === null) {
+        toast({
+          tone: result.shortened > 0 ? "removed" : "done",
+          message:
+            result.shortened > 0
+              ? `Sessions now last ${days} ${days === 1 ? "day" : "days"}. ${result.shortened} open ${result.shortened === 1 ? "session was" : "sessions were"} shortened.`
+              : `Sessions now last ${days} ${days === 1 ? "day" : "days"}.`,
+        });
+      }
+    });
 
   const changed = days !== current || idle !== currentIdle;
   const shortening = days < current;
@@ -152,23 +172,7 @@ export function SessionPolicyForm({
               variant="primary"
               size="sm"
               disabled={!changed || busy}
-              onClick={() =>
-                startAction(async () => {
-                  const result = await setSessionPolicy(days, idle);
-
-                  setError(result.error);
-
-                  if (result.error === null) {
-                    toast({
-                      tone: result.shortened > 0 ? "removed" : "done",
-                      message:
-                        result.shortened > 0
-                          ? `Sessions now last ${days} ${days === 1 ? "day" : "days"}. ${result.shortened} open ${result.shortened === 1 ? "session was" : "sessions were"} shortened.`
-                          : `Sessions now last ${days} ${days === 1 ? "day" : "days"}.`,
-                    });
-                  }
-                })
-              }
+              onClick={save}
             >
               {busy ? "Saving…" : "Save"}
             </Button>
@@ -187,6 +191,16 @@ export function SessionPolicyForm({
               </Button>
             )}
           </div>
+        )}
+
+        {needsPassword && (
+          <ConfirmPassword
+            action="change how long sessions last here"
+            onConfirmed={() => {
+              setNeedsPassword(false);
+              save();
+            }}
+          />
         )}
       </div>
     </Panel>

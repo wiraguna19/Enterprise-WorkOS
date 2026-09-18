@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { api, describeApiError } from "@/lib/api";
+import { api, describeApiError, REAUTH_CODE } from "@/lib/api";
 
 /**
  * Granting and revoking authority over one thing (ADR 0016).
@@ -13,10 +13,19 @@ import { api, describeApiError } from "@/lib/api";
  * first version of this printed `already_organization_wide manager` at the
  * person, which is a refusal code wearing a message's clothes.
  */
-export type RoleResult = { error: string | null };
+export type RoleResult = {
+  error: string | null;
+  /** The server wants the password again before this act (ADR 0034). */
+  needsPassword?: boolean;
+};
 
 function failure(error: unknown): RoleResult {
-  return { error: describeApiError(error).error };
+  const described = describeApiError(error);
+
+  // Every refusal here goes through one function, so the one refusal a screen
+  // answers with a form rather than with red text is recognised everywhere at
+  // once.
+  return { error: described.error, needsPassword: described.code === REAUTH_CODE };
 }
 
 export async function grantRole(
@@ -139,11 +148,11 @@ export async function erasePerson(membershipId: string): Promise<RoleResult> {
  * not proving anything about themselves, they are acting on somebody else under
  * a permission and an audit entry that carries their name.
  */
-export async function revokeMfa(membershipId: string): Promise<{ error: string | null }> {
+export async function revokeMfa(membershipId: string): Promise<RoleResult> {
   try {
     await api(`/people/${membershipId}/mfa`, { method: "DELETE" });
   } catch (error) {
-    return { error: describeApiError(error).error };
+    return failure(error);
   }
 
   revalidatePath(`/people/${membershipId}`);

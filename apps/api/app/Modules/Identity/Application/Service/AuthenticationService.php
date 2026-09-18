@@ -196,6 +196,10 @@ final class AuthenticationService
                 'ip_address' => $request->ip(),
                 'user_agent' => Str::limit((string) $request->userAgent(), 500, ''),
                 'expires_at' => now()->addDays($lifetimeDays),
+                // Signing in IS proving yourself, so the window for sensitive
+                // acts opens here (ADR 0034) rather than making somebody type
+                // their password twice in a row.
+                'reauthenticated_at' => now(),
                 'created_at' => now(),
             ])->save();
 

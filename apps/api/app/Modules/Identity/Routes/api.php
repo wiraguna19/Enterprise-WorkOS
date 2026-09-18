@@ -50,6 +50,13 @@ Route::prefix('auth')->group(function (): void {
         // gate, for the same reason the session endpoints have none: this is an
         // account deciding about itself, and an organization-wide key would
         // mean an administrator could be refused their own security settings.
+        // "Prove it again" for the sensitive acts (ADR 0034). Throttled like
+        // login, because it takes a password and is reachable with a session
+        // somebody else may be holding.
+        Route::post('reauthenticate', [AuthController::class, 'reauthenticate'])
+            ->middleware('throttle:login')
+            ->name('auth.reauthenticate');
+
         Route::post('mfa', [AuthController::class, 'beginMfa'])
             ->middleware('throttle:writes')
             ->name('auth.mfa.begin');

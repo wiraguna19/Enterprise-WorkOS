@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Organization\Http\Controller;
 
+use App\Modules\Identity\Application\Service\RecentAuthentication;
 use App\Modules\Identity\Application\Service\SessionLifetime;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Organization\Http\Request\UpdateMfaPolicyRequest;
@@ -34,6 +35,7 @@ final class OrganizationSettingsController extends ApiController
     public function __construct(
         private readonly TenantContext $tenant,
         private readonly SessionLifetime $lifetime,
+        private readonly RecentAuthentication $recent,
     ) {}
 
     public function show(): ApiResponse
@@ -65,6 +67,10 @@ final class OrganizationSettingsController extends ApiController
      */
     public function updateMfaPolicy(UpdateMfaPolicyRequest $request): ApiResponse
     {
+        // Changes what everybody in the organization must do before their next
+        // request, so it asks who is asking (ADR 0034).
+        $this->recent->require($request);
+
         $organization = $this->current();
 
         $organization->forceFill(['require_mfa' => $request->required()])->save();
@@ -85,6 +91,11 @@ final class OrganizationSettingsController extends ApiController
      */
     public function updateSessionPolicy(UpdateSessionPolicyRequest $request): ApiResponse
     {
+        // Shortening the window signs devices out early; lengthening it keeps
+        // them alive for longer. Both are the kind of change somebody would
+        // make quietly from a borrowed screen (ADR 0034).
+        $this->recent->require($request);
+
         $organization = $this->current();
         $days = $request->days();
 
