@@ -80,7 +80,10 @@ const MEANING_OWED = [
     'comment.delete_any' => 'Comments can be written and edited; nothing deletes one.',
     'file.delete_any' => 'Attachments can be uploaded and listed; nothing removes one.',
 
-    'workflow.run_rule' => 'Phase 7 — the rule screens show what a rule DID and cannot make it run.',
+    // `workflow.run_rule` was the last entry, and its note read: "the rule
+    // screens show what a rule DID and cannot make it run." `POST
+    // /workflow-rules/{id}/run` pays it (ADR 0035) — preview by default, apply
+    // on request, both behind that key.
 ];
 
 /** Every permission the catalogue declares. */

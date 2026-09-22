@@ -29,6 +29,15 @@ Route::get('workflow-rules', [WorkflowController::class, 'rules'])
 Route::get('workflow-rules/{id}/runs', [WorkflowController::class, 'ruleRuns'])
     ->middleware('permission:workflow.manage');
 
+// ── Trying a rule (ADR 0035) ────────────────────────────────────────────────
+// `workflow.run_rule` has been in the catalogue since Phase 3, ticked in the
+// role builder, and consulted by nothing — the last entry on the permission
+// bill. One route, two behaviours: preview by default, and `apply: true` to
+// make it happen. Both need the same permission, because a preview of what a
+// rule would do to a real item is itself a read of the automation's behaviour.
+Route::post('workflow-rules/{id}/run', [WorkflowController::class, 'runRule'])
+    ->middleware(['permission:workflow.run_rule', 'throttle:writes']);
+
 // What a rule may legally say. Read by the builder so the interface cannot
 // offer a trigger, operator or action the engine does not implement — the same
 // permission as reading the rules, because it describes nothing but this

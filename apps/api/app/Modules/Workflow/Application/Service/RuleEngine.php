@@ -115,6 +115,39 @@ final class RuleEngine
     }
 
     /**
+     * Run ONE rule, now, because a person asked (ADR 0035).
+     *
+     * Everything the engine does for an event, minus the event: same
+     * conditions, same actions, same run log, same failure counting — because a
+     * "try it" that took a different path would be testing the try-it button
+     * rather than the rule.
+     *
+     * A causation id of its own, so a cascade started by hand can be followed
+     * exactly like one started by a status change, and the same depth ceiling
+     * applies to what it sets off.
+     *
+     * @param  array<string, mixed>  $facts
+     * @return array<string, mixed>
+     */
+    public function runNow(
+        WorkflowRuleModel $rule,
+        string $subjectType,
+        string $subjectId,
+        array $facts,
+        string $triggeredByMembershipId,
+    ): array {
+        return $this->runOne(
+            $rule,
+            $subjectType,
+            $subjectId,
+            $facts,
+            (string) new UuidV7,
+            depth: 0,
+            triggeredBy: $triggeredByMembershipId,
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $facts
      * @return array<string, mixed>
      */
@@ -125,6 +158,7 @@ final class RuleEngine
         array $facts,
         string $causationId,
         int $depth,
+        ?string $triggeredBy = null,
     ): array {
         $startedAt = microtime(true);
 
@@ -143,6 +177,7 @@ final class RuleEngine
                     actionsRun: [],
                     error: null,
                     durationMs: $this->elapsed($startedAt),
+                    triggeredBy: $triggeredBy,
                 );
 
                 return ['rule' => $rule->name, 'outcome' => 'skipped'];
@@ -175,6 +210,7 @@ final class RuleEngine
                 actionsRun: $ran,
                 error: null,
                 durationMs: $this->elapsed($startedAt),
+                triggeredBy: $triggeredBy,
             );
 
             return ['rule' => $rule->name, 'outcome' => 'applied', 'actions' => $ran];
@@ -196,6 +232,7 @@ final class RuleEngine
                 actionsRun: [],
                 error: $e->getMessage(),
                 durationMs: $this->elapsed($startedAt),
+                triggeredBy: $triggeredBy,
             );
 
             return ['rule' => $rule->name, 'outcome' => 'failed', 'error' => $e->getMessage()];
@@ -239,6 +276,7 @@ final class RuleEngine
         array $actionsRun,
         ?string $error,
         int $durationMs,
+        ?string $triggeredBy = null,
     ): void {
         // A rule id is required by the schema; a depth_exceeded run has no
         // single rule to blame, so it is attributed to the chain instead.
@@ -261,6 +299,9 @@ final class RuleEngine
             'actions_run' => json_encode($actionsRun, JSON_THROW_ON_ERROR),
             'error' => $error,
             'duration_ms' => $durationMs,
+            // Null is the system's own doing, which is what every run was
+            // until a person could press a button (ADR 0035).
+            'triggered_by_membership_id' => $triggeredBy,
             'occurred_at' => now(),
         ]);
     }

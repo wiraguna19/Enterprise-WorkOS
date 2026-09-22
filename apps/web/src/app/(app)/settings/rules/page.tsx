@@ -5,6 +5,7 @@ import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
 import { ActiveSwitch } from "@/features/workflow/ActiveSwitch";
+import { TryRule } from "@/features/workflow/TryRule";
 import { isBuildable } from "@/features/workflow/composable";
 import { describeAction, describeCondition, describeTrigger } from "@/features/workflow/describe";
 import type { Rule, RuleAction } from "@/features/workflow/types";
@@ -40,6 +41,10 @@ export default async function RulesPage() {
   // One permission, two capabilities: the run log names subjects, and writing
   // changes what the product does for everybody.
   const mayManage = me.permissions.includes("workflow.manage");
+  // A separate key from `workflow.manage`, and separate on purpose (ADR 0035):
+  // writing a rule and making one happen to a real work item right now are
+  // different acts, and the catalogue has said so since Phase 3.
+  const mayRun = me.permissions.includes("workflow.run_rule");
   const unhealthy = rules.filter((rule) => !rule.health.healthy).length;
 
   return (
@@ -77,7 +82,7 @@ export default async function RulesPage() {
           <ul className="space-y-4">
             {rules.map((rule) => (
               <li key={rule.id}>
-                <RuleCard rule={rule} mayManage={mayManage} />
+                <RuleCard rule={rule} mayManage={mayManage} mayRun={mayRun} />
               </li>
             ))}
           </ul>
@@ -87,7 +92,15 @@ export default async function RulesPage() {
   );
 }
 
-function RuleCard({ rule, mayManage }: { rule: Rule; mayManage: boolean }) {
+function RuleCard({
+  rule,
+  mayManage,
+  mayRun,
+}: {
+  rule: Rule;
+  mayManage: boolean;
+  mayRun: boolean;
+}) {
   const headingId = `rule-${rule.id}`;
   const conditions = describeCondition(rule.conditions);
 
@@ -161,6 +174,18 @@ function RuleCard({ rule, mayManage }: { rule: Rule; mayManage: boolean }) {
         </div>
       </dl>
 
+      {/* Only for somebody who may run one, and only for a rule that is
+          switched on: previewing a rule that cannot fire teaches nothing about
+          why it did not (ADR 0035). */}
+      {mayRun && rule.is_active && (
+        <div className="mt-4 border-t border-n-100 pt-4">
+          <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
+            Try it against one item
+          </h3>
+
+          <TryRule ruleId={rule.id} />
+        </div>
+      )}
     </Panel>
   );
 }

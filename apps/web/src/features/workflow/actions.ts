@@ -181,3 +181,62 @@ export async function removeTransition(
 
   return { error: null };
 }
+
+/**
+ * Trying a rule against one work item (ADR 0035).
+ *
+ * Two calls rather than one with a flag in the UI, because they are two
+ * different acts to the person pressing them: "what would this do" is safe and
+ * repeatable, "do it" is neither.
+ */
+export type RulePreview = {
+  error: string | null;
+  matched: boolean;
+  actions: Array<Record<string, unknown>>;
+  /** Facts the rule asks about that only exist in the moment of an event. */
+  unavailableFacts: string[];
+};
+
+export async function previewRule(id: string, reference: string): Promise<RulePreview> {
+  try {
+    const { data } = await api<{
+      matched: boolean;
+      actions: Array<Record<string, unknown>>;
+      unavailable_facts: string[];
+    }>(`/workflow-rules/${id}/run`, { method: "POST", body: { reference } });
+
+    return {
+      error: null,
+      matched: data.matched,
+      actions: data.actions,
+      unavailableFacts: data.unavailable_facts,
+    };
+  } catch (error) {
+    return {
+      error: describeApiError(error).error,
+      matched: false,
+      actions: [],
+      unavailableFacts: [],
+    };
+  }
+}
+
+export type RuleRunResult = { error: string | null; outcome?: string };
+
+export async function runRuleNow(id: string, reference: string): Promise<RuleRunResult> {
+  try {
+    const { data } = await api<{ outcome?: string }>(`/workflow-rules/${id}/run`, {
+      method: "POST",
+      body: { reference, apply: true },
+    });
+
+    // The run log is what this screen reads next, and it is written by the
+    // call above.
+    revalidatePath(`/settings/rules/${id}`);
+    revalidatePath("/settings/rules");
+
+    return { error: null, outcome: data.outcome };
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+}

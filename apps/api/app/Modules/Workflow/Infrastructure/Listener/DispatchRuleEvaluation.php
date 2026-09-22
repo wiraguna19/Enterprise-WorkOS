@@ -7,6 +7,7 @@ namespace App\Modules\Workflow\Infrastructure\Listener;
 use App\Modules\Work\Domain\Event\WorkItemAssigned;
 use App\Modules\Work\Domain\Event\WorkItemCreated;
 use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
+use App\Modules\Workflow\Application\Service\WorkItemFacts;
 use App\Modules\Workflow\Infrastructure\Job\EvaluateWorkflowRules;
 use Illuminate\Support\Facades\DB;
 
@@ -23,9 +24,15 @@ use Illuminate\Support\Facades\DB;
  */
 final class DispatchRuleEvaluation
 {
+    public function __construct(
+        // Shared with the manual run (ADR 0035): two fact builders that must
+        // agree would disagree within a phase.
+        private readonly WorkItemFacts $facts,
+    ) {}
+
     public function onStatusChanged(WorkItemStatusChanged $event): void
     {
-        $facts = $this->factsFor($event->workItemId) + [
+        $facts = $this->facts->for($event->workItemId) + [
             'to_category' => $event->toCategory,
             'from_state_id' => $event->fromStateId,
             'to_state_id' => $event->toStateId,
@@ -61,7 +68,7 @@ final class DispatchRuleEvaluation
             'work_item.assigned',
             'work_item',
             $event->workItemId,
-            $this->factsFor($event->workItemId) + ['assigned_role' => $event->role],
+            $this->facts->for($event->workItemId) + ['assigned_role' => $event->role],
         );
     }
 
@@ -72,55 +79,7 @@ final class DispatchRuleEvaluation
             'work_item.created',
             'work_item',
             $event->workItemId,
-            $this->factsFor($event->workItemId),
+            $this->facts->for($event->workItemId),
         );
-    }
-
-    /**
-     * The vocabulary a condition may reference.
-     *
-     * Deliberately a flat map of scalars: conditions are customer-authored
-     * data, and a nested object graph would need a path language nobody asked
-     * for (docs/02 §7).
-     *
-     * @return array<string, mixed>
-     */
-    private function factsFor(string $workItemId): array
-    {
-        $item = DB::table('work_items')
-            ->where('id', $workItemId)
-            ->first([
-                'id', 'type', 'reference', 'title', 'priority', 'state_category',
-                'project_id', 'workflow_id', 'estimate_hours', 'due_at',
-                'created_by_membership_id',
-            ]);
-
-        if ($item === null) {
-            return [];
-        }
-
-        $assignee = DB::table('work_item_assignments')
-            ->where('work_item_id', $workItemId)
-            ->where('role', 'assignee')
-            ->whereNull('unassigned_at')
-            ->value('membership_id');
-
-        $daysOverdue = $item->due_at === null
-            ? null
-            : (int) floor((time() - strtotime((string) $item->due_at)) / 86400);
-
-        return [
-            'type' => $item->type,
-            'reference' => $item->reference,
-            'title' => $item->title,
-            'priority' => $item->priority,
-            'state_category' => $item->state_category,
-            'project_id' => $item->project_id,
-            'workflow_id' => $item->workflow_id,
-            'estimate_hours' => $item->estimate_hours,
-            'assignee_membership_id' => $assignee,
-            'created_by_membership_id' => $item->created_by_membership_id,
-            'days_overdue' => max($daysOverdue ?? 0, 0),
-        ];
     }
 }

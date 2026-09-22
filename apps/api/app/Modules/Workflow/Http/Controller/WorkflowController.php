@@ -9,8 +9,10 @@ use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
+use App\Modules\Workflow\Application\Service\ManualRuleRun;
 use App\Modules\Workflow\Application\Service\RuleVocabulary;
 use App\Modules\Workflow\Application\Service\TransitionService;
+use App\Modules\Workflow\Http\Request\RunRuleRequest;
 use App\Modules\Workflow\Http\Request\SaveRuleRequest;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
@@ -23,6 +25,7 @@ final class WorkflowController extends ApiController
     public function __construct(
         private readonly TransitionService $transitions,
         private readonly WorkItemVisibility $visibility,
+        private readonly ManualRuleRun $manual,
     ) {}
 
     public function index(): ApiResponse
@@ -217,6 +220,41 @@ final class WorkflowController extends ApiController
             ->get(['id', 'subject_type', 'subject_id', 'outcome', 'matched', 'actions_run', 'error', 'duration_ms', 'occurred_at']);
 
         return $this->ok($runs);
+    }
+
+    /**
+     * Try a rule against one work item (ADR 0035).
+     *
+     * Preview by default, and the body has to say `apply: true` to make it
+     * happen — a route whose default behaviour changes live data is a route
+     * somebody triggers by exploring.
+     */
+    public function runRule(RunRuleRequest $request, string $id): ApiResponse
+    {
+        /** @var WorkflowRuleModel $rule */
+        $rule = WorkflowRuleModel::query()->findOrFail($id);
+
+        $workItemId = $this->manual->resolveWorkItem($request->reference());
+
+        if ($workItemId === null) {
+            // 404 for a reference in another tenant as well as for one that
+            // does not exist: "that item is real but not yours" is a fact
+            // nobody outside the organization is owed (docs/05 §3).
+            abort(404, 'No work item with that reference.');
+        }
+
+        if (! $request->shouldApply()) {
+            return $this->ok($this->manual->preview($rule, $workItemId) + ['applied' => false]);
+        }
+
+        $result = $this->manual->run(
+            $rule,
+            $workItemId,
+            app(TenantContext::class)->membershipId(),
+            $request,
+        );
+
+        return $this->ok($result + ['applied' => true]);
     }
 
     /** @return array<string, mixed> */
