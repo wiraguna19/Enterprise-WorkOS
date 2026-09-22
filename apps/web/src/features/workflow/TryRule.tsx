@@ -29,6 +29,10 @@ export function TryRule({ ruleId }: { ruleId: string }) {
   const [busy, startAction] = useTransition();
   const toast = useToast();
 
+  // Not matched, and part of the condition could not be evaluated: the honest
+  // answer is "I cannot tell", and it is a different answer from "no".
+  const inconclusive = preview !== null && !preview.matched && preview.unavailableFacts.length > 0;
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
@@ -79,8 +83,15 @@ export function TryRule({ ruleId }: { ruleId: string }) {
       {preview && (
         <div className="rounded-lg border border-n-200 bg-n-25 p-3">
           <div className="flex flex-wrap items-center gap-2">
+            {/* Three verdicts, not two. A rule that asks about the moment and
+                did not match has not been JUDGED — saying "conditions do not
+                match" over an explanation that the condition could not be
+                answered is two sentences that cannot both be true, and the
+                confident one is the one people read (ADR 0035). */}
             {preview.matched ? (
               <Badge tone="success" icon="check">conditions match</Badge>
+            ) : inconclusive ? (
+              <Badge tone="warning" icon="alert">cannot be judged by hand</Badge>
             ) : (
               <Badge tone="neutral" icon="minus">conditions do not match</Badge>
             )}
@@ -91,10 +102,11 @@ export function TryRule({ ruleId }: { ruleId: string }) {
 
           {preview.unavailableFacts.length > 0 && (
             <p className="mt-2 max-w-prose text-caption text-s-active">
-              This rule asks about {preview.unavailableFacts.join(", ")} — facts that only exist at
-              the moment something happens. Run by hand there is no such moment, so that part of
-              the condition cannot be answered here, and a rule that looks like it does not match
-              may match perfectly well when the event arrives.
+              This rule asks about {preview.unavailableFacts.join(", ")} — facts that exist only at
+              the moment something happens, and an item sitting still has no such moment.
+              {preview.matched
+                ? " What matched here is the rest of the condition; the event itself still has to arrive."
+                : " So this is not a verdict on the rule: it may match perfectly well when the event arrives."}
             </p>
           )}
 

@@ -45,6 +45,13 @@ run the system did on its own — which is every run before this — and names t
 person for a hand-run. Without it, the screen that answers "why did this work
 item move?" says "a rule did it" and hides the button press a second earlier.
 
+**Three verdicts, not two.** Matched, did not match, and **cannot be judged by
+hand** — the last for a rule whose condition asks about the moment. The first
+version showed the confident "conditions do not match" over a paragraph
+explaining that the condition could not be answered, which is two sentences that
+cannot both be true; the confident one is the one people read. A screenshot made
+it obvious in a second.
+
 **A manual run sees the item, not the moment.** Conditions may name facts that
 exist only because an event just happened: `to_state_key`, `from_category`,
 `comment`. An item sitting still has no such moment. So the preview NAMES those
