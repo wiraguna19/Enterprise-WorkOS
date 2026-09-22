@@ -150,3 +150,33 @@ it('does not clear a rule\'s failure count when it is run by hand', function ():
     expect(DB::table('workflow_rules')->where('id', FLAG_UNASSIGNED_URGENT)->value('failure_count'))
         ->toBe(3);
 });
+
+it('does not punish a rule when the run log itself cannot be written', function (): void {
+    anUrgentUnassignedItem();
+
+    // The exact shape found in a development database: new code, un-migrated
+    // schema, so every insert into the run log throws. Reproduced here by
+    // taking the table away, which is the same thing from the engine's side.
+    DB::statement('ALTER TABLE workflow_rule_runs RENAME TO workflow_rule_runs_hidden');
+
+    try {
+        $this->withToken($this->loginAs('rina@acme.test'))
+            ->postJson('/api/v1/workflow-rules/'.FLAG_UNASSIGNED_URGENT.'/run', [
+                'reference' => 'ENG-45',
+                'apply' => true,
+            ])
+            ->assertOk()
+            // The rule still RAN. Its actions happened; only the note about
+            // them was lost.
+            ->assertJsonPath('data.outcome', 'applied');
+    } finally {
+        DB::statement('ALTER TABLE workflow_rule_runs_hidden RENAME TO workflow_rule_runs');
+    }
+
+    // And the rule is not blamed for the log's failure. Before this, five such
+    // faults in a row took a healthy rule out of service, with no run rows to
+    // explain why — because the thing that writes the explanation was the thing
+    // that fell over (ADR 0036).
+    expect(DB::table('workflow_rules')->where('id', FLAG_UNASSIGNED_URGENT)->value('failure_count'))
+        ->toBe(0);
+});

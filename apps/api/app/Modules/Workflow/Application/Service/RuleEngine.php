@@ -295,24 +295,60 @@ final class RuleEngine
             return;
         }
 
-        DB::table('workflow_rule_runs')->insert([
-            'id' => (string) new UuidV7,
-            'organization_id' => $this->tenant->organizationId(),
-            'rule_id' => $ruleId,
-            'subject_type' => $subjectType,
-            'subject_id' => $subjectId,
-            'causation_id' => $causationId,
-            'causation_depth' => $depth,
-            'outcome' => $outcome,
-            'matched' => $matched,
-            'actions_run' => json_encode($actionsRun, JSON_THROW_ON_ERROR),
-            'error' => $error,
-            'duration_ms' => $durationMs,
-            // Null is the system's own doing, which is what every run was
-            // until a person could press a button (ADR 0035).
-            'triggered_by_membership_id' => $triggeredBy,
-            'occurred_at' => now(),
-        ]);
+        try {
+            // `DB::transaction`, not a bare insert, and this is the half a
+            // `try` alone does not buy. In Postgres a failed statement poisons
+            // the whole transaction: catching the exception does not make the
+            // connection usable again, and everything after it — including the
+            // work this evaluation was in the middle of — is refused with
+            // "current transaction is aborted". Laravel issues a SAVEPOINT for
+            // a nested transaction, so the failure rolls back to here and the
+            // caller carries on. The test that takes the table away is what
+            // proved the bare `try` insufficient.
+            DB::transaction(fn () => DB::table('workflow_rule_runs')->insert([
+                'id' => (string) new UuidV7,
+                'organization_id' => $this->tenant->organizationId(),
+                'rule_id' => $ruleId,
+                'subject_type' => $subjectType,
+                'subject_id' => $subjectId,
+                'causation_id' => $causationId,
+                'causation_depth' => $depth,
+                'outcome' => $outcome,
+                'matched' => $matched,
+                'actions_run' => json_encode($actionsRun, JSON_THROW_ON_ERROR),
+                'error' => $error,
+                'duration_ms' => $durationMs,
+                // Null is the system's own doing, which is what every run was
+                // until a person could press a button (ADR 0035).
+                'triggered_by_membership_id' => $triggeredBy,
+                'occurred_at' => now(),
+            ]));
+        } catch (Throwable $e) {
+            // **The observer must not be able to break the thing it observes**
+            // (ADR 0036).
+            //
+            // This was found in a development database running new code against
+            // an un-migrated schema: the insert named a column that did not
+            // exist yet, so every evaluation threw HERE, after the failure
+            // counter had already been raised a line earlier. The job died, the
+            // queue retried it, and each retry counted again — three failures
+            // on a rule that had done nothing wrong, with no run rows to
+            // explain them, because the thing that writes the explanation was
+            // the thing that fell over. Five of those and the engine would have
+            // taken a healthy rule out of service.
+            //
+            // So a run log that cannot be written is reported and dropped. It
+            // is a real loss — this log is how "why didn't my rule fire?" gets
+            // answered — but losing one line is a smaller loss than turning an
+            // infrastructure fault into a disabled automation nobody can
+            // diagnose.
+            Log::error('workflow.rule_run_log_failed', [
+                'rule_id' => $ruleId,
+                'subject_id' => $subjectId,
+                'outcome' => $outcome,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function elapsed(float $startedAt): int
