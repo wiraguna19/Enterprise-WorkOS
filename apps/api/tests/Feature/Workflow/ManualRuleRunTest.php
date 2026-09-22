@@ -129,3 +129,24 @@ it('needs the permission that names the act', function (): void {
         ->postJson('/api/v1/workflow-rules/'.FLAG_UNASSIGNED_URGENT.'/run', ['reference' => 'ENG-45'])
         ->assertForbidden();
 });
+
+it('does not clear a rule\'s failure count when it is run by hand', function (): void {
+    anUrgentUnassignedItem();
+
+    DB::table('workflow_rules')->where('id', FLAG_UNASSIGNED_URGENT)->update(['failure_count' => 3]);
+
+    $this->withToken($this->loginAs('rina@acme.test'))
+        ->postJson('/api/v1/workflow-rules/'.FLAG_UNASSIGNED_URGENT.'/run', [
+            'reference' => 'ENG-45',
+            'apply' => true,
+        ])
+        ->assertOk();
+
+    // Health describes how a rule behaves on the events it was written for. A
+    // success against an item somebody picked says nothing about the ones it
+    // keeps failing on — and a red badge an administrator can clear by pressing
+    // a button is not health, it is erased evidence. Seen happening on screen:
+    // "1 recent failures" became "running" after one try-it run.
+    expect(DB::table('workflow_rules')->where('id', FLAG_UNASSIGNED_URGENT)->value('failure_count'))
+        ->toBe(3);
+});

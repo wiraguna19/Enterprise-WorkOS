@@ -40,6 +40,15 @@ evaluation, with a causation id of its own so a cascade started by hand can be
 followed like any other. A "try it" that took a different path would be testing
 the button rather than the rule.
 
+**A hand-run does not clear the rule's failure count.** The engine clears it on
+success, because the disable threshold counts CONSECUTIVE failures — but health
+describes how a rule behaves on the events it was written for, and a success
+against an item somebody chose says nothing about the ones it keeps failing on.
+Letting a hand-run clear it would make the red badge something an administrator
+removes by pressing a button rather than by fixing anything. Found by watching a
+badge go from "1 recent failures" to "running" immediately after a try-it run —
+the feature quietly undoing the product's own alarm.
+
 **The run log now records WHO.** `triggered_by_membership_id` is null for every
 run the system did on its own — which is every run before this — and names the
 person for a hand-run. Without it, the screen that answers "why did this work

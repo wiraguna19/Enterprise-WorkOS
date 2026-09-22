@@ -195,7 +195,16 @@ final class RuleEngine
             // A rule that succeeds clears its failure count: the threshold is
             // for CONSECUTIVE failures, so a transient blip does not
             // accumulate toward disabling a healthy rule.
-            if ($rule->failure_count > 0) {
+            //
+            // A HAND-RUN does not clear it (ADR 0035). Health describes how a
+            // rule behaves on the events it was written for; a success against
+            // an item somebody chose says nothing about the ones it keeps
+            // failing on. Letting it clear the count would make the red badge
+            // something an administrator can remove by pressing a button
+            // instead of fixing anything — which is not health, it is erasing
+            // the evidence. Found by watching a badge go from "1 recent
+            // failures" to "running" after a try-it run.
+            if ($triggeredBy === null && $rule->failure_count > 0) {
                 $rule->forceFill(['failure_count' => 0])->save();
             }
 
