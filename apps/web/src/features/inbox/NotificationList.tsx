@@ -32,17 +32,20 @@ export function NotificationList({
   const groups = groupByDay(notifications, timeZone);
 
   return (
-    <div className="space-y-6">
+    // Inside a panel now (ADR 0024), so the day headings carry the gutter the
+    // container gave up and sit on their own band — a date floating flush
+    // against rows above and below it reads as a row rather than as a break.
+    <div>
       {groups.map(([day, items]) => (
         <section key={day} aria-labelledby={`day-${day}`}>
           <h2
             id={`day-${day}`}
-            className="mb-1 text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
+            className="border-b border-n-100 bg-n-25 px-4 py-1.5 text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
           >
             {day}
           </h2>
 
-          <ul className="divide-y divide-n-100 border-y border-n-100">
+          <ul className="divide-y divide-n-100">
             {items.map((notification) => (
               <li
                 key={notification.id}

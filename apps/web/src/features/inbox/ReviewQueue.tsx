@@ -33,9 +33,12 @@ export function ReviewQueue({
   }
 
   return (
-    <ul className="divide-y divide-n-100 border-y border-n-100">
+    // No outer rule and its own gutter: this list meets a panel's border
+    // now, and a list that draws its own edge inside a bordered container
+    // puts two lines a pixel apart (ADR 0024).
+    <ul className="divide-y divide-n-100">
       {approvals.map((approval) => (
-        <li key={approval.id} className="py-3">
+        <li key={approval.id} className="px-4 py-3">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <Link
               href={`/work/${approval.subject?.reference ?? ""}`}

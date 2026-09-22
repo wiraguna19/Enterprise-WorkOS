@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MarkReadButton } from "@/features/inbox/MarkReadButton";
 import { NotificationList } from "@/features/inbox/NotificationList";
@@ -110,46 +112,73 @@ export default async function InboxPage({
         })}
       </nav>
 
-      {tab === "reviews" && (
-        reviews.rows.length === 0 ? (
-          <EmptyState
-            title="Nothing is waiting on you"
-            description="When someone submits work for your review it appears here, with their note, so you can decide without opening every item."
-          />
-        ) : (
-          <ReviewQueue
-            approvals={reviews.rows}
-            timeZone={me.user.timezone}
-            emptyLabel="Nothing is waiting on you."
-          />
-        )
-      )}
+      <PageBody>
+        {/* One panel per tab rather than a list floating under the tab strip.
+            The strip already says which queue this is; the panel says where it
+            ends, which is what a list with no bottom edge never does
+            (ADR 0024). */}
+        {tab === "reviews" && (
+          reviews.rows.length === 0 ? (
+            <EmptyState
+              title="Nothing is waiting on you"
+              description="When someone submits work for your review it appears here, with their note, so you can decide without opening every item."
+            />
+          ) : (
+            <Panel
+              id="reviews"
+              title="Waiting on you"
+              description="Oldest first — a review that has been waiting longest is the one holding somebody up."
+              bleed
+            >
+              <ReviewQueue
+                approvals={reviews.rows}
+                timeZone={me.user.timezone}
+                emptyLabel="Nothing is waiting on you."
+              />
+            </Panel>
+          )
+        )}
 
-      {tab === "waiting" && (
-        waiting.rows.length === 0 ? (
-          <EmptyState
-            title="You are not waiting on anyone"
-            description="Work you submit for review stays here until it is decided, so a submission never disappears the moment you send it."
-          />
-        ) : (
-          <ReviewQueue
-            approvals={waiting.rows}
-            timeZone={me.user.timezone}
-            emptyLabel="You are not waiting on anyone."
-          />
-        )
-      )}
+        {tab === "waiting" && (
+          waiting.rows.length === 0 ? (
+            <EmptyState
+              title="You are not waiting on anyone"
+              description="Work you submit for review stays here until it is decided, so a submission never disappears the moment you send it."
+            />
+          ) : (
+            <Panel
+              id="waiting"
+              title="Waiting on somebody else"
+              description="Work you submitted, until it is decided."
+              bleed
+            >
+              <ReviewQueue
+                approvals={waiting.rows}
+                timeZone={me.user.timezone}
+                emptyLabel="You are not waiting on anyone."
+              />
+            </Panel>
+          )
+        )}
 
-      {tab === "activity" && (
-        rest.length === 0 ? (
-          <EmptyState
-            title="Nothing else to catch up on"
-            description="Assignments, mentions, and escalations land here. Everything you do yourself is left out on purpose."
-          />
-        ) : (
-          <NotificationList notifications={rest} timeZone={me.user.timezone} />
-        )
-      )}
+        {tab === "activity" && (
+          rest.length === 0 ? (
+            <EmptyState
+              title="Nothing else to catch up on"
+              description="Assignments, mentions, and escalations land here. Everything you do yourself is left out on purpose."
+            />
+          ) : (
+            <Panel
+              id="activity"
+              title="Everything else"
+              description="Assignments, mentions and escalations. Anything you did yourself is left out."
+              bleed
+            >
+              <NotificationList notifications={rest} timeZone={me.user.timezone} />
+            </Panel>
+          )
+        )}
+      </PageBody>
     </div>
   );
 }

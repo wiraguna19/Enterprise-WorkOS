@@ -1,6 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
@@ -46,11 +48,14 @@ export default async function WaitingPage({
   ).catch(() => ({ data: [] as WorkItem[] }));
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    // The product's own width, not this page's: it used to centre itself at a
+    // max-width nothing else uses, so arriving here from Flow moved the left
+    // edge of everything (ADR 0024).
+    <div className="space-y-5">
       <div className="space-y-3">
-        <Link href="/reports" className="text-body-sm text-n-500 hover:text-a-700">
-          ← Flow
-        </Link>
+        {/* The same trail its sibling drill-through already had, instead of a
+            hand-drawn back link (ADR 0026). */}
+        <Breadcrumb items={[{ label: "Flow", href: "/reports" }, { label: `Waiting in ${label}` }]} />
 
         <PageHeader
           title={`Waiting in ${label}`}
@@ -58,25 +63,31 @@ export default async function WaitingPage({
         />
       </div>
 
-      {items.length === 0 ? (
-        <EmptyState
-          title="Nothing here"
-          description={`No work you have access to is sitting in ${label} right now.`}
-        />
-      ) : (
-        <>
-          <div className="border-t border-n-100">
+      <PageBody>
+        {items.length === 0 ? (
+          <EmptyState
+            title="Nothing here"
+            description={`No work you have access to is sitting in ${label} right now.`}
+          />
+        ) : (
+          <Panel
+            id="waiting"
+            title={`In ${label}`}
+            description="Ordered by due date."
+            footer={
+              <p className="max-w-prose text-caption text-n-500">
+                A snapshot. The count on the Flow page counts every item in this category; this
+                list is the part you have access to.
+              </p>
+            }
+            bleed
+          >
             {items.map((item) => (
               <WorkItemRow key={item.id} item={item} timeZone={me.user.timezone} />
             ))}
-          </div>
-
-          <p className="max-w-[72ch] text-caption text-n-500">
-            A snapshot, ordered by due date. The count on the Flow page counts every item in
-            this category; this list is the part you have access to.
-          </p>
-        </>
-      )}
+          </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }
