@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ButtonLink } from "@/components/ui/Button";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { HealthSignals, StatusDot } from "@/features/insights/HealthSignals";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { Health } from "@/features/insights/types";
@@ -63,35 +65,45 @@ export default async function ProjectOverviewPage({
       />
 
       <ProjectTabs projectKey={project.key} active="overview" />
-      {/* A report about a subject is reached from the subject. There is no
-          index of reports, on purpose: "which project?" is a question the page
-          you came from has already answered. */}
-      <p className="text-caption text-n-500">
-        <Link
-          href={`/reports/project?project=${project.key}`}
-          className="text-a-500 underline underline-offset-2"
+
+      <PageBody>
+        {/* The verdict, the five signals it came from, and the two sentences
+            that explain how it was computed — one panel, because they are one
+            thought. They used to be four loose blocks in a column with no
+            edges: a status dot, a paragraph, a bare list and a footnote, each
+            floating at the same level as the others (ADR 0024). */}
+        <Panel
+          id="health"
+          title="Health"
+          description="The worst of the five signals below, never an average — a project on fire in one dimension and quiet in four is not healthy."
+          actions={<StatusDot status={health.status} />}
+          footer={
+            <div className="space-y-2">
+              <p className="max-w-prose text-caption text-n-500">
+                Progress counts completed items against everything that is not cancelled. It is
+                computed from the work itself on every load rather than read from a stored
+                figure, so it cannot drift from the items it describes.
+              </p>
+
+              {/* A report about a subject is reached from the subject. There is
+                  no index of reports, on purpose: "which project?" is a
+                  question the page you came from has already answered. */}
+              <p className="text-caption text-n-500">
+                <Link
+                  href={`/reports/project?project=${project.key}`}
+                  className="text-a-500 underline underline-offset-2"
+                >
+                  Project report
+                </Link>{" "}
+                — the same figures as a table, and exportable.
+              </p>
+            </div>
+          }
+          bleed
         >
-          Project report
-        </Link>{" "}
-        — the same figures as a table, and exportable.
-      </p>
-
-
-      <div className="flex items-baseline gap-3">
-        <StatusDot status={health.status} />
-        <p className="text-caption text-n-500">
-          The overall verdict is the worst of the five signals below, never an average — a
-          project on fire in one dimension and quiet in four is not healthy.
-        </p>
-      </div>
-
-      <HealthSignals health={health} projectKey={project.key} />
-
-      <p className="max-w-[72ch] text-caption text-n-500">
-        Progress counts completed items against everything that is not cancelled. It is
-        computed from the work itself on every load rather than read from a stored figure,
-        so it cannot drift from the items it describes.
-      </p>
+          <HealthSignals health={health} projectKey={project.key} />
+        </Panel>
+      </PageBody>
     </div>
   );
 }

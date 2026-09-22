@@ -29,7 +29,10 @@ export function HealthSignals({
     `/projects/${projectKey}/overview/items?signal=${signal}`;
 
   return (
-    <ul className="divide-y divide-n-100 border-y border-n-100">
+    // No outer border: this list sits inside a Panel now and meets its edges
+    // (ADR 0024). A list that draws its own top and bottom rule inside a
+    // bordered container puts two lines a pixel apart.
+    <ul className="divide-y divide-n-100">
       <Signal
         name="Schedule"
         status={signals.schedule.status}
@@ -146,7 +149,9 @@ function Signal({
   children?: React.ReactNode;
 }) {
   return (
-    <li className="flex gap-4 py-3">
+    // `px-4` matches the panel's own padding: the list bleeds to the border,
+    // so each row has to carry the gutter the container gave up.
+    <li className="flex gap-4 px-4 py-3">
       <StatusDot status={status} />
 
       <div className="min-w-0 flex-1">

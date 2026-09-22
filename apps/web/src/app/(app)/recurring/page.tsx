@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { StopButton } from "@/features/recurrence/StopButton";
 import { describe } from "@/features/recurrence/schedule";
 import { api } from "@/lib/api";
@@ -71,6 +73,7 @@ export default async function RecurringPage() {
         }
       />
 
+      <PageBody>
       {recurrences.length === 0 ? (
         <EmptyState
           title="Nothing recurs yet"
@@ -84,9 +87,18 @@ export default async function RecurringPage() {
           }
         />
       ) : (
-        <ul className="divide-y divide-n-100 border-y border-n-100">
+        <Panel
+          id="recurrences"
+          title="Standing instructions"
+          description="Ordered by the API: running first, then by when they next produce work."
+          bleed
+        >
+        <ul className="divide-y divide-n-100">
           {recurrences.map((recurrence) => (
-            <li key={recurrence.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3">
+            <li
+              key={recurrence.id}
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
+            >
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-n-900">
                   {recurrence.template.title ?? "Untitled"}
@@ -119,7 +131,9 @@ export default async function RecurringPage() {
             </li>
           ))}
         </ul>
+        </Panel>
       )}
+      </PageBody>
     </div>
   );
 }

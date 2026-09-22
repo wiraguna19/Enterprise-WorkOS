@@ -160,6 +160,15 @@ compact       row 32px   cell padding 6/12      ← the default for lists
 
 ### Panel  ·  the container every section lives in
 
+Every screen's body sits inside `PageBody`, and every section inside a `Panel`.
+A page that improvises — a bare `<h2>` over a `divide-y` list, a page-local
+`max-w-4xl`, a caption paragraph floating between two lists — has no edges, and
+three screens that each improvise differently have three left edges. Converting
+one is mechanical: the header stays, the body goes into `PageBody`, each thought
+becomes a `Panel`, long explanations become its `footer`, and a list that meets
+the border carries its own `px-4` because the container gave that gutter up.
+
+
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │ Roles                                    [Manager · everywhere]│  header: n-25, border-b

@@ -1,5 +1,7 @@
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CompletionsTable } from "@/features/insights/CompletionsTable";
 import type { FlowCompletion, FlowCompletionsMeta } from "@/features/insights/types";
@@ -39,7 +41,10 @@ export default async function FlowCompletionsPage({
   const window = meta as unknown as FlowCompletionsMeta;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    // `PageBody` rather than a page-local `max-w-4xl`: this screen was
+    // centring itself at a width no other page uses, so moving between Flow
+    // and its drill-through moved the left edge of the product (ADR 0024).
+    <div className="space-y-5">
       <div className="space-y-3">
         <Breadcrumb items={[{ label: "Flow", href: "/reports" }, { label: "Completions" }]} />
 
@@ -52,6 +57,7 @@ export default async function FlowCompletionsPage({
         />
       </div>
 
+      <PageBody>
       {completions.length === 0 ? (
         <EmptyState
           title={
@@ -66,7 +72,21 @@ export default async function FlowCompletionsPage({
           }
         />
       ) : (
-        <>
+        <Panel
+          id="completions"
+          title="Completed in this window"
+          description="Ordered by when each item reached Done."
+          footer={
+            <p className="max-w-prose text-caption text-n-500">
+              Cycle time is measured from the first time an item entered In Progress to the last
+              time it reached Done, over the whole of its history rather than only inside this
+              window — an item finished on Monday may have started last quarter. Items that never
+              entered In Progress are counted in the throughput and excluded from every
+              percentile.
+            </p>
+          }
+          bleed
+        >
           <CompletionsTable completions={completions} timeZone={me.user.timezone} />
 
           {window.hidden_count > 0 && (
@@ -75,23 +95,16 @@ export default async function FlowCompletionsPage({
             // Same split as the workload drill-through: the aggregate is a fact
             // about the organization, what may be READ is a fact about the
             // reader.
-            <p className="max-w-[72ch] text-caption text-s-active">
+            <p className="border-t border-n-100 px-4 py-3 text-caption text-s-active">
               {window.hidden_count} further{" "}
               {window.hidden_count === 1 ? "completion is" : "completions are"} counted in the
               figures on the Flow page but not listed here — {window.hidden_count === 1 ? "it is" : "they are"}{" "}
               in work you do not have access to.
             </p>
           )}
-
-          <p className="max-w-[72ch] text-caption text-n-500">
-            Cycle time is measured from the first time an item entered In Progress to the last
-            time it reached Done, over the whole of its history rather than only inside this
-            window — an item finished on Monday may have started last quarter. Items that never
-            entered In Progress are counted in the throughput and excluded from every
-            percentile.
-          </p>
-        </>
+        </Panel>
       )}
+      </PageBody>
     </div>
   );
 }
