@@ -68,3 +68,13 @@ Schedule::command('governance:prune-log-partitions')
     ->monthlyOn(2, '02:30')
     ->onOneServer()
     ->withoutOverlapping();
+
+// Failed jobs are kept for a fortnight, then pruned (ADR 0037).
+//
+// Long enough that a failure over a weekend is still readable on Monday, short
+// enough that the table does not become an archive nobody reads. The framework
+// ships the command; what it lacked here was a table to write to and anything
+// to call it.
+Schedule::command('queue:prune-failed --hours=336')
+    ->dailyAt('04:30')
+    ->onOneServer();
