@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { Field, INPUT } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { createWorkItem } from "../actions";
 
 type Option = { id: string; label: string };
@@ -114,12 +116,51 @@ export function NewWorkItemForm({
 
   return (
     <form
-      className="max-w-2xl space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
+      <Panel
+        id="new-work-item"
+        title="Work item"
+        description="Only the title is required. Everything else can be set later, from the item itself."
+        footer={
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={submitting || title.trim().length < 2}
+              >
+                {submitting ? "Creating…" : "Create work item"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={submitting}
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+            </div>
+
+            {error && (
+              // The server's own message, and its request id: "why was this
+              // refused" is answered by the rule that refused it, not by a
+              // generic apology.
+              <p role="alert" className="text-caption text-s-danger">
+                {error}
+                {requestId !== undefined && (
+                  <span className="ml-1.5 font-mono text-n-500">{requestId}</span>
+                )}
+              </p>
+            )}
+          </div>
+        }
+      >
+      <div className="space-y-4">
       <Field id={titleId} label="Title">
         <input
           id={titleId}
@@ -273,59 +314,13 @@ export function NewWorkItemForm({
         </Field>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-n-100 pt-4">
-        <Button type="submit" variant="primary" disabled={submitting || title.trim().length < 2}>
-          {submitting ? "Creating…" : "Create work item"}
-        </Button>
-
-        <Button type="button" variant="ghost" disabled={submitting} onClick={() => router.back()}>
-          Cancel
-        </Button>
       </div>
-
-      {error && (
-        // The server's own message, and its request id: "why was this refused"
-        // is answered by the rule that refused it, not by a generic apology.
-        <p role="alert" className="text-caption text-s-danger">
-          {error}
-          {requestId !== undefined && (
-            <span className="ml-1.5 font-mono text-n-500">{requestId}</span>
-          )}
-        </p>
-      )}
+      </Panel>
     </form>
   );
 }
 
-const INPUT =
-  "w-full rounded-md border border-n-200 bg-n-0 px-2 py-1.5 text-body-sm text-n-900 placeholder:text-n-400 focus:border-a-500 focus:outline-none focus:ring-2 focus:ring-a-500/30";
-
 /** `approval_work` is not a word. The API's vocabulary is not the user's. */
 function label(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
-}
-
-function Field({
-  id,
-  label: text,
-  hint,
-  children,
-}: {
-  id: string;
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={id}
-        className="mb-0.5 block text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-      >
-        {text}
-      </label>
-      {children}
-      {hint && <p className="mt-0.5 text-caption text-n-500">{hint}</p>}
-    </div>
-  );
 }

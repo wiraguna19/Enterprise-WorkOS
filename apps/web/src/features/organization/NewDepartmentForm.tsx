@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { createDepartment } from "./actions";
 
 /**
@@ -41,7 +42,6 @@ export function NewDepartmentForm({
 
   return (
     <form
-      className="max-w-2xl space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
 
@@ -55,6 +55,26 @@ export function NewDepartmentForm({
         });
       }}
     >
+      <Panel
+        id="new-department"
+        title="Department"
+        description="The code is what reports and exports print; the name is what people read."
+        footer={
+          <div className="space-y-2">
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? "Creating…" : "Create department"}
+            </Button>
+
+            {error && (
+              <p role="alert" className="text-caption text-s-danger">
+                {error}
+                {requestId && <span className="ml-2 font-mono text-n-500">{requestId}</span>}
+              </p>
+            )}
+          </div>
+        }
+      >
+      <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
         <Field id={codeId} label="Code" hint="ENG, PEOPLE-OPS.">
           <input
@@ -108,18 +128,8 @@ export function NewDepartmentForm({
         </select>
       </Field>
 
-      {error && (
-        <p role="alert" className="text-caption text-s-danger">
-          {error}
-          {requestId && <span className="ml-2 font-mono text-n-500">{requestId}</span>}
-        </p>
-      )}
-
-      <div className="flex items-center gap-2">
-        <Button type="submit" variant="primary" disabled={submitting}>
-          {submitting ? "Creating…" : "Create department"}
-        </Button>
       </div>
+      </Panel>
     </form>
   );
 }

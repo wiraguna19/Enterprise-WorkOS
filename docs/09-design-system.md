@@ -185,6 +185,18 @@ id and the section is `aria-labelledby` it. `tone="danger"` for a section whose
 actions cannot be undone; `bleed` when the body is a table that should meet the
 border (ADR 0024).
 
+#### Forms
+
+A form is a section like any other: the fields go in a `Panel`, and the submit
+row goes in its `footer`, where it sits on its own surface instead of under a
+rule somebody drew by hand. The error belongs beside the control it is about —
+next to the button for a form with many fields, next to the field for a form
+with one — and never in both places.
+
+Fields come from `components/ui/Field`. A local copy is how one screen ends up
+with lighter borders than the rest of the product, which is exactly what the
+New work item form had.
+
 ### Data table
 
 ```text

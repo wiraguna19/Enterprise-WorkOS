@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
+import { Panel } from "@/components/ui/Panel";
 import { createProject } from "./actions";
 
 type Option = { id: string; label: string };
@@ -75,12 +76,53 @@ export function NewProjectForm({ departments }: { departments: Option[] }) {
 
   return (
     <form
-      className="max-w-2xl space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
+      {/* A form is a section like any other, and until now it was the one kind
+          of content with no container at all: fields floated in the column and
+          the submit row was a rule somebody drew by hand. The actions live in
+          the panel's footer, on their own surface, where every other
+          consequential control in the product sits (ADR 0024). */}
+      <Panel
+        id="new-project"
+        title="Project"
+        description="The key is permanent; everything else can change later."
+        footer={
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={submitting || key.trim() === "" || name.trim().length < 2}
+              >
+                {submitting ? "Creating…" : "Create project"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={submitting}
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+            </div>
+
+            {error && (
+              <p role="alert" className="text-caption text-s-danger">
+                {error}
+                {requestId !== undefined && (
+                  <span className="ml-1.5 font-mono text-n-500">{requestId}</span>
+                )}
+              </p>
+            )}
+          </div>
+        }
+      >
+      <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
         <Field id={keyId} label="Key" hint="ENG, OPS-style. Permanent.">
           <input
@@ -204,28 +246,8 @@ export function NewProjectForm({ departments }: { departments: Option[] }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-n-100 pt-4">
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={submitting || key.trim() === "" || name.trim().length < 2}
-        >
-          {submitting ? "Creating…" : "Create project"}
-        </Button>
-
-        <Button type="button" variant="ghost" disabled={submitting} onClick={() => router.back()}>
-          Cancel
-        </Button>
       </div>
-
-      {error && (
-        <p role="alert" className="text-caption text-s-danger">
-          {error}
-          {requestId !== undefined && (
-            <span className="ml-1.5 font-mono text-n-500">{requestId}</span>
-          )}
-        </p>
-      )}
+      </Panel>
     </form>
   );
 }

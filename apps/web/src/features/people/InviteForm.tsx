@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { Panel } from "@/components/ui/Panel";
 import { Field, INPUT } from "@/components/ui/Field";
 import { invitePerson, type Invitation } from "./invitations";
 
@@ -27,10 +28,15 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
 
   if (issued) {
     return (
-      <div className="max-w-xl space-y-3">
-        <p className="text-body text-n-900">
-          Invitation ready for <strong>{issued.email}</strong>.
-        </p>
+      // The issued link is its own panel: it is the one thing on the screen,
+      // it is shown once, and a bordered surface is what says "this is the
+      // thing" rather than "here is some text after a form" (ADR 0024).
+      <Panel
+        id="invitation"
+        title={`Invitation ready for ${issued.email}`}
+        description="Shown once — only a digest of it is stored."
+      >
+      <div className="space-y-3">
 
         <p className="text-body-sm text-n-500">
           Nothing was emailed — this product has no mail of its own yet. Send them this link
@@ -60,12 +66,12 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
           </Link>
         </div>
       </div>
+      </Panel>
     );
   }
 
   return (
     <form
-      className="max-w-xl space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
 
@@ -78,6 +84,20 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
         });
       }}
     >
+      <Panel
+        id="invite"
+        title="Invite somebody"
+        description="They choose their own password from the link; the role can wait until they are in."
+        // The error stays in the BODY, beside the field it is about, rather
+        // than being repeated down here: this form has one input, and an error
+        // in two places is an error somebody reads twice and believes once.
+        footer={
+          <Button type="submit" variant="primary" disabled={busy || email === ""}>
+            {busy ? "Creating…" : "Create the invitation"}
+          </Button>
+        }
+      >
+      <div className="space-y-4">
       {error && (
         <p
           role="alert"
@@ -118,9 +138,8 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
         </select>
       </Field>
 
-      <Button type="submit" variant="primary" disabled={busy || email === ""}>
-        {busy ? "Creating…" : "Create the invitation"}
-      </Button>
+      </div>
+      </Panel>
     </form>
   );
 }
