@@ -64,7 +64,11 @@ export default async function ProjectOverviewPage({
         }
       />
 
-      <ProjectTabs projectKey={project.key} active="overview" />
+      <ProjectTabs
+        projectKey={project.key}
+        active="overview"
+        canManage={project.permissions.update ?? false}
+      />
 
       <PageBody>
         {/* The verdict, the five signals it came from, and the two sentences

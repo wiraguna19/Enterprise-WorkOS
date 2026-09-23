@@ -16,19 +16,33 @@ const VIEWS = [
   { segment: "board", label: "Board" },
 ] as const;
 
+/**
+ * Shown only to somebody who may change the project (ADR 0040).
+ *
+ * Gated here AND refused by the page, like every other permission-gated entry
+ * in this product: a URL is typed, pasted, bookmarked and followed from an old
+ * message, and a nav that merely hides something has not refused it.
+ */
+const MANAGE = { segment: "settings", label: "Settings" } as const;
+
 /** docs/08 lists these; they ship in later phases. */
 const LATER = ["List", "Timeline", "Calendar"];
 
 export function ProjectTabs({
   projectKey,
   active,
+  canManage = false,
 }: {
   projectKey: string;
-  active: (typeof VIEWS)[number]["segment"];
+  active: (typeof VIEWS)[number]["segment"] | (typeof MANAGE)["segment"];
+  /** True when the reader holds `project.update` on this project. */
+  canManage?: boolean;
 }) {
+  const views = canManage ? [...VIEWS, MANAGE] : [...VIEWS];
+
   return (
     <nav aria-label="Project views" className="flex gap-4 border-b border-n-100 text-body">
-      {VIEWS.map((view) => (
+      {views.map((view) => (
         <Link
           key={view.segment}
           href={`/projects/${projectKey}/${view.segment}`}

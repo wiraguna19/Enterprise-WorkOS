@@ -75,7 +75,11 @@ export default async function BoardPage({
         }
       />
 
-      <ProjectTabs projectKey={board.project.key} active="board" />
+      <ProjectTabs
+        projectKey={board.project.key}
+        active="board"
+        canManage={board.project.permissions.update ?? false}
+      />
 
       {/* Horizontal scroll is correct here and only here: a board IS a
           horizontal surface. On a phone the board is available but not the

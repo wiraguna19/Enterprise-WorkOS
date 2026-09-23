@@ -43,6 +43,21 @@ Route::get('projects/{key}', [ProjectController::class, 'show'])
 Route::get('projects/{key}/board', [ProjectController::class, 'board'])
     ->middleware('permission:project.view');
 
+// A project could be created and never corrected (ADR 0040). `project.update`
+// and `project.archive` were seeded in Phase 1, granted to roles, and answered
+// by ProjectPolicy — with no route behind either. The policy is what hid it:
+// a permission consulted by a policy looks consulted.
+//
+// `permission:project.view` rather than `project.update`, and the POLICY
+// decides: a project's owner may correct their own project without holding the
+// organization-wide permission, which is what ProjectPolicy has said since it
+// was written. Guarding the route on `project.update` would overrule it — the
+// coarse layer silently winning, which is docs/06 §2's named failure.
+Route::patch('projects/{key}', [ProjectController::class, 'update'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+Route::post('projects/{key}/archive', [ProjectController::class, 'archive'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+
 // ── Work items ──────────────────────────────────────────────────────────────
 // Keyed by human reference (ENG-142) rather than UUID: it is what people paste
 // into chat, and a readable URL is a small thing that makes a product feel

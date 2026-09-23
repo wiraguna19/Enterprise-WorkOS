@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { api, ApiRequestError } from "@/lib/api";
+import { api, ApiRequestError, describeApiError } from "@/lib/api";
 
 export type ProjectResult = { error: string | null; requestId?: string; key?: string };
 
@@ -60,4 +60,90 @@ export async function createProject(input: NewProject): Promise<ProjectResult> {
   revalidatePath("/");
 
   return { error: null, key };
+}
+
+export type ProjectEdit = {
+  name?: string;
+  description?: string;
+  visibility?: string;
+  priority?: string;
+  status?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+};
+
+export type EditProjectState = {
+  error: string | null;
+  /** Set when somebody else saved while this form was open. */
+  conflict?: { yours: number; current: number };
+};
+
+/**
+ * Correct a project (ADR 0040).
+ *
+ * A project could be created and never corrected: `PATCH /projects/{key}` was
+ * not a route, while `project.update` was granted to roles and answered by a
+ * policy. A typo in a project's name was permanent.
+ *
+ * Only changed fields travel, and `lock_version` travels with them. On a 409
+ * this returns both numbers and nothing offers to force: the other person's
+ * edit is not an obstacle.
+ */
+export async function updateProject(
+  key: string,
+  changes: ProjectEdit,
+  lockVersion: number,
+): Promise<EditProjectState> {
+  if (Object.keys(changes).length === 0) return { error: null };
+
+  try {
+    await api(`/projects/${key}`, {
+      method: "PATCH",
+      body: { ...changes, lock_version: lockVersion },
+    });
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.status === 409) {
+      const details = (error.error.details ?? {}) as Record<string, number>;
+
+      return {
+        error: error.error.message,
+        conflict: { yours: details.your_version ?? lockVersion, current: details.current_version ?? 0 },
+      };
+    }
+
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+
+  return { error: null };
+}
+
+/** Take a project off the boards, or bring it back. Never a delete. */
+export async function setProjectArchived(key: string, archived: boolean): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/archive`, { method: "POST", body: { archived } });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+
+  return { error: null };
+}
+
+/**
+ * Everywhere a project's name, status or presence is rendered.
+ *
+ * The directory and Home list projects; the project's own views print its name
+ * in their header and breadcrumb. Revalidating only the page that was saved is
+ * how a renamed project keeps its old name in the sidebar until something else
+ * happens to refresh it.
+ */
+function refreshProject(key: string): void {
+  revalidatePath("/projects");
+  revalidatePath("/");
+  revalidatePath(`/projects/${key}/overview`);
+  revalidatePath(`/projects/${key}/board`);
+  revalidatePath(`/projects/${key}/settings`);
 }

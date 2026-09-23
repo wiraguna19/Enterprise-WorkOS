@@ -200,6 +200,8 @@ export type Project = {
   open_work_count?: number;
   overdue_work_count?: number;
   archived: boolean;
+  /** Optimistic locking: sent back on a PATCH, and a 409 rather than a silent overwrite. */
+  lock_version: number;
   permissions: Record<string, boolean>;
 };
 

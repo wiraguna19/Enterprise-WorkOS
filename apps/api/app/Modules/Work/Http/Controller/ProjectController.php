@@ -11,6 +11,7 @@ use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Request\OnlyKnownFilters;
 use App\Modules\Platform\Http\Response\ApiResponse;
+use App\Modules\Work\Application\Service\ProjectService;
 use App\Modules\Work\Http\Resource\ProjectResource;
 use App\Modules\Work\Http\Resource\WorkItemResource;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
@@ -27,6 +28,7 @@ final class ProjectController extends ApiController
         private readonly PermissionResolver $permissions,
         private readonly ActingMembership $acting,
         private readonly TenantContext $tenant,
+        private readonly ProjectService $projects,
     ) {}
 
     public function index(Request $request): ApiResponse
@@ -215,6 +217,73 @@ final class ProjectController extends ApiController
         });
 
         return $this->created(new ProjectResource($project));
+    }
+
+    /**
+     * Correct a project (ADR 0040).
+     *
+     * A project could be created and never corrected: this route did not exist
+     * and this method was not written, while `project.update` was granted and
+     * `ProjectPolicy::update` answered it. A typo in a project's name was
+     * permanent.
+     *
+     * `key` is refused BY NAME rather than ignored. It is in every work item
+     * reference the project has ever produced, so changing it is a migration
+     * and not an edit — and a field silently dropped from a PATCH is a form
+     * that appears to work until it reloads.
+     */
+    public function update(Request $request, string $key): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('update', $project);
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'string', 'min:2', 'max:160'],
+            'description' => ['sometimes', 'string', 'max:20000'],
+            'department_id' => ['sometimes', 'nullable', 'uuid'],
+            'visibility' => ['sometimes', 'in:internal,private'],
+            'priority' => ['sometimes', 'in:low,medium,high,urgent'],
+            'status' => ['sometimes', Rule::in(ProjectModel::STATUSES)],
+            'start_date' => ['sometimes', 'nullable', 'date'],
+            'end_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
+            'lock_version' => ['sometimes', 'integer', 'min:0'],
+            'key' => ['prohibited'],
+        ], [
+            'key.prohibited' => "A project's key cannot change: it is part of every work item reference it has produced.",
+        ]);
+
+        $updated = $this->projects->update(
+            $project,
+            collect($validated)->except(['lock_version', 'key'])->all(),
+            // has(), not `?: null`: version 0 is a real version — the one every
+            // freshly created project has — and folding it into "no version
+            // sent" disables optimistic locking for the first edit of every
+            // project (docs/03 §8).
+            $request->has('lock_version') ? $request->integer('lock_version') : null,
+        );
+
+        return $this->ok(new ProjectResource($updated->load(['owner.user:id,name', 'department:id,name'])));
+    }
+
+    /**
+     * Archive or restore. Not a DELETE, and not a status.
+     *
+     * A control is named for what it DOES: this takes a project off the boards
+     * and leaves every work item, hour and history entry where they are.
+     * Calling it "delete" would promise an erasure this deliberately refuses.
+     */
+    public function archive(Request $request, string $key): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('archive', $project);
+
+        $validated = $request->validate(['archived' => ['required', 'boolean']]);
+
+        $updated = $this->projects->setArchived($project, (bool) $validated['archived']);
+
+        return $this->ok(new ProjectResource($updated->load(['owner.user:id,name', 'department:id,name'])));
     }
 
     /** @return Builder<ProjectModel> */
