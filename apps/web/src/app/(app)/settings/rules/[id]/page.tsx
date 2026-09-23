@@ -1,7 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { describeTrigger } from "@/features/workflow/describe";
 import type { Rule, RuleRun } from "@/features/workflow/types";
 import { api, ApiRequestError } from "@/lib/api";
@@ -52,6 +54,17 @@ export default async function RuleRunsPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-5">
+      {/* Two levels, not three. A rule really is inside the rules list, so
+          that link is a promise this page can keep; "Settings" in front of it
+          is the invented level ADR 0026 warns about — nobody navigates to a
+          rule by way of the settings index. */}
+      <Breadcrumb
+        items={[
+          { label: "Automation rules", href: "/settings/rules" },
+          { label: rule.name },
+        ]}
+      />
+
       <PageHeader
         title={rule.name}
         description={
@@ -61,26 +74,35 @@ export default async function RuleRunsPage({ params }: { params: Promise<{ id: s
         }
       />
 
-      <p className="text-body-sm text-n-500">
-        <Link href="/settings/rules" className="text-a-700 underline">
-          All automation rules
-        </Link>
-      </p>
-
-      {runs.length === 0 ? (
-        <EmptyState
-          title="It has not run yet"
-          description={`Nothing has happened that this rule watches for — ${describeTrigger(rule.trigger).toLowerCase()}. A rule with no runs is not evidence that it works.`}
-        />
-      ) : (
-        <section aria-labelledby="runs-heading" className="space-y-2">
-          <h2 id="runs-heading" className="sr-only">
-            Recent runs
-          </h2>
-
-          <ul className="divide-y divide-n-100 border-y border-n-100">
+      <PageBody>
+        {runs.length === 0 ? (
+          <EmptyState
+            title="It has not run yet"
+            description={`Nothing has happened that this rule watches for — ${describeTrigger(rule.trigger).toLowerCase()}. A rule with no runs is not evidence that it works.`}
+          />
+        ) : (
+        <Panel
+          id="runs"
+          title="Recent runs"
+          description={
+            'Newest first. Skipped runs are listed too — "did not match" is the commonest ' +
+            'answer to "why didn\'t it fire", and a log of only the matches cannot give it.'
+          }
+          footer={
+            <p className="text-caption text-n-500">
+              A run is written when the engine evaluates this rule. Nothing is written for a
+              preview, and a run the engine could not record is reported in the application log
+              rather than counted against the rule (ADR 0036).
+            </p>
+          }
+          bleed
+        >
+          <ul className="divide-y divide-n-100">
             {runs.map((run) => (
-              <li key={run.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-3">
+              <li
+                key={run.id}
+                className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3"
+              >
                 <span className="w-40 shrink-0 text-caption tabular-nums text-n-500">
                   {formatDateTime(run.occurred_at, me.user.timezone)}
                 </span>
@@ -105,8 +127,9 @@ export default async function RuleRunsPage({ params }: { params: Promise<{ id: s
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        </Panel>
+        )}
+      </PageBody>
     </div>
   );
 }
