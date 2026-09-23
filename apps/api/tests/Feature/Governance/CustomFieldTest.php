@@ -28,7 +28,7 @@ beforeEach(function (): void {
  * reaching into `$this` is how a test file starts depending on another file's
  * beforeEach, and the failure when it breaks names the wrong test.
  *
- * @param array<string, mixed> $overrides
+ * @param  array<string, mixed>  $overrides
  */
 function declareCustomField(string $token, array $overrides = []): string
 {
@@ -191,8 +191,11 @@ it('puts the fields in the order the administrator chose', function (): void {
         ->values()
         ->all();
 
-    expect(array_search($second, $order, true))
-        ->toBeLessThan(array_search($first, $order, true));
+    // The whole list, not two positions compared. `array_search` answers
+    // `int|false`, so comparing two of them is a comparison PHPStan cannot
+    // type and a reader cannot trust — and the exact list is the stronger
+    // assertion anyway: these are the only two fields this test created.
+    expect($order)->toBe([$second, $first]);
 });
 
 it('does not let a work-item field be reached through the project scope', function (): void {

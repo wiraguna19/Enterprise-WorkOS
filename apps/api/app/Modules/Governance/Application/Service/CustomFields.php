@@ -82,7 +82,7 @@ final class CustomFields
      * is the only place the answer is actually decided. The catch turns that
      * into the sentence the screen can show.
      *
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     public function declare(
         string $scope,
@@ -131,7 +131,7 @@ final class CustomFields
      * dropping a field from an update is how a client ships a control that
      * appears to work — the screen shows the new value until it reloads.
      *
-     * @param array{label?: string, config?: array<string, mixed>, required?: bool, key?: string, type?: string} $changes
+     * @param  array{label?: string, config?: array<string, mixed>, required?: bool, key?: string, type?: string}  $changes
      */
     public function update(CustomFieldDefinitionModel $definition, array $changes): CustomFieldDefinitionModel
     {
@@ -242,7 +242,7 @@ final class CustomFields
      * then decides the form's layout, which is how a drag lands somewhere the
      * person did not drop it.
      *
-     * @param list<string> $orderedIds
+     * @param  list<string>  $orderedIds
      */
     public function reorder(string $scope, array $orderedIds): void
     {

@@ -18,10 +18,24 @@ use App\Modules\Platform\Domain\Exception\DomainException;
  */
 final class CustomFieldRefused extends DomainException
 {
-    /** @param array<string, mixed> $details */
+    /**
+     * NOT `$code`.
+     *
+     * `\Exception` already has a `$code` property — readwrite, untyped,
+     * protected — and a promoted `private readonly string $code` here silently
+     * overrides it. PHPStan called all three halves of that out at once:
+     * narrowing the visibility, adding a native type the parent does not have,
+     * and making a readwrite property readonly. None of them would have thrown
+     * until something asked the exception for its numeric code.
+     *
+     * The lesson is older than this class: a base class's fields are part of
+     * the namespace you are writing in.
+     *
+     * @param  array<string, mixed>  $details
+     */
     private function __construct(
         string $message,
-        private readonly string $code,
+        private readonly string $refusalCode,
         private readonly int $status = 422,
         array $details = [],
     ) {
@@ -30,7 +44,7 @@ final class CustomFieldRefused extends DomainException
 
     public function errorCode(): string
     {
-        return $this->code;
+        return $this->refusalCode;
     }
 
     public function httpStatus(): int
