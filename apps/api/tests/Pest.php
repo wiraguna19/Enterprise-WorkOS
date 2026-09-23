@@ -224,8 +224,50 @@ function minimalRowFor(string $table, string $organizationId): array
             'token_hash' => hash('sha256', $id),
         ],
 
+        // ── Phase 7 ─────────────────────────────────────────────────────────
+        'custom_field_definitions' => $base + [
+            'scope' => 'work_item',
+            // ck_cfd_key_shape: lower-case, starts with a letter. A raw UUID
+            // slice fails it on the days it happens to start with a digit,
+            // which is the kind of test that passes for a fortnight.
+            'key' => 'probe_'.substr(str_replace('-', '', $id), 0, 8),
+            'label' => 'Probe field',
+            'type' => 'text',
+        ],
+        'custom_field_values' => $base + [
+            'definition_id' => probeCustomFieldIn($organizationId),
+            // Exactly one subject and exactly one value, per ck_cfv_one_subject
+            // and ck_cfv_one_value. A probe that left both sides null would
+            // fail the constraint rather than the isolation it is testing.
+            'work_item_id' => GLOBEX_WORK_ITEM,
+            'value_text' => 'Probe',
+        ],
+
         default => $base,
     };
+}
+
+/**
+ * A definition to hang a probe value off.
+ *
+ * Not memoized, for the same reason as probeApprovalIn(): a static cache would
+ * outlive the RefreshDatabase rollback and hand back the id of a row that no
+ * longer exists.
+ */
+function probeCustomFieldIn(string $organizationId): string
+{
+    $id = (string) new UuidV7;
+
+    DB::table('custom_field_definitions')->insert([
+        'id' => $id,
+        'organization_id' => $organizationId,
+        'scope' => 'work_item',
+        'key' => 'probe_'.substr(str_replace('-', '', $id), 0, 8),
+        'label' => 'Probe field',
+        'type' => 'text',
+    ]);
+
+    return $id;
 }
 
 /** Globex fixtures, named so the isolation probes read as something. */

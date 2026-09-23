@@ -50,6 +50,12 @@ const SECTIONS: Array<{
     permission: "role.view",
   },
   {
+    href: "/settings/fields",
+    label: "Custom fields",
+    description: "What this organization asks about a work item, beyond the built-in fields.",
+    permission: "custom_field.manage",
+  },
+  {
     href: "/settings/audit",
     label: "Audit log",
     description: "Who did what, and when — sign-ins, invitations, role changes.",
