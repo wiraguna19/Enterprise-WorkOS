@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { DecisionForm } from "@/features/inbox/DecisionForm";
 import { WithdrawButton } from "@/features/inbox/WithdrawButton";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
@@ -54,10 +57,15 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
   const decided = approval.decisions.filter((d) => d.decision === "approved").length;
 
   return (
-    <div className="space-y-4">
-      <Link href="/inbox?tab=reviews" className="text-body-sm text-n-500 hover:text-a-700">
-        ← Review queue
-      </Link>
+    <div className="space-y-5">
+      {/* The trail every other nested screen has, instead of a hand-drawn back
+          link: this approval really is inside the review queue (ADR 0026). */}
+      <Breadcrumb
+        items={[
+          { label: "Review queue", href: "/inbox?tab=reviews" },
+          { label: approval.subject?.reference ?? "Approval" },
+        ]}
+      />
 
       <PageHeader
         title={approval.subject?.title ?? "Untitled"}
@@ -95,8 +103,13 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
         )}
       </div>
 
-      <section className="space-y-2">
-        <h2 className="text-body font-medium text-n-900">Submitted</h2>
+      <PageBody>
+      <Panel
+        id="submitted"
+        title="Submitted"
+        description="What the submitter wrote when they sent it for review."
+      >
+      <div className="space-y-2">
 
         <div className="flex items-center gap-1.5 text-caption text-n-500">
           {approval.requested_by && (
@@ -122,10 +135,18 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
         ) : (
           <p className="text-body text-n-500">No note was given.</p>
         )}
-      </section>
+      </div>
+      </Panel>
 
-      <section className="space-y-2">
-        <h2 className="text-body font-medium text-n-900">Asked to decide</h2>
+      <Panel
+        id="reviewers"
+        title="Asked to decide"
+        description={
+          approval.policy === "any_one"
+            ? "Any one of them can decide this."
+            : `${approval.required_approvals} of them must approve.`
+        }
+      >
 
         {/* Absent, not empty, when the response did not load the relation —
             which is a different sentence from "nobody is asked", and saying the
@@ -152,10 +173,13 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
 
-      <section className="space-y-2">
-        <h2 className="text-body font-medium text-n-900">Decisions</h2>
+      <Panel
+        id="decisions"
+        title="Decisions"
+        description="Oldest first, and all of them — a reviewer who approved and then asked for changes leaves two."
+      >
 
         {approval.decisions.length === 0 ? (
           <p className="text-body text-n-500">Nobody has decided yet.</p>
@@ -186,7 +210,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             ))}
           </ol>
         )}
-      </section>
+      </Panel>
 
       {/* Both controls are the server's answer, echoed. Neither is inferred
           from the status: a resolved approval sends neither permission, so
@@ -200,6 +224,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
       )}
 
       {approval.permissions.withdraw && <WithdrawButton approvalId={approval.id} />}
+      </PageBody>
     </div>
   );
 }
