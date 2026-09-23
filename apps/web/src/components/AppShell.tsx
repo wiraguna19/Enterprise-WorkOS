@@ -48,6 +48,10 @@ const PRIMARY: NavItem[] = [
 ];
 
 const SECONDARY: NavItem[] = [
+  // The browse screen. Until it existed, four places listed work items and each
+  // asked a FIXED question — a board column, one person's work, one team's,
+  // one report — so nobody could ask a question of their own.
+  { href: "/work", label: "Work", permission: "work_item.view" },
   { href: "/projects", label: "Projects", permission: "project.view" },
   { href: "/calendar", label: "Calendar" },
   { href: "/time", label: "Timesheet" },

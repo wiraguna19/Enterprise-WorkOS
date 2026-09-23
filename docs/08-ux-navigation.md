@@ -29,6 +29,7 @@ harder to find.
 │   ▸ Frontend     │                                                     │
 │   ▸ Backend      │                                                     │
 │                  │                                                     │
+│  Work            │  ← browse: filters, custom fields, the whole grammar │
 │  Calendar        │                                                     │
 │  Reports         │                                                     │
 │                  │                                                     │

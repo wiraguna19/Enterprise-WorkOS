@@ -149,14 +149,11 @@ failure — two layers disagreeing, with the coarse one silently winning.
   whether a `cf_` key is known IS looking the definition up. Shipping the
   refusal without the application would leave a key that validates and does
   nothing, which is worse than neither.
-- **That filter has no screen.** This product has no work-browse page; the four
-  places that list work items each ask a fixed question (a board column, a
-  person's work, a team's work, a report). The filter is reachable through the
-  API, and the administration screen prints each field's `filter_key` so the
-  grammar is discoverable rather than folklore — but a query parameter with no
-  caller is the same shape as an endpoint with no caller, and the reachability
-  guard cannot see it. It is owed a browse screen, and this is the note that
-  says so out loud.
+- **That filter now has a screen.** `/work` browses every item the reader may
+  see, with one input per declared field. Written here as a bill on the day the
+  filter shipped, and paid one slice later: a query parameter with no caller is
+  the same shape as an endpoint with no caller, and the reachability guard
+  cannot see it, so the note was the only thing standing in for the guard.
 - Projects are in the same schema and reachable through the same endpoints, with
   no screen. Deliberate: the screen arrives with the project form that would
   read the fields, rather than as a tab that declares fields nothing asks.
