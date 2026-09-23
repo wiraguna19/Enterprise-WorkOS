@@ -280,6 +280,7 @@ function EditOne({
         </>
       }
       footer={
+        <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
           size="sm"
@@ -294,6 +295,13 @@ function EditOne({
         >
           {saving ? "Saving…" : "Save"}
         </Button>
+
+        {label.trim() === "" && (
+          <p role="status" className="text-caption text-n-500">
+            A field cannot lose its label.
+          </p>
+        )}
+        </div>
       }
     >
       <div className="space-y-3">
@@ -362,7 +370,21 @@ function DeclareOne({
   const [keyTouched, setKeyTouched] = useState(false);
   const suggested = keyTouched ? key : slug(label);
 
-  const ready = label.trim() !== "" && suggested !== "" && (type !== "select" || splitOptions(options).length > 0);
+  // Why the button is off, in the words of the thing that is missing.
+  //
+  // A disabled control with no explanation is a dead end: it says "no" and
+  // nothing else, and the person is left guessing which of four fields it
+  // meant. This one caught its own author — the placeholders below used to
+  // read exactly like the values somebody would type, so an empty form looked
+  // filled in and a greyed-out button looked broken.
+  const blocker =
+    label.trim() === ""
+      ? "Give it a label first."
+      : suggested === ""
+        ? "That label has no letters to make a key from — type one in the key field."
+        : type === "select" && splitOptions(options).length === 0
+          ? "A select needs at least one option."
+          : null;
 
   return (
     <Panel
@@ -370,10 +392,11 @@ function DeclareOne({
       title="Declare a field"
       description={`It appears on every ${scope === "work_item" ? "work item" : "project"} in this organization.`}
       footer={
+        <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
           size="sm"
-          disabled={saving || !ready}
+          disabled={saving || blocker !== null}
           onClick={() => {
             onDeclare({
               key: suggested,
@@ -391,6 +414,16 @@ function DeclareOne({
         >
           {saving ? "Declaring…" : "Declare"}
         </Button>
+
+        {blocker !== null && (
+          // `status`, not `alert`: nothing has gone wrong, and a screen reader
+          // announcing an error every time a form is empty is noise that
+          // teaches people to ignore the real ones.
+          <p role="status" className="text-caption text-n-500">
+            {blocker}
+          </p>
+        )}
+        </div>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
@@ -399,7 +432,9 @@ function DeclareOne({
             id="new-label"
             value={label}
             onChange={(event) => setLabel(event.target.value)}
-            placeholder="Client"
+            // "e.g." because the old placeholder was the exact word somebody
+            // would type here, so an empty field read as a filled one.
+            placeholder="e.g. Client"
             className={INPUT}
           />
         </Field>
@@ -416,7 +451,7 @@ function DeclareOne({
               setKeyTouched(true);
               setKey(slug(event.target.value));
             }}
-            placeholder="client"
+            placeholder="e.g. client"
             className={`${INPUT} font-mono`}
           />
         </Field>
@@ -452,7 +487,7 @@ function DeclareOne({
                 rows={4}
                 value={options}
                 onChange={(event) => setOptions(event.target.value)}
-                placeholder={"Acme\nGlobex"}
+                placeholder={"e.g. Acme\nGlobex"}
                 className={`${INPUT} resize-y`}
               />
             </Field>
