@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Http\Request;
 
 use Closure;
+use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
  * The filter whitelist docs/05 §4 promises, as one mechanism (ADR 0039).
@@ -32,7 +33,7 @@ use Closure;
  * this refusal is a typo one letter long, and the second is a client written
  * against another version; neither is helped by "invalid filter".
  */
-final class OnlyKnownFilters
+final class OnlyKnownFilters implements ValidationRule
 {
     /**
      * @param  list<string>  $allowed  every key this endpoint answers, in the
@@ -46,7 +47,17 @@ final class OnlyKnownFilters
         private readonly string $hint = '',
     ) {}
 
-    public function __invoke(string $attribute, mixed $value, Closure $fail): void
+    /**
+     * `validate`, and the interface, are not decoration.
+     *
+     * A plain invokable object is NOT a validation rule to Laravel: the parser
+     * casts anything it does not recognise to a string, so this class arrived
+     * as `Object of class OnlyKnownFilters could not be converted to string` —
+     * a 500 on every list endpoint, thirty-one tests at once. A first-class
+     * callable (`$this->method(...)`) works because it is a Closure; a class
+     * has to say what it is.
+     */
+    public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         // Not an array: some other rule's problem. A rule that also policed
         // the type would report two failures for one mistake.
