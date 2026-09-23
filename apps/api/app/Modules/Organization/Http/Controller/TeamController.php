@@ -8,6 +8,7 @@ use App\Modules\Organization\Application\Service\TeamService;
 use App\Modules\Organization\Http\Resource\TeamResource;
 use App\Modules\Organization\Infrastructure\Eloquent\TeamModel;
 use App\Modules\Platform\Http\Controller\ApiController;
+use App\Modules\Platform\Http\Request\OnlyKnownFilters;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,15 @@ final class TeamController extends ApiController
 
     public function index(Request $request): ApiResponse
     {
+        // The whitelist docs/05 §4 promises, which this endpoint did not have
+        // at all: `filter.*` was read straight off the request, so an unknown
+        // key was ignored and a malformed one reached the database:
+        // `filter[department_id]=banana` came back a 500 rather than a 422.
+        $request->validate([
+            'filter' => ['sometimes', 'array', new OnlyKnownFilters(['department_id'])],
+            'filter.department_id' => ['sometimes', 'uuid'],
+        ]);
+
         $teams = TeamModel::query()
             ->with('department')
             ->withCount('members')

@@ -9,6 +9,7 @@ use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
+use App\Modules\Platform\Http\Request\OnlyKnownFilters;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Http\Resource\ProjectResource;
 use App\Modules\Work\Http\Resource\WorkItemResource;
@@ -17,6 +18,7 @@ use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Symfony\Component\Uid\UuidV7;
 
 final class ProjectController extends ApiController
@@ -29,6 +31,16 @@ final class ProjectController extends ApiController
 
     public function index(Request $request): ApiResponse
     {
+        // The whitelist docs/05 §4 promises. This endpoint read `filter.*`
+        // straight off the request, so an unknown key was ignored — and the
+        // status list was never checked against the CHECK constraint that
+        // decides it, so `filter[status]=activ` returned an empty project list
+        // and looked like an organization with no projects.
+        $request->validate([
+            'filter' => ['sometimes', 'array', new OnlyKnownFilters(['status'])],
+            'filter.status' => ['sometimes', Rule::in(ProjectModel::STATUSES)],
+        ]);
+
         $projects = $this->visibleProjects()
             ->with(['owner.user:id,name', 'department:id,name'])
             ->withCount('members')

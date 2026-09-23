@@ -54,6 +54,19 @@ final class ProjectModel extends TenantModel
 
     protected $table = 'projects';
 
+    /**
+     * The statuses a project may hold, mirroring `ck_projects_status`.
+     *
+     * Named here because this is the model the column belongs to, and the
+     * thing that consumes a value is the thing that should name it. Before
+     * this, the list existed only in the migration — so `filter[status]=activ`
+     * passed every layer, matched nothing, and rendered as an organization
+     * with no projects.
+     *
+     * @var list<string>
+     */
+    public const STATUSES = ['planning', 'active', 'on_hold', 'completed', 'cancelled'];
+
     /** @return array<string, string> */
     protected function casts(): array
     {

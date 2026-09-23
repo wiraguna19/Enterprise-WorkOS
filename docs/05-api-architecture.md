@@ -213,12 +213,19 @@ GET /work-items
 - **Allowed filters, sorts, and includes are declared per endpoint** in a
   whitelist. An unknown key is a 422, not silently ignored — silent ignoring is
   how a client ships a broken filter nobody notices for a month.
-  **`/work-items` is the only endpoint where this is enforced.** It said
-  otherwise for six phases: every rule was `sometimes`, so an unlisted key was
-  never mentioned rather than refused, and `filter[assignee]` — one letter short
-  of `assignee_id` — returned everybody's work. The other collection endpoints
-  still have the claim and not the mechanism, and that is a bill, not a
-  description.
+  **Enforced by one shared rule, `OnlyKnownFilters` (ADR 0039).** It was a
+  sentence and not a mechanism for six phases: every rule was `sometimes`, so an
+  unlisted key was never mentioned rather than refused, and `filter[assignee]` —
+  one letter short of `assignee_id` — returned everybody's work. `/people`,
+  `/teams` and `/projects` had no validation at all, so `filter[status]=activ`
+  rendered as an organization with no projects and `filter[department_id]=banana`
+  came back a 500.
+- **Values are checked, not only keys.** A status against the list its CHECK
+  constraint enforces, a uuid against being a uuid. A malformed query string is
+  a 422; a 500 tells the caller the server broke and sends them to the logs for
+  their own mistake.
+- **`include` is not enforced anywhere, because no endpoint accepts it yet.**
+  The first one to do so inherits this paragraph as a bill.
 - `filter[cf_<key>]` is matched against the fields the ORGANIZATION declared
   (ADR 0038), so an undeclared key is refused by name like any other unknown
   one. Exact match on the column the field's type decides. The `[lte]`-style

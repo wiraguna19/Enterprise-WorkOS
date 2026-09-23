@@ -12,10 +12,12 @@ use App\Modules\Organization\Http\Resource\PersonResource;
 use App\Modules\Organization\Infrastructure\Eloquent\EmployeeProfileModel;
 use App\Modules\Platform\Application\Query\CursorPage;
 use App\Modules\Platform\Http\Controller\ApiController;
+use App\Modules\Platform\Http\Request\OnlyKnownFilters;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 final class PersonController extends ApiController
 {
@@ -76,6 +78,19 @@ final class PersonController extends ApiController
 
     public function index(Request $request): ApiResponse
     {
+        // The whitelist docs/05 §4 promises, which this endpoint did not have
+        // at all: `filter.*` was read straight off the request, so an unknown
+        // key was ignored and a malformed one reached the database:
+        // `filter[department_id]=banana` came back a 500, because Postgres
+        // refuses to compare a uuid column with that and nothing said 422
+        // first. A 500 tells somebody the server broke and sends them to the
+        // logs, when the fault is in their own query string.
+        $request->validate([
+            'filter' => ['sometimes', 'array', new OnlyKnownFilters(['status', 'department_id'])],
+            'filter.status' => ['sometimes', Rule::in(['invited', 'active', 'suspended', 'revoked'])],
+            'filter.department_id' => ['sometimes', 'uuid'],
+        ]);
+
         $query = MembershipModel::query()
             // Eager loaded, always: the resource reads user, profile, and
             // department for every row. Lazy loading here would be N+1 across

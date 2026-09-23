@@ -8,6 +8,7 @@ use App\Modules\Governance\Application\Service\CustomFields;
 use App\Modules\Governance\Infrastructure\Eloquent\CustomFieldDefinitionModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Domain\Work\StateCategory;
+use App\Modules\Platform\Http\Request\OnlyKnownFilters;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,12 +27,13 @@ use Illuminate\Validation\Rule;
  * one letter short of `assignee_id` — returned the whole list, and
  * `sort=titel` sorted by position. Both are the failure the docblock describes,
  * and both were sitting under it. The whitelist below is the sentence made
- * true: `ALLOWED`, an explicit refusal, and a message that names the key.
+ * true: `ALLOWED`, and {@see OnlyKnownFilters} — the shared refusal every
+ * collection endpoint now uses (ADR 0039).
  *
- * `cf_<key>` is part of the same grammar (docs/05 §4, ADR 0038). It is checked
- * against what THIS organization declared, which is the only place the answer
- * can come from, and an undeclared one is refused by name like any other
- * unknown key.
+ * `cf_<key>` is part of the same grammar (docs/05 §4, ADR 0038), and it is
+ * added to the allowed LIST rather than handled beside it. "What this
+ * organization can filter by" is one answer, and a whitelist with a hole in it
+ * is a whitelist somebody widens again later.
  */
 final class ListWorkItemsRequest extends FormRequest
 {
@@ -76,7 +78,7 @@ final class ListWorkItemsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'filter' => ['sometimes', 'array', $this->onlyKnownFilters(...)],
+            'filter' => ['sometimes', 'array', new OnlyKnownFilters($this->allowedFilterKeys(), 'cf_<key> for a custom field'), $this->oneValuePerCustomField(...)],
             'filter.project_id' => ['sometimes', 'uuid'],
             'filter.milestone_id' => ['sometimes', 'uuid'],
             'filter.parent_id' => ['sometimes', 'nullable', 'uuid'],
@@ -109,48 +111,59 @@ final class ListWorkItemsRequest extends FormRequest
     }
 
     /**
-     * Refuse a filter key this endpoint does not answer.
+     * Every key this endpoint answers, this organization's own fields included.
      *
-     * The message names the key and lists what is allowed, because the
-     * commonest cause is a typo and the second commonest is a client written
-     * against a different version. Neither is helped by "invalid filter".
+     * The custom keys are added to the LIST rather than handled as an escape
+     * hatch beside it, because that is what they are: "what this organization
+     * can filter by" is one answer, and a whitelist with a hole in it is a
+     * whitelist somebody will widen again later.
      *
-     * @param  mixed  $value
+     * The definitions are only read when a `cf_` key was actually sent. A
+     * collection endpoint is the one place where an unconditional extra query
+     * becomes an extra query per page, and `QueryPerformanceTest` holds budgets
+     * that would catch it — after somebody spent an afternoon on why.
+     *
+     * Retired fields are included: their answers are still on records, and
+     * "show me the items that said Acme" is a question about those records.
+     *
+     * @return list<string>
      */
-    private function onlyKnownFilters(string $attribute, mixed $value, Closure $fail): void
+    private function allowedFilterKeys(): array
+    {
+        $keys = self::ALLOWED;
+        $filter = (array) $this->input('filter', []);
+
+        foreach (array_keys($filter) as $key) {
+            if (str_starts_with((string) $key, self::CUSTOM_PREFIX)) {
+                foreach (app(CustomFields::class)->all('work_item') as $definition) {
+                    $keys[] = self::CUSTOM_PREFIX.$definition->key;
+                }
+
+                break;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * A custom filter takes one value, not a list.
+     *
+     * `?filter[cf_client][]=a&filter[cf_client][]=b` arrives as an array, and
+     * the apply step casts to string — so it would reach the database as the
+     * literal "Array", match nothing, and read as an empty result rather than
+     * as the refusal it is.
+     */
+    private function oneValuePerCustomField(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_array($value)) {
             return;
         }
 
-        foreach (array_keys($value) as $key) {
-            $key = (string) $key;
-
-            if (in_array($key, self::ALLOWED, strict: true)) {
-                continue;
+        foreach ($value as $key => $wanted) {
+            if (str_starts_with((string) $key, self::CUSTOM_PREFIX) && ! is_scalar($wanted)) {
+                $fail("Custom field \"{$key}\" takes one value.");
             }
-
-            if (str_starts_with($key, self::CUSTOM_PREFIX)) {
-                if (! is_scalar($value[$key])) {
-                    // `?filter[cf_client][]=a&filter[cf_client][]=b` arrives as
-                    // an array, and the apply step casts to string. Refused
-                    // here rather than stringified into "Array", which would
-                    // match nothing and look like an empty result.
-                    $fail("Custom field \"{$key}\" takes one value.");
-
-                    continue;
-                }
-
-                if ($this->customField($key) !== null) {
-                    continue;
-                }
-
-                $fail("This organization has no custom field called \"{$key}\".");
-
-                continue;
-            }
-
-            $fail("Unknown filter \"{$key}\". Allowed: ".implode(', ', self::ALLOWED).', or cf_<key> for a custom field.');
         }
     }
 
@@ -161,8 +174,6 @@ final class ListWorkItemsRequest extends FormRequest
      * silence the class docblock forbids one paragraph earlier: a client asking
      * for `sort=titel` got the default order and no sign that its request had
      * been dropped.
-     *
-     * @param  mixed  $value
      */
     private function onlySortableFields(string $attribute, mixed $value, Closure $fail): void
     {
@@ -177,6 +188,7 @@ final class ListWorkItemsRequest extends FormRequest
         }
     }
 
+    /** The definition behind a `cf_*` key, memoized — see the property above. */
     private function customField(string $filterKey): ?CustomFieldDefinitionModel
     {
         $key = mb_substr($filterKey, mb_strlen(self::CUSTOM_PREFIX));

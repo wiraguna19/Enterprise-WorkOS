@@ -78,10 +78,21 @@ it('filters by a custom field the organization declared', function (): void {
 });
 
 it('refuses a custom field this organization never declared', function (): void {
-    $this->withToken($this->manager)
+    $this->withToken($this->admin)
+        ->postJson('/api/v1/custom-fields/work_item', [
+            'key' => 'client', 'label' => 'Client', 'type' => 'text',
+        ])->assertStatus(201);
+
+    $message = $this->withToken($this->manager)
         ->getJson('/api/v1/work-items?filter[cf_nonsense]=x')
         ->assertStatus(422)
-        ->assertJsonFragment(['filter' => ['This organization has no custom field called "cf_nonsense".']]);
+        ->json('error.details.filter.0');
+
+    // The key that was refused, and the custom keys that DO exist. The second
+    // half is what makes this message worth reading: somebody who mistyped
+    // `cf_client` can see the spelling that works.
+    expect($message)->toContain('cf_nonsense')
+        ->toContain('cf_client');
 });
 
 it('refuses a custom filter given more than one value', function (): void {
@@ -95,4 +106,45 @@ it('refuses a custom filter given more than one value', function (): void {
     $this->withToken($this->manager)
         ->getJson('/api/v1/work-items?filter[cf_client][]=Acme&filter[cf_client][]=Globex')
         ->assertStatus(422);
+});
+
+/**
+ * The same promise, on the three endpoints that never had it (ADR 0039).
+ *
+ * `/people`, `/teams` and `/projects` read `filter.*` straight off the request
+ * with nothing validating anything — so an unknown key was ignored, and a
+ * malformed one reached Postgres. The 500 is the part worth a test: a bad query
+ * string is the caller's mistake, and answering 500 sends them to read server
+ * logs for it.
+ */
+it('refuses an unknown filter on people, teams and projects', function (): void {
+    foreach (['people', 'teams', 'projects'] as $collection) {
+        $this->withToken($this->admin)
+            ->getJson("/api/v1/{$collection}?filter[nonsense]=x")
+            ->assertStatus(422);
+    }
+});
+
+it('answers 422, not 500, when a uuid filter is not a uuid', function (): void {
+    foreach (['people', 'teams'] as $collection) {
+        $this->withToken($this->admin)
+            ->getJson("/api/v1/{$collection}?filter[department_id]=banana")
+            ->assertStatus(422);
+    }
+});
+
+it('refuses a status outside the list the database enforces', function (): void {
+    // `activ` matched nothing and rendered as an organization with no
+    // projects — a wrong answer that looks computed, which nobody reports.
+    $this->withToken($this->admin)
+        ->getJson('/api/v1/projects?filter[status]=activ')
+        ->assertStatus(422);
+
+    $this->withToken($this->admin)
+        ->getJson('/api/v1/projects?filter[status]=active')
+        ->assertOk();
+
+    $this->withToken($this->admin)
+        ->getJson('/api/v1/people?filter[status]=suspended')
+        ->assertOk();
 });
