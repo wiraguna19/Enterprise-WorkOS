@@ -253,9 +253,16 @@ final class ProjectController extends ApiController
             'key.prohibited' => "A project's key cannot change: it is part of every work item reference it has produced.",
         ]);
 
+        // `unset`, not `collect()->except()`: `validate()` answers a plain
+        // array and PHPStan cannot resolve Collection's key and value template
+        // types through it. A helper that costs two generic errors to save one
+        // line is not saving anything.
+        $changes = $validated;
+        unset($changes['lock_version'], $changes['key']);
+
         $updated = $this->projects->update(
             $project,
-            collect($validated)->except(['lock_version', 'key'])->all(),
+            $changes,
             // has(), not `?: null`: version 0 is a real version — the one every
             // freshly created project has — and folding it into "no version
             // sent" disables optimistic locking for the first edit of every

@@ -38,7 +38,7 @@ export function ProjectTabs({
   /** True when the reader holds `project.update` on this project. */
   canManage?: boolean;
 }) {
-  const views = canManage ? [...VIEWS, MANAGE] : [...VIEWS];
+  const views = [...VIEWS];
 
   return (
     <nav aria-label="Project views" className="flex gap-4 border-b border-n-100 text-body">
@@ -68,6 +68,10 @@ export function ProjectTabs({
 
           They are shown rather than hidden so the board does not look like
           the only view this product will ever have (docs/07 §4). */}
+      {/* Settings comes AFTER the unbuilt views, not between them and the real
+          ones: it is not a view of the project, and wedging it in the middle
+          separated "the views that exist" from "the views that will" with
+          something that is neither. */}
       {LATER.map((view) => (
         <button
           key={view}
@@ -79,6 +83,21 @@ export function ProjectTabs({
           {view}
         </button>
       ))}
+
+      {canManage && (
+        <Link
+          href={`/projects/${projectKey}/${MANAGE.segment}`}
+          aria-current={active === MANAGE.segment ? "page" : undefined}
+          className={clsx(
+            "border-b-2 pb-2 transition-colors duration-[120ms]",
+            active === MANAGE.segment
+              ? "border-a-500 font-medium text-n-900"
+              : "border-transparent text-n-500 hover:text-n-700",
+          )}
+        >
+          {MANAGE.label}
+        </Link>
+      )}
     </nav>
   );
 }

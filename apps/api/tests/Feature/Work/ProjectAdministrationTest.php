@@ -20,7 +20,12 @@ use Illuminate\Support\Facades\DB;
  */
 beforeEach(function (): void {
     $this->admin = $this->loginAs('rina@acme.test');
-    $this->viewer = $this->loginAs('tono@acme.test');   // contractor: reads only
+    // An employee AND a member of ENG: holds `project.view`, not
+    // `project.update`, and is not the owner. The person this refusal is about.
+    $this->member = $this->loginAs('sarah@acme.test');
+    // A contractor who is not a member of ENG at all — a different refusal, and
+    // the test below says which.
+    $this->outsider = $this->loginAs('tono@acme.test');
 });
 
 /**
@@ -142,12 +147,26 @@ it('refuses a status the database would refuse', function (): void {
         ->assertStatus(422);
 });
 
-it('refuses somebody who may read the project but not change it', function (): void {
-    $this->withToken($this->viewer)
+it('refuses a member who may read the project but not change it', function (): void {
+    $this->withToken($this->member)
         ->patchJson('/api/v1/projects/ENG', ['name' => 'Not yours'])
         ->assertForbidden();
 
-    $this->withToken($this->viewer)
+    $this->withToken($this->member)
         ->postJson('/api/v1/projects/ENG/archive', ['archived' => true])
         ->assertForbidden();
+});
+
+it('answers 404, not 403, to somebody who cannot see the project at all', function (): void {
+    // The first draft of this test asserted 403 and got 404 — and the 404 is
+    // right. `visibleTo` never returns a project the reader is not a member of,
+    // so `firstOrFail()` answers before the policy is ever consulted, and the
+    // refusal does not confirm that ENG exists. 403 would (docs/05 §3).
+    //
+    // Worth keeping as a test rather than deleting as a mistake: the two
+    // refusals mean different things, and the difference is the one this
+    // product deliberately makes everywhere.
+    $this->withToken($this->outsider)
+        ->patchJson('/api/v1/projects/ENG', ['name' => 'Not yours'])
+        ->assertNotFound();
 });
