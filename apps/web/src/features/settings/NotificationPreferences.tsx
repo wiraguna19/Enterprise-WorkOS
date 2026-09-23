@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { DataTable, TBody, THead, Th, Tr } from "@/components/ui/DataTable";
+import { INPUT } from "@/components/ui/Field";
 import { saveNotificationPreference } from "./actions";
 import type { NotificationType, Preference } from "./types";
 
@@ -278,7 +279,7 @@ function DigestSelect({
       value={preference.digest}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value as Preference["digest"])}
-      className="rounded-sm border border-n-200 bg-n-0 px-1.5 py-1 text-body-sm text-n-900"
+      className={INPUT.replace("w-full", "w-auto")}
     >
       <option value="off">Off</option>
       <option value="daily">Daily</option>

@@ -2,6 +2,7 @@
 
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { INPUT } from "@/components/ui/Field";
 import { decide } from "./actions";
 
 type Decision = "approved" | "changes_requested" | "rejected";
@@ -116,7 +117,10 @@ export function DecisionForm({
         value={comment}
         onChange={(event) => setComment(event.target.value)}
         placeholder="Be specific enough that they can act on it without asking you a follow-up question."
-        className="w-full rounded-sm border border-n-200 px-2 py-1.5 text-body text-n-900 focus:border-a-500 focus:outline-2 focus:outline-offset-1 focus:outline-a-500"
+        // The shared input, not a fourth hand-rolled copy of it: this textarea
+        // had a lighter border and a different focus ring from every other
+        // control in the product (docs/09 §5).
+        className={INPUT}
       />
 
       {error && (

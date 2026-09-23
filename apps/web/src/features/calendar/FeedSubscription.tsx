@@ -46,7 +46,9 @@ export function FeedSubscription({ feed }: { feed: FeedStatus }) {
   }
 
   return (
-    <div className="w-full max-w-xl space-y-2 rounded-md border border-n-200 p-3 text-body-sm">
+    // `n-300` and the panel radius: this is a container, and it was the one
+    // container in the product still wearing the lighter border (ADR 0024).
+    <div className="w-full max-w-xl space-y-2 rounded-lg border border-n-300 p-3 text-body-sm">
       {issued ? (
         <>
           <p className="text-n-700">

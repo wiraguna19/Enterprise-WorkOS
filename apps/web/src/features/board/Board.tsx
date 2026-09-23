@@ -353,7 +353,11 @@ function BoardColumnDropZone({
         "flex w-72 shrink-0 flex-col rounded-xl border p-2 transition-colors duration-[120ms]",
         (over || isKeyboardTarget) && !isSource
           ? "border-a-500 bg-a-500/5"
-          : "border-n-200 bg-n-25",
+          // `n-300`, the same border every Panel in the product wears. It was
+          // `n-200`, a step lighter, which is invisible on this screen alone
+          // and obvious the moment a board sits beside a panel — the palest
+          // container in a product whose containers were deliberately darkened.
+          : "border-n-300 bg-n-25",
         picked && known && !legal && !isSource && "opacity-50",
       )}
       onDragOver={(event) => {
