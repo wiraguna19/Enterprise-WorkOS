@@ -257,7 +257,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
         </h2>
 
         {actions.map((action, index) => (
-          <div key={index} className="space-y-2 border border-n-200 p-3 rounded-md">
+          <div key={index} className="space-y-2 rounded-lg border border-n-300 p-3">
             <div className="flex items-center gap-2">
               <select
                 aria-label={`Action ${index + 1}`}

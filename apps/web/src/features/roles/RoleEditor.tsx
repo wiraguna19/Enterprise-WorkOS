@@ -192,7 +192,7 @@ function NewRole({
   const [description, setDescription] = useState("");
 
   return (
-    <div className="space-y-4 border border-n-200 p-4 rounded-md">
+    <div className="space-y-4 rounded-lg border border-n-300 p-4">
       <Field id="role-name" label="Name" hint="What an administrator picks from a list.">
         <input
           id="role-name"

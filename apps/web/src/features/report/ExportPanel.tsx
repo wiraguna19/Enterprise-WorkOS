@@ -135,7 +135,7 @@ export function ExportPanel({
       )}
 
       {mine.length > 0 && (
-        <ul className="divide-y divide-n-100 rounded-sm border border-n-200">
+        <ul className="divide-y divide-n-100 rounded-lg border border-n-300">
           {mine.map((row) => (
             <ExportRow key={row.id} row={row} />
           ))}

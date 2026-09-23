@@ -48,7 +48,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
         title="Save your recovery codes"
         description="Each one works once, in place of a code from your app. This is the only time they are shown."
       >
-        <ul className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg border border-n-200 bg-n-25 p-4 font-mono text-body-sm text-n-900 sm:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg border border-n-300 bg-n-25 p-4 font-mono text-body-sm text-n-900 sm:grid-cols-3">
           {codes.map((recovery) => (
             <li key={recovery}>{recovery}</li>
           ))}
@@ -105,7 +105,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           {/* White stays white in dark mode: a QR code inverted is a QR code
               half the scanners in the world refuse. */}
-          <div className="rounded-lg border border-n-200 bg-white p-3">
+          <div className="rounded-lg border border-n-300 bg-white p-3">
             <QRCodeSVG value={uri} size={160} marginSize={0} />
           </div>
 

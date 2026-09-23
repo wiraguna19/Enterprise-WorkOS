@@ -211,6 +211,26 @@ a row (`w-20`, `flex-1`). It sits on the wrapper because the label and the hint
 have to move with the control, which is the reason the time-log form had grown
 a private `Field` in the first place.
 
+#### Which border a thing wears
+
+A **container** — anything with a border on all four sides that holds other
+things — wears `rounded-lg border-n-300`, the same as `Panel`. That covers the
+recovery-code grid, the QR frame, the rule preview, the role editor, the
+transition editors, the action blocks in a rule, the transition dialog, the
+invite link, and the export list, all of which used to be a shade lighter and a
+radius smaller.
+
+`n-200` survives in exactly two places, on purpose. **Internal rules** —
+`border-t`, `border-b`, `divide-` inside a `Panel` or a `DataTable` — are meant
+to be quieter than the container around them. **Floating surfaces** — the
+account menu, the command palette and its trigger, the status popover, the
+mention list — are told apart from the page by their shadow, and a darker
+border on top of that reads as a second outline.
+
+A board column is a container and wears `n-300`, but it is NOT wrapped in a
+`Panel`: it owns a horizontal scroller, and wrapping it is what produced the
+double scrollbar.
+
 ### Data table
 
 ```text

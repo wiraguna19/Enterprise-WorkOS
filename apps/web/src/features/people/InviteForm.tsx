@@ -44,7 +44,7 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
           lost the invitation has to be revoked and reissued.
         </p>
 
-        <code className="block overflow-x-auto break-all border border-n-200 bg-n-50 p-3 font-mono text-micro text-n-900 rounded-md">
+        <code className="block overflow-x-auto break-all rounded-lg border border-n-300 bg-n-50 p-3 font-mono text-micro text-n-900">
           {inviteUrl(issued.token)}
         </code>
 

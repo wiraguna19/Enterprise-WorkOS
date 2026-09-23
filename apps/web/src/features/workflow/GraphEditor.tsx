@@ -184,7 +184,7 @@ function AddState({
 
   return (
     <form
-      className="flex flex-wrap items-end gap-3 border border-n-200 p-3 rounded-md"
+      className="flex flex-wrap items-end gap-3 rounded-lg border border-n-300 p-3"
       onSubmit={(event) => {
         event.preventDefault();
         onAdd({ key, label, category });
@@ -258,7 +258,7 @@ function AddTransition({
 
   return (
     <form
-      className="flex flex-wrap items-end gap-3 border border-n-200 p-3 rounded-md"
+      className="flex flex-wrap items-end gap-3 rounded-lg border border-n-300 p-3"
       onSubmit={(event) => {
         event.preventDefault();
         // "" is the from-anywhere option, and it is sent as an explicit null:

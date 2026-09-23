@@ -81,7 +81,7 @@ export function TryRule({ ruleId }: { ruleId: string }) {
       )}
 
       {preview && (
-        <div className="rounded-lg border border-n-200 bg-n-25 p-3">
+        <div className="rounded-lg border border-n-300 bg-n-25 p-3">
           <div className="flex flex-wrap items-center gap-2">
             {/* Three verdicts, not two. A rule that asks about the moment and
                 did not match has not been JUDGED — saying "conditions do not

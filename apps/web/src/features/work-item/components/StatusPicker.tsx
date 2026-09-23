@@ -191,7 +191,7 @@ function CommentPrompt({
         role="dialog"
         aria-modal="true"
         aria-label={`Move ${reference} to ${transition.to_state.label}`}
-        className="w-full max-w-md space-y-2 rounded-sm border border-n-200 bg-n-0 p-4 shadow-sm"
+        className="w-full max-w-md space-y-2 rounded-lg border border-n-300 bg-n-0 p-4 shadow-sm"
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit(comment);
