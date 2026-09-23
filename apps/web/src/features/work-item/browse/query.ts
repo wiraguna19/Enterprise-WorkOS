@@ -40,9 +40,26 @@ export const SORTS: Array<{ value: string; label: string }> = [
   { value: "priority", label: "Priority" },
 ];
 
+/**
+ * The parameters this screen actually sends, and nothing else.
+ *
+ * One list read by both `apiQuery` and `activeCount`, because they were two
+ * lists that had to agree and did not: a stray `?foo=bar` in the address bar
+ * was counted as a filter and never sent, so the header said "1 filter on"
+ * above an unfiltered list and the Clear button had nothing to clear. **A count
+ * beside a list must count what the list shows** — the same rule this product
+ * already learned when the inbox header disagreed with the badge in the shell.
+ */
+const SENT = ["category", "priority", "project", "assignee", "late", "unassigned"] as const;
+
 /** Is this parameter one of an organization's own fields? */
 export function isCustomKey(key: string): boolean {
   return key.startsWith("cf_");
+}
+
+/** Would `apiQuery` pass this parameter on? */
+function isSent(key: string): boolean {
+  return isCustomKey(key) || (SENT as readonly string[]).includes(key);
 }
 
 /**
@@ -81,11 +98,7 @@ export function apiQuery(params: BrowseParams, limit = 50): string {
 /** How many filters are on, so the screen can say so and offer to clear them. */
 export function activeCount(params: BrowseParams): number {
   return Object.entries(params).filter(
-    ([key, value]) =>
-      value !== undefined &&
-      value !== "" &&
-      key !== "sort" &&
-      key !== "cursor",
+    ([key, value]) => isSent(key) && value !== undefined && value !== "",
   ).length;
 }
 
