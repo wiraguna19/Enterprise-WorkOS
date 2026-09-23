@@ -7,12 +7,36 @@ namespace App\Modules\Work\Http\Resource;
 use App\Modules\Platform\Http\Resource\BaseResource;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemAssignmentModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
+use Illuminate\Http\Resources\MissingValue;
 
 /**
  * @property WorkItemModel $resource
  */
 final class WorkItemResource extends BaseResource
 {
+    /**
+     * The organization's own fields, already shaped by Governance.
+     *
+     * Handed in rather than fetched here: a resource that queries is a resource
+     * that queries once per row of a list. Only the detail endpoint sets it,
+     * and `MissingValue` is what keeps `custom_fields` ABSENT from every other
+     * payload instead of present and empty — an empty list would read as "this
+     * organization declares none", which is a different fact.
+     *
+     * @var list<array<string, mixed>>|null
+     */
+    private ?array $customFields = null;
+
+    /**
+     * @param  list<array<string, mixed>>  $fields
+     */
+    public function withCustomFields(array $fields): self
+    {
+        $this->customFields = $fields;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toArray($request): array
     {
@@ -66,6 +90,8 @@ final class WorkItemResource extends BaseResource
                     // is the state a manager needs to notice.
                     'accepted' => $a->accepted_at !== null,
                 ])->values()->all()),
+
+            'custom_fields' => $this->customFields ?? new MissingValue,
 
             'subtask_count' => $this->whenCounted('children'),
             'comment_count' => $this->whenCounted('comments'),

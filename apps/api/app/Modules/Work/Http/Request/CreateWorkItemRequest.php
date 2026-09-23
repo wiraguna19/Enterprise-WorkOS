@@ -44,6 +44,12 @@ final class CreateWorkItemRequest extends FormRequest
                 Rule::exists('memberships', 'id')->where('organization_id', $organizationId)],
             'reviewer_id' => ['sometimes', 'nullable', 'uuid',
                 Rule::exists('memberships', 'id')->where('organization_id', $organizationId)],
+            // The organization's own fields, keyed by key (ADR 0038). Only
+            // the shape is checked here — which keys exist, what each one
+            // accepts, and whether the value is one of a declared set are
+            // decided by the DEFINITION, and this validator cannot see it.
+            'custom_fields' => ['sometimes', 'array'],
+            'custom_fields.*' => ['nullable', 'string', 'max:500'],
         ];
     }
 }

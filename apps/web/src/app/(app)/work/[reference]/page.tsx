@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageBody } from "@/components/ui/PageBody";
+import { KeyValue, KeyValueItem } from "@/components/ui/KeyValue";
 import { Panel } from "@/components/ui/Panel";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
@@ -197,6 +198,25 @@ export default async function WorkItemPage({
       <PageBody
         aside={
           <>
+            {(item.custom_fields ?? []).length > 0 && (
+              // Read here, written on the edit form. A field whose only reader
+              // is the form that writes it is a field nobody sees without
+              // clicking Edit — which is the write path with no read path this
+              // product keeps finding, in its quietest form.
+              <Panel id="custom-fields" title="Fields for this organization">
+                <KeyValue columns={2}>
+                  {(item.custom_fields ?? []).map((field) => (
+                    <KeyValueItem
+                      key={field.key}
+                      label={field.live ? field.label : `${field.label} (retired)`}
+                    >
+                      {field.value ?? <span className="text-n-500">—</span>}
+                    </KeyValueItem>
+                  ))}
+                </KeyValue>
+              </Panel>
+            )}
+
             <Panel id="time" title="Time">
               <TimePanel
                 reference={item.reference}

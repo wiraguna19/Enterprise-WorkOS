@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
+import {
+  changedValues,
+  CustomFieldInputs,
+  initialValues,
+} from "@/features/custom-fields/CustomFieldInputs";
+import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { deleteWorkItem, updateWorkItem, type WorkItemEdit } from "../actions";
 
 /**
@@ -33,6 +39,7 @@ import { deleteWorkItem, updateWorkItem, type WorkItemEdit } from "../actions";
 export function EditWorkItemForm({
   reference,
   initial,
+  customFields,
   lockVersion,
   canDelete,
   timeZone,
@@ -46,6 +53,8 @@ export function EditWorkItemForm({
     due_at: string | null;
     estimate_hours: string | null;
   };
+  /** The organization's own fields, with this item's answers (ADR 0038). */
+  customFields: CustomFieldAnswer[];
   lockVersion: number;
   canDelete: boolean;
   timeZone: string;
@@ -58,6 +67,11 @@ export function EditWorkItemForm({
   const [startDate, setStartDate] = useState(dateInput(initial.start_date, timeZone));
   const [dueAt, setDueAt] = useState(dateInput(initial.due_at, timeZone));
   const [estimate, setEstimate] = useState(initial.estimate_hours ?? "");
+
+  // Captured once, so "what changed" is measured against what the page was
+  // given rather than against a value that moved with the form.
+  const [customBefore] = useState(() => initialValues(customFields));
+  const [custom, setCustom] = useState(customBefore);
 
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<{ yours: number; current: number } | null>(null);
@@ -92,6 +106,10 @@ export function EditWorkItemForm({
       if (estimate !== (initial.estimate_hours ?? "")) {
         changes.estimate_hours = estimate === "" ? null : estimate;
       }
+
+      const customChanges = changedValues(customFields, customBefore, custom);
+
+      if (Object.keys(customChanges).length > 0) changes.custom_fields = customChanges;
 
       const result = await updateWorkItem(reference, changes, lockVersion);
 
@@ -184,6 +202,25 @@ export function EditWorkItemForm({
           className={`${INPUT} max-w-32`}
         />
       </Field>
+
+      {customFields.length > 0 && (
+        // Below the built-in fields and under a rule, because docs/08 §5 puts
+        // them in "More": they are what THIS organization adds, and a form that
+        // interleaves them with title and due date reads as though every
+        // installation has them.
+        <div className="space-y-3 border-t border-n-100 pt-4">
+          <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
+            Fields for this organization
+          </h2>
+
+          <CustomFieldInputs
+            fields={customFields}
+            values={custom}
+            idPrefix="cf"
+            onChange={(key, value) => setCustom((current) => ({ ...current, [key]: value }))}
+          />
+        </div>
+      )}
 
       <div className="flex items-center gap-3 border-t border-n-100 pt-4">
         <Button type="submit" variant="primary" disabled={saving || conflict !== null}>

@@ -34,6 +34,12 @@ final class UpdateWorkItemRequest extends FormRequest
             'estimate_hours' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999'],
             'milestone_id' => ['sometimes', 'nullable', 'uuid'],
             'lock_version' => ['sometimes', 'integer', 'min:0'],
+            // The organization's own fields, keyed by key (ADR 0038). Only
+            // the shape is checked here — which keys exist, what each one
+            // accepts, and whether the value is one of a declared set are
+            // decided by the DEFINITION, and this validator cannot see it.
+            'custom_fields' => ['sometimes', 'array'],
+            'custom_fields.*' => ['nullable', 'string', 'max:500'],
         ];
     }
 }

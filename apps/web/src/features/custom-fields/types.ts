@@ -39,3 +39,23 @@ export const TYPE_DESCRIPTIONS: Record<FieldType, string> = {
   date: "A calendar date, separate from the item's own dates.",
   select: "One of a list you write. The list is the point.",
 };
+
+/**
+ * One declared field as it appears ON a record, answer included (ADR 0038).
+ *
+ * Distinct from `CustomField` above, which is the administrator's view: this
+ * one carries no id, no position and no filter key, because the form does not
+ * need them and the record does not either. It carries `live`, which the
+ * administrator's list expresses as a separate column — a retired field with an
+ * answer still has to be PRINTED and must not be OFFERED.
+ */
+export type CustomFieldAnswer = {
+  key: string;
+  label: string;
+  type: FieldType;
+  options: string[];
+  required: boolean;
+  live: boolean;
+  /** Always a string or null — a number leaves the API undamaged, as text. */
+  value: string | null;
+};

@@ -96,6 +96,33 @@ for the gentler of the two eventually performs the other. The audit entry for a
 deletion records how many answers it destroyed, counted *before* the cascade
 removes the evidence.
 
+### `required` defends an answer; it does not demand one retroactively
+
+Two halves, and both are needed for the word to mean anything usable:
+
+- **Creation demands every required field.** A new record is the one moment
+  completeness can be insisted on without punishing anybody.
+- **An edit may not take a required answer away**, but is never refused for one
+  that was never given.
+
+The rejected alternative — check completeness on every write — makes a field
+declared today retroactively block every item created before it, so somebody
+fixing a typo is refused over a field they have never seen. That is a lockout
+produced by a setting, which is the worst kind: nothing in the interface
+connects the refusal to the switch that caused it.
+
+### The create form reads its fields from its own endpoint
+
+`GET /custom-fields/work_item` is administration and is guarded by
+`custom_field.manage`. `GET /work-items/fields` serves the same list, blank and
+live-only, guarded by `work_item.create`.
+
+Without the second one, declaring a single required field would make creating a
+work item impossible for everybody but an administrator — the form could not
+show the field, so it could never satisfy the check. Two endpoints for one list
+looks like duplication and is not: they answer to different permissions, and
+that is the whole reason both exist.
+
 ### One permission, not three
 
 `custom_field.manage` covers the definition side and nothing else.
@@ -109,12 +136,14 @@ failure — two layers disagreeing, with the coarse one silently winning.
 
 - An organization can declare, edit, reorder, retire and delete its own fields,
   and see which ones a filter would name.
-- **The answers are not yet collected anywhere.** This slice ships the
-  definition side end to end — endpoints and the screen together, because an
-  endpoint with no interface is the defect above — and the work item form reads
-  and writes them in the slice that follows. The gap is deliberate and it is
-  narrow; a field that can be declared and never answered is a dead control if
-  it outlives one slice.
+- A work item carries its answers: written with the item, in the item's own
+  transaction, and printed on its page rather than only inside the form that
+  writes them. A field whose only reader is its own editor is the write path
+  with no read path, in its quietest form.
+- **`custom_fields` is absent from every payload but the detail one.** A column
+  per declared field on a board is a board nobody can read, and building one is
+  a join per row. Absent, not empty: an empty list would say "this organization
+  declares none", which is a different fact.
 - `filter[cf_<key>]` is published grammar and still unimplemented. It has been
   unimplemented since Phase 2; what changes here is that the key it filters on
   now exists and the API says out loud what it would be called.

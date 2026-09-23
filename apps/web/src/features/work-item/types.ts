@@ -1,3 +1,5 @@
+import type { CustomFieldAnswer } from "@/features/custom-fields/types";
+
 /**
  * Mirrors the API contract (docs/05 §3).
  *
@@ -49,6 +51,12 @@ export type WorkItem = {
     accepted: boolean;
   }>;
   subtask_count?: number;
+  /**
+   * Absent on every endpoint but the detail one, and absent is not empty: an
+   * empty list would say "this organization declares no fields", which is a
+   * different fact from "this payload does not carry them".
+   */
+  custom_fields?: CustomFieldAnswer[];
   completed_at: string | null;
   created_at: string;
   lock_version: number;

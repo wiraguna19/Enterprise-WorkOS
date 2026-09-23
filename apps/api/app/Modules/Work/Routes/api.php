@@ -51,6 +51,13 @@ Route::get('work-items', [WorkItemController::class, 'index'])
     ->middleware('permission:work_item.view');
 Route::post('work-items', [WorkItemController::class, 'store'])
     ->middleware(['permission:work_item.create', 'throttle:writes']);
+// BEFORE `work-items/{reference}`, or `fields` is read as a reference and the
+// route resolver answers 404 for a path that exists. Laravel matches in
+// registration order, which makes ordering a correctness concern and not a
+// tidiness one.
+Route::get('work-items/fields', [WorkItemController::class, 'fields'])
+    ->middleware('permission:work_item.create');
+
 Route::get('work-items/{reference}', [WorkItemController::class, 'show'])
     ->middleware('permission:work_item.view')->name('work-items.show');
 Route::patch('work-items/{reference}', [WorkItemController::class, 'update'])

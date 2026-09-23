@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Work\Application\Service;
 
 use App\Modules\Governance\Application\Service\ActivityLogger;
+use App\Modules\Governance\Application\Service\CustomFieldValues;
+use App\Modules\Governance\Domain\Exception\CustomFieldRefused;
 use App\Modules\Platform\Application\Event\RecordsDomainEvents;
 use App\Modules\Platform\Domain\Contract\RealtimePublisher;
 use App\Modules\Platform\Domain\Exception\ConcurrencyConflict;
@@ -43,6 +45,7 @@ final class WorkItemService
         private readonly TransitionService $transitions,
         private readonly AssignmentService $assignments,
         private readonly ActivityLogger $activity,
+        private readonly CustomFieldValues $customFields,
         private readonly TenantContext $tenant,
         private readonly RealtimePublisher $realtime,
     ) {}
@@ -52,7 +55,13 @@ final class WorkItemService
      */
     public function create(array $attributes): WorkItemModel
     {
-        return $this->transactional(function () use ($attributes): WorkItemModel {
+        // Lifted out before anything else touches `$attributes`, because what
+        // remains is `forceFill`ed onto the model and `custom_fields` is not a
+        // column. A key that reaches forceFill is not a validation error, it is
+        // an SQL error at the end of a transaction.
+        $customFields = $this->liftCustomFields($attributes);
+
+        return $this->transactional(function () use ($attributes, $customFields): WorkItemModel {
             $type = $attributes['type'] ?? 'task';
             $workflow = $this->resolveWorkflow($type, $attributes['project_id'] ?? null);
             $initial = $workflow->initialState();
@@ -124,6 +133,24 @@ final class WorkItemService
             $this->activity->record('work_item', $id, 'created', [
                 'title' => ['from' => null, 'to' => $item->title],
             ]);
+
+            /*
+             * The organization's own fields, inside the same transaction.
+             *
+             * Creation is the ONE moment `required` can be demanded without
+             * punishing somebody for a field declared after their item existed
+             * (ADR 0038), so the completeness check lives here and nowhere
+             * else. It runs after the write, not against the request, because
+             * the question is about the RECORD: a field answered a minute ago
+             * by somebody else is answered.
+             */
+            $this->customFields->write('work_item', $id, $customFields);
+
+            $missing = $this->customFields->missingRequired('work_item', $id);
+
+            if ($missing !== []) {
+                throw CustomFieldRefused::required(implode(', ', $missing));
+            }
 
             /*
              * Landing in the initial state IS a transition, and it needs a row.
@@ -317,11 +344,18 @@ final class WorkItemService
      */
     public function update(WorkItemModel $item, array $changes, ?int $lockVersion = null): WorkItemModel
     {
-        return $this->transactional(function () use ($item, $changes, $lockVersion): WorkItemModel {
+        $customFields = $this->liftCustomFields($changes);
+
+        return $this->transactional(function () use ($item, $changes, $customFields, $lockVersion): WorkItemModel {
             $this->assertNotStale($item, $lockVersion);
 
             /** @var WorkItemModel $locked */
             $locked = WorkItemModel::query()->lockForUpdate()->findOrFail($item->getKey());
+
+            // Before the empty-diff return below, and deliberately: an edit
+            // that changes ONLY a custom field changes no column, and a return
+            // taken first would throw the answer away and report success.
+            $this->customFields->write('work_item', (string) $locked->getKey(), $customFields);
 
             $diff = [];
 
@@ -351,6 +385,26 @@ final class WorkItemService
 
             return $locked;
         });
+    }
+
+    /**
+     * Take `custom_fields` out of an attribute bag and hand it back.
+     *
+     * By reference, because the caller's array is what gets `forceFill`ed onto
+     * the model: leaving the key in place turns a declared field into a column
+     * that does not exist, and the failure arrives as SQL at the end of a
+     * transaction rather than as the validation error it looks like.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function liftCustomFields(array &$attributes): array
+    {
+        $fields = $attributes['custom_fields'] ?? [];
+
+        unset($attributes['custom_fields']);
+
+        return is_array($fields) ? $fields : [];
     }
 
     /**

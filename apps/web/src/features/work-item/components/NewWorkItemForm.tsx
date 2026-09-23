@@ -5,6 +5,11 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import {
+  CustomFieldInputs,
+  initialValues,
+} from "@/features/custom-fields/CustomFieldInputs";
+import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { createWorkItem } from "../actions";
 
 type Option = { id: string; label: string };
@@ -45,6 +50,7 @@ export function NewWorkItemForm({
   projectKey,
   types,
   priorities,
+  customFields,
 }: {
   projects: Option[];
   people: Option[];
@@ -54,6 +60,8 @@ export function NewWorkItemForm({
   projectKey?: string;
   types: string[];
   priorities: string[];
+  /** The organization's own fields, blank (ADR 0038). */
+  customFields: CustomFieldAnswer[];
 }) {
   const router = useRouter();
 
@@ -67,6 +75,7 @@ export function NewWorkItemForm({
   const [estimate, setEstimate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [reviewerId, setReviewerId] = useState("");
+  const [custom, setCustom] = useState<Record<string, string>>(() => initialValues(customFields));
 
   const [error, setError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
@@ -99,6 +108,12 @@ export function NewWorkItemForm({
           estimate_hours: estimate,
           assignee_id: assigneeId,
           reviewer_id: reviewerId,
+          // Only the answered ones. A blank required field has to arrive as an
+          // absence, so the API's refusal names it rather than complaining
+          // about the shape of an empty string.
+          custom_fields: Object.fromEntries(
+            Object.entries(custom).filter(([, value]) => value !== ""),
+          ),
         },
         projectKey,
       );
@@ -313,6 +328,24 @@ export function NewWorkItemForm({
           </select>
         </Field>
       </div>
+
+      {customFields.length > 0 && (
+        // Last, under its own heading: these are what THIS organization adds,
+        // and a required one of them is the only reason a create can now be
+        // refused for a field that does not exist in another installation.
+        <div className="mt-4 space-y-3 border-t border-n-100 pt-4">
+          <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
+            Fields for this organization
+          </h2>
+
+          <CustomFieldInputs
+            fields={customFields}
+            values={custom}
+            idPrefix="new-cf"
+            onChange={(key, value) => setCustom((current) => ({ ...current, [key]: value }))}
+          />
+        </div>
+      )}
 
       </div>
       </Panel>

@@ -170,6 +170,14 @@ export type NewWorkItem = {
   estimate_hours?: string;
   assignee_id?: string | null;
   reviewer_id?: string | null;
+  /**
+   * The organization's own fields, keyed by key — only the answered ones.
+   *
+   * Creation is the one moment the API demands every REQUIRED field, so an
+   * unanswered one has to arrive as an absence rather than as `""`, or the
+   * refusal names the wrong problem (ADR 0038).
+   */
+  custom_fields?: Record<string, string>;
 };
 
 /**
@@ -200,7 +208,14 @@ export async function createWorkItem(
   const body: Record<string, unknown> = {};
 
   for (const [field, value] of Object.entries(input)) {
-    if (value !== undefined && value !== "") body[field] = value;
+    if (value === undefined || value === "") continue;
+
+    // An empty map is not an empty string and survives the test above, so it
+    // would travel as `custom_fields: {}` — harmless today, and exactly the
+    // kind of always-sent empty that a later validator starts refusing.
+    if (typeof value === "object" && value !== null && Object.keys(value).length === 0) continue;
+
+    body[field] = value;
   }
 
   let reference: string;
@@ -240,6 +255,12 @@ export type WorkItemEdit = {
   start_date?: string | null;
   due_at?: string | null;
   estimate_hours?: string | null;
+  /**
+   * The organization's own fields, keyed by key, only the ones that changed.
+   * `null` clears one — and the API refuses that for a required field rather
+   * than letting an answer be taken away (ADR 0038).
+   */
+  custom_fields?: Record<string, string | null>;
 };
 
 export type EditState = ActionState & {

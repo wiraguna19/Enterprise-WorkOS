@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { NewWorkItemForm } from "@/features/work-item/components/NewWorkItemForm";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -61,7 +62,7 @@ export default async function NewWorkItemPage({
     );
   }
 
-  const [projects, people] = await Promise.all([
+  const [projects, people, customFields] = await Promise.all([
     api<ProjectOption[]>("/projects?limit=200")
       .then((r) => r.data)
       .catch(() => [] as ProjectOption[]),
@@ -71,6 +72,12 @@ export default async function NewWorkItemPage({
     api<PersonOption[]>("/people?limit=200")
       .then((r) => r.data)
       .catch(() => [] as PersonOption[]),
+    // Its own endpoint, not the administration one: `/custom-fields/work_item`
+    // is guarded by `custom_field.manage`, which nobody filling this form is
+    // required to hold (ADR 0038).
+    api<CustomFieldAnswer[]>("/work-items/fields")
+      .then((r) => r.data)
+      .catch(() => [] as CustomFieldAnswer[]),
   ]);
 
   const fromProject = projects.find((project) => project.key === params.project);
@@ -97,6 +104,7 @@ export default async function NewWorkItemPage({
         }))}
         defaultProjectId={fromProject?.id}
         projectKey={fromProject?.key}
+        customFields={customFields}
         types={TYPES}
         priorities={PRIORITIES}
       />

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Work\Http\Controller;
 
+use App\Modules\Governance\Application\Service\CustomFieldValues;
 use App\Modules\Identity\Application\Service\ActingMembership;
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Platform\Application\Query\CursorPage;
@@ -25,6 +26,7 @@ final class WorkItemController extends ApiController
         private readonly WorkItemVisibility $visibility,
         private readonly PermissionResolver $permissions,
         private readonly ActingMembership $acting,
+        private readonly CustomFieldValues $customFields,
     ) {}
 
     public function index(ListWorkItemsRequest $request): ApiResponse
@@ -71,7 +73,32 @@ final class WorkItemController extends ApiController
             'dependents.workItem:id,reference,title,state_category',
         ]);
 
-        return $this->ok(new WorkItemResource($item));
+        // Only here. The list endpoints do not carry custom fields: a column
+        // per declared field on a board is a board nobody can read, and the
+        // query to build one is a join per row.
+        return $this->ok(
+            (new WorkItemResource($item))
+                ->withCustomFields($this->customFields->forSubject('work_item', $item->id)),
+        );
+    }
+
+    /**
+     * The organization's own fields, blank, for a form that has no record yet.
+     *
+     * Here rather than on `/custom-fields/work_item`, and the difference is the
+     * permission. That endpoint is administration: it lists retired fields and
+     * is guarded by `custom_field.manage`, which the person filling in a new
+     * work item does not hold. Without this, declaring ONE required field would
+     * make creating a work item impossible for everybody but an administrator —
+     * a lockout produced by a setting, which is the worst kind, because nothing
+     * in the interface would connect the two.
+     *
+     * Guarded by `work_item.create`: the list is exactly what the create form
+     * may ask, and nobody who cannot create one needs it.
+     */
+    public function fields(): ApiResponse
+    {
+        return ApiResponse::collection($this->customFields->blankFor('work_item'));
     }
 
     public function store(CreateWorkItemRequest $request): ApiResponse

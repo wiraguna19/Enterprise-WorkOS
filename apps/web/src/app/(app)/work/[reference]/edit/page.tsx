@@ -67,6 +67,7 @@ export default async function EditWorkItemPage({
           // rather than in the form's every comparison.
           estimate_hours: item.estimate_hours === null ? null : String(item.estimate_hours),
         }}
+        customFields={item.custom_fields ?? []}
         lockVersion={item.lock_version}
         canDelete={item.permissions.delete ?? false}
         timeZone={me.user.timezone}
