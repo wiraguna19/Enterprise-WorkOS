@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { INPUT } from "@/components/ui/Field";
 import { addTeamMember, removeTeamMember } from "./actions";
 import type { TeamMember } from "./types";
 
@@ -95,7 +96,7 @@ export function TeamMembers({
             id="add-member"
             value={adding}
             onChange={(event) => setAdding(event.target.value)}
-            className="rounded-md border border-n-200 bg-n-0 px-2 py-1 text-body-sm text-n-900"
+            className={INPUT.replace("w-full", "w-auto")}
           >
             <option value="">Add someone…</option>
             {candidates.map((person) => (

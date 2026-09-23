@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { INPUT } from "@/components/ui/Field";
 import { clsx } from "@/lib/clsx";
 import { downloadUrl, requestExport } from "./actions";
 import type { ReportExport } from "./types";
@@ -87,7 +88,7 @@ export function ExportPanel({
             <select
               value={format}
               onChange={(event) => setFormat(event.target.value)}
-              className="rounded-sm border border-n-200 px-2 py-1.5 text-body-sm text-n-900 focus:border-a-500 focus:outline-2 focus:outline-offset-1 focus:outline-a-500"
+              className={INPUT.replace("w-full", "w-auto")}
             >
               {/* From the server. A list kept here would offer formats that do
                   not exist yet, or hide ones that do. */}

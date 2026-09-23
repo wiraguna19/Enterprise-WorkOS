@@ -197,6 +197,20 @@ Fields come from `components/ui/Field`. A local copy is how one screen ends up
 with lighter borders than the rest of the product, which is exactly what the
 New work item form had.
 
+`INPUT` is the class string every control wears — input, textarea and select
+alike. A control narrower than its row writes `INPUT.replace("w-full",
+"w-auto")` rather than opening a second string; a textarea that should be
+draggable writes `` `${INPUT} resize-y` ``. There are no other spellings left in
+the product: sign-in, the mention box, the edit form, the time log, the people
+search, the assignee, team-member, digest and export selects, and the approval
+comment all pointed at their own copy until the sweep that removed them, and
+every copy had drifted — a lighter border, a different focus ring, or both.
+
+`Field` takes an optional `className` for the forms that lay their fields out in
+a row (`w-20`, `flex-1`). It sits on the wrapper because the label and the hint
+have to move with the control, which is the reason the time-log form had grown
+a private `Field` in the first place.
+
 ### Data table
 
 ```text

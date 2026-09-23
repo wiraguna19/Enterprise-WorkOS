@@ -2,6 +2,7 @@
 
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { Field, INPUT } from "@/components/ui/Field";
 import { logTime } from "./actions";
 
 /**
@@ -101,32 +102,5 @@ export function LogTimeForm({ reference }: { reference: string }) {
         </p>
       )}
     </form>
-  );
-}
-
-const INPUT =
-  "w-full rounded-md border border-n-200 bg-n-0 px-2 py-1 text-body-sm text-n-900 placeholder:text-n-400 focus:border-a-500 focus:outline-none focus:ring-2 focus:ring-a-500/30";
-
-function Field({
-  id,
-  label,
-  className = "",
-  children,
-}: {
-  id: string;
-  label: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <label
-        htmlFor={id}
-        className="mb-0.5 block text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-      >
-        {label}
-      </label>
-      {children}
-    </div>
   );
 }

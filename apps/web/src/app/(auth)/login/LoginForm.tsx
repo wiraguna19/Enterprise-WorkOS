@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/Button";
+import { INPUT } from "@/components/ui/Field";
 import { login, verifyMfa, type LoginState } from "./actions";
 
 const INITIAL: LoginState = { error: null };
@@ -136,7 +137,10 @@ function Field({
         id={name}
         name={name}
         {...props}
-        className="h-9 w-full rounded-sm border border-n-200 bg-n-0 px-2.5 text-body text-n-900 outline-none transition-colors duration-[120ms] placeholder:text-n-300 focus:border-a-500"
+        // The shared input. The sign-in screen had its own, a shade lighter and
+        // with a different focus ring, which is exactly the "matches on three
+        // screens and not the fourth" this constant exists to stop.
+        className={INPUT}
       />
     </div>
   );

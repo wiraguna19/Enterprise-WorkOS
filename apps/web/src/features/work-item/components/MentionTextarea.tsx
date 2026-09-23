@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition } from "react";
+import { INPUT } from "@/components/ui/Field";
 import { clsx } from "@/lib/clsx";
 import { mentionable, type Mentionable } from "../actions";
 
@@ -184,7 +185,7 @@ export function MentionTextarea({
           });
         }}
         className={clsx(
-          "w-full resize-y rounded-sm border border-n-200 bg-n-0 px-2.5 py-1.5 text-body text-n-900 outline-none transition-colors placeholder:text-n-300 focus:border-a-500",
+          `${INPUT} resize-y`,
           className,
         )}
       />

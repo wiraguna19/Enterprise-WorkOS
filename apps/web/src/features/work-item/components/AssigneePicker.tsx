@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { INPUT } from "@/components/ui/Field";
 import { assignTo, unassign } from "../actions";
 
 type Person = { id: string; name: string };
@@ -108,7 +109,7 @@ export function AssigneePicker({
 
           if (membershipId !== "") act(() => assignTo(reference, membershipId, role));
         }}
-        className="rounded-sm border border-n-200 bg-n-0 px-1.5 py-1 text-body-sm text-n-900"
+        className={INPUT.replace("w-full", "w-auto")}
       >
         <option value="">{saving ? "Saving…" : "Choose someone…"}</option>
         {people

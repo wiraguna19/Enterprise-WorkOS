@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { INPUT } from "@/components/ui/Field";
 
 /**
  * Filtering the directory (docs/08 §2).
@@ -62,7 +63,7 @@ export function PeopleSearch({ initialQuery }: { initialQuery: string }) {
         onChange={(event) => setValue(event.target.value)}
         placeholder="Find someone…"
         aria-label="Search people"
-        className="w-full rounded-md border border-n-200 bg-n-0 px-3 py-1.5 text-body-sm text-n-900 placeholder:text-n-400 focus:border-a-500 focus:outline-none focus:ring-2 focus:ring-a-500/30 sm:w-64"
+        className={`${INPUT} sm:w-64`}
       />
 
       {/* Announced, not just animated: the list below changes under the user

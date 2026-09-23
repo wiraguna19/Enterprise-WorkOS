@@ -20,16 +20,24 @@ export function Field({
   id,
   label,
   hint,
+  className,
   children,
 }: {
   id: string;
   label: string;
   /** One line saying what the field means, where the label cannot. */
   hint?: string;
+  /**
+   * Width or flex behaviour for the field as a whole, for the forms that lay
+   * their fields out in a row rather than a column (`w-20`, `flex-1`). It sits
+   * on the wrapper, not the input, because it is the label and the hint that
+   * have to move with it.
+   */
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div>
+    <div className={className}>
       <label
         htmlFor={id}
         className="mb-0.5 block text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
