@@ -213,6 +213,17 @@ GET /work-items
 - **Allowed filters, sorts, and includes are declared per endpoint** in a
   whitelist. An unknown key is a 422, not silently ignored — silent ignoring is
   how a client ships a broken filter nobody notices for a month.
+  **`/work-items` is the only endpoint where this is enforced.** It said
+  otherwise for six phases: every rule was `sometimes`, so an unlisted key was
+  never mentioned rather than refused, and `filter[assignee]` — one letter short
+  of `assignee_id` — returned everybody's work. The other collection endpoints
+  still have the claim and not the mechanism, and that is a bill, not a
+  description.
+- `filter[cf_<key>]` is matched against the fields the ORGANIZATION declared
+  (ADR 0038), so an undeclared key is refused by name like any other unknown
+  one. Exact match on the column the field's type decides. The `[lte]`-style
+  range grammar shown above is implemented nowhere yet, custom fields included —
+  a range that silently becomes equality returns a plausible, wrong list.
 - **`include` depth is capped at 2** and each include has a defined eager-load
   path. This is the N+1 firewall.
 - `assignee_id=me` resolves server-side; the client never has to know its own ID.

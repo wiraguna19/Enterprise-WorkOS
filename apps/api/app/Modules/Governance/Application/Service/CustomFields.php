@@ -62,6 +62,24 @@ final class CustomFields
             ->get();
     }
 
+    /**
+     * One definition by the key a filter names, or null.
+     *
+     * Retired fields included. A retired field still holds answers on the
+     * records that carry them, and "show me the items that said Acme" is a
+     * question about those records — refusing it would hide data that is still
+     * there because the form stopped asking for more of it.
+     */
+    public function byKey(string $scope, string $key): ?CustomFieldDefinitionModel
+    {
+        $definition = CustomFieldDefinitionModel::query()
+            ->where('scope', $scope)
+            ->where('key', $key)
+            ->first();
+
+        return $definition instanceof CustomFieldDefinitionModel ? $definition : null;
+    }
+
     public function find(string $id): CustomFieldDefinitionModel
     {
         $definition = CustomFieldDefinitionModel::query()->find($id);

@@ -144,9 +144,19 @@ failure — two layers disagreeing, with the coarse one silently winning.
   per declared field on a board is a board nobody can read, and building one is
   a join per row. Absent, not empty: an empty list would say "this organization
   declares none", which is a different fact.
-- `filter[cf_<key>]` is published grammar and still unimplemented. It has been
-  unimplemented since Phase 2; what changes here is that the key it filters on
-  now exists and the API says out loud what it would be called.
+- `filter[cf_<key>]` works on `/work-items`, and arrived with the whitelist that
+  makes an unknown key a refusal — the two are one mechanism, because deciding
+  whether a `cf_` key is known IS looking the definition up. Shipping the
+  refusal without the application would leave a key that validates and does
+  nothing, which is worse than neither.
+- **That filter has no screen.** This product has no work-browse page; the four
+  places that list work items each ask a fixed question (a board column, a
+  person's work, a team's work, a report). The filter is reachable through the
+  API, and the administration screen prints each field's `filter_key` so the
+  grammar is discoverable rather than folklore — but a query parameter with no
+  caller is the same shape as an endpoint with no caller, and the reachability
+  guard cannot see it. It is owed a browse screen, and this is the note that
+  says so out loud.
 - Projects are in the same schema and reachable through the same endpoints, with
   no screen. Deliberate: the screen arrives with the project form that would
   read the fields, rather than as a tab that declares fields nothing asks.
