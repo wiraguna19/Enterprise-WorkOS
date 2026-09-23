@@ -58,6 +58,22 @@ Route::patch('projects/{key}', [ProjectController::class, 'update'])
 Route::post('projects/{key}/archive', [ProjectController::class, 'archive'])
     ->middleware(['permission:project.view', 'throttle:writes']);
 
+// Project members (ADR 0041). `project_members` has decided project visibility
+// since Phase 2 with no write path at all, so `visibility: private` was a
+// one-way door: the creator became the only member and nobody could be added.
+//
+// Guarded on `project.view` with the POLICY deciding, like the edit above: a
+// project's owner manages their own project's access without holding
+// `project.manage_members` organization-wide.
+Route::get('projects/{key}/members', [ProjectController::class, 'members'])
+    ->middleware('permission:project.view');
+Route::post('projects/{key}/members', [ProjectController::class, 'addMember'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+Route::patch('projects/{key}/members/{member}', [ProjectController::class, 'setMemberRole'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+Route::delete('projects/{key}/members/{member}', [ProjectController::class, 'removeMember'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+
 // ── Work items ──────────────────────────────────────────────────────────────
 // Keyed by human reference (ENG-142) rather than UUID: it is what people paste
 // into chat, and a readable URL is a small thing that makes a product feel

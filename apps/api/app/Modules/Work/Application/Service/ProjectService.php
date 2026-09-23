@@ -7,7 +7,11 @@ namespace App\Modules\Work\Application\Service;
 use App\Modules\Governance\Application\Service\ActivityLogger;
 use App\Modules\Platform\Application\Event\RecordsDomainEvents;
 use App\Modules\Platform\Domain\Exception\ConcurrencyConflict;
+use App\Modules\Platform\Domain\Tenancy\TenantContext;
+use App\Modules\Work\Domain\Exception\ProjectMembershipRefused;
+use App\Modules\Work\Infrastructure\Eloquent\ProjectMemberModel;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -43,6 +47,7 @@ final class ProjectService
 
     public function __construct(
         private readonly ActivityLogger $activity,
+        private readonly TenantContext $tenant,
     ) {}
 
     /**
@@ -141,6 +146,164 @@ final class ProjectService
 
             return $locked;
         });
+    }
+
+    /**
+     * Who can see and work on this project (ADR 0041).
+     *
+     * Current rows only. A removed member is history and the table keeps it —
+     * `removed_at`, never a DELETE — but "who is on this project" is a question
+     * about now, and a list that mixes the two answers neither.
+     *
+     * @return Collection<int, ProjectMemberModel>
+     */
+    public function members(ProjectModel $project): Collection
+    {
+        return ProjectMemberModel::query()
+            ->where('project_id', $project->getKey())
+            ->whereNull('removed_at')
+            ->with(['membership.user:id,name,avatar_path', 'team:id,name,key'])
+            // Owners first, then managers, then everybody by name. A member
+            // list whose order is insertion order makes "who runs this" a
+            // question you answer by reading every row.
+            ->orderByRaw("array_position(ARRAY['owner','manager','member','viewer'], role)")
+            ->orderBy('added_at')
+            ->get();
+    }
+
+    /**
+     * Give a person or a team access to this project.
+     *
+     * Exactly one subject, which the database also enforces with a CHECK. Both
+     * say it because they say it to different audiences: the constraint makes
+     * it true of every row whatever writes it, and the refusal here is a
+     * sentence the person can act on.
+     *
+     * **Team access is not a copy of a team roster.** A row naming a team
+     * follows that team as people join and leave it, which is the whole reason
+     * the column exists — a project's member list assembled by hand from a team
+     * is a list that goes stale the first time somebody moves.
+     */
+    public function addMember(
+        ProjectModel $project,
+        ?string $membershipId,
+        ?string $teamId,
+        string $role = 'member',
+    ): ProjectMemberModel {
+        if (($membershipId === null) === ($teamId === null)) {
+            throw ProjectMembershipRefused::needsExactlyOneSubject();
+        }
+
+        return $this->transactional(function () use ($project, $membershipId, $teamId, $role): ProjectMemberModel {
+            $clash = ProjectMemberModel::query()
+                ->where('project_id', $project->getKey())
+                ->whereNull('removed_at')
+                ->when($membershipId !== null, fn ($q) => $q->where('membership_id', $membershipId))
+                ->when($teamId !== null, fn ($q) => $q->where('team_id', $teamId))
+                ->exists();
+
+            if ($clash) {
+                throw $membershipId !== null
+                    ? ProjectMembershipRefused::alreadyAMember()
+                    : ProjectMembershipRefused::teamAlreadyAdded();
+            }
+
+            $member = new ProjectMemberModel;
+            $member->forceFill([
+                'id' => ProjectMemberModel::newId(),
+                'project_id' => $project->getKey(),
+                'membership_id' => $membershipId,
+                'team_id' => $teamId,
+                'role' => $role,
+                'added_by' => $this->tenant->membershipId(),
+                'added_at' => now(),
+            ])->save();
+
+            $this->activity->record('project', (string) $project->getKey(), 'member_added', [
+                'role' => ['from' => null, 'to' => $role],
+            ]);
+
+            return $member;
+        });
+    }
+
+    /**
+     * Take access away, keeping the record that it existed.
+     *
+     * `removed_at`, not a DELETE: who had access to a project and when is
+     * exactly the question an audit asks later, and a deleted row answers it
+     * with silence.
+     */
+    public function removeMember(ProjectModel $project, string $memberId): void
+    {
+        $this->transactional(function () use ($project, $memberId): void {
+            $member = ProjectMemberModel::query()
+                ->where('project_id', $project->getKey())
+                ->whereNull('removed_at')
+                ->find($memberId);
+
+            if (! $member instanceof ProjectMemberModel) {
+                throw ProjectMembershipRefused::notAMember();
+            }
+
+            if ($member->role === 'owner' && $this->ownerCount($project) <= 1) {
+                throw ProjectMembershipRefused::lastOwner();
+            }
+
+            $member->forceFill(['removed_at' => now()])->save();
+
+            $this->activity->record('project', (string) $project->getKey(), 'member_removed', [
+                'role' => ['from' => $member->role, 'to' => null],
+            ]);
+        });
+    }
+
+    /**
+     * Change what somebody may do on this project.
+     *
+     * Demoting the last owner is refused for the same reason removing them is:
+     * the owner row is what lets `ProjectPolicy` say yes to somebody who does
+     * not hold the organization-wide permission, so a project with none is a
+     * project only an administrator can fix.
+     */
+    public function setMemberRole(ProjectModel $project, string $memberId, string $role): ProjectMemberModel
+    {
+        return $this->transactional(function () use ($project, $memberId, $role): ProjectMemberModel {
+            $member = ProjectMemberModel::query()
+                ->where('project_id', $project->getKey())
+                ->whereNull('removed_at')
+                ->find($memberId);
+
+            if (! $member instanceof ProjectMemberModel) {
+                throw ProjectMembershipRefused::notAMember();
+            }
+
+            if ($member->role === $role) {
+                return $member;
+            }
+
+            if ($member->role === 'owner' && $role !== 'owner' && $this->ownerCount($project) <= 1) {
+                throw ProjectMembershipRefused::lastOwner();
+            }
+
+            $before = $member->role;
+            $member->forceFill(['role' => $role])->save();
+
+            $this->activity->record('project', (string) $project->getKey(), 'member_role_changed', [
+                'role' => ['from' => $before, 'to' => $role],
+            ]);
+
+            return $member;
+        });
+    }
+
+    private function ownerCount(ProjectModel $project): int
+    {
+        return ProjectMemberModel::query()
+            ->where('project_id', $project->getKey())
+            ->whereNull('removed_at')
+            ->where('role', 'owner')
+            ->count();
     }
 
     /**

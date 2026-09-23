@@ -147,3 +147,64 @@ function refreshProject(key: string): void {
   revalidatePath(`/projects/${key}/board`);
   revalidatePath(`/projects/${key}/settings`);
 }
+
+export type ProjectMember = {
+  id: string;
+  subject: "person" | "team";
+  membership_id: string | null;
+  team_id: string | null;
+  name: string | null;
+  avatar_url: string | null;
+  role: string;
+  added_at: string;
+};
+
+/**
+ * Give a person or a team access to a project (ADR 0041).
+ *
+ * `project_members` has decided project visibility since Phase 2 and had no
+ * write path: a project created as PRIVATE was visible to its creator and to
+ * nobody else, for ever.
+ */
+export async function addProjectMember(
+  key: string,
+  input: { membership_id?: string; team_id?: string; role: string },
+): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/members`, { method: "POST", body: input });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+
+  return { error: null };
+}
+
+export async function setProjectMemberRole(
+  key: string,
+  memberId: string,
+  role: string,
+): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/members/${memberId}`, { method: "PATCH", body: { role } });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+
+  return { error: null };
+}
+
+export async function removeProjectMember(key: string, memberId: string): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/members/${memberId}`, { method: "DELETE" });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+
+  return { error: null };
+}

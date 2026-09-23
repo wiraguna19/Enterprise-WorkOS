@@ -14,6 +14,7 @@ use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Service\ProjectService;
 use App\Modules\Work\Http\Resource\ProjectResource;
 use App\Modules\Work\Http\Resource\WorkItemResource;
+use App\Modules\Work\Infrastructure\Eloquent\ProjectMemberModel;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Illuminate\Database\Eloquent\Builder;
@@ -291,6 +292,104 @@ final class ProjectController extends ApiController
         $updated = $this->projects->setArchived($project, (bool) $validated['archived']);
 
         return $this->ok(new ProjectResource($updated->load(['owner.user:id,name', 'department:id,name'])));
+    }
+
+    /**
+     * Who is on this project (ADR 0041).
+     *
+     * `project_members` has decided project visibility since Phase 2 and had
+     * no write path at all: the creator was inserted as the owner and nobody
+     * could ever be added. A project created as PRIVATE was therefore visible
+     * to exactly one person, for ever — the create form offered a setting the
+     * product could not complete.
+     */
+    public function members(string $key): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('view', $project);
+
+        return ApiResponse::collection(
+            $this->projects->members($project)->map($this->presentMember(...))->all(),
+        );
+    }
+
+    public function addMember(Request $request, string $key): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('manageMembers', $project);
+
+        $validated = $request->validate([
+            'membership_id' => ['sometimes', 'nullable', 'uuid'],
+            'team_id' => ['sometimes', 'nullable', 'uuid'],
+            'role' => ['sometimes', Rule::in(['owner', 'manager', 'member', 'viewer'])],
+        ]);
+
+        $member = $this->projects->addMember(
+            $project,
+            $validated['membership_id'] ?? null,
+            $validated['team_id'] ?? null,
+            $validated['role'] ?? 'member',
+        );
+
+        return ApiResponse::item($this->presentMember($member->fresh([
+            'membership.user:id,name,avatar_path', 'team:id,name,key',
+        ]) ?? $member), status: 201);
+    }
+
+    public function setMemberRole(Request $request, string $key, string $member): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('manageMembers', $project);
+
+        $validated = $request->validate([
+            'role' => ['required', Rule::in(['owner', 'manager', 'member', 'viewer'])],
+        ]);
+
+        $updated = $this->projects->setMemberRole($project, $member, $validated['role']);
+
+        return $this->ok($this->presentMember($updated->fresh([
+            'membership.user:id,name,avatar_path', 'team:id,name,key',
+        ]) ?? $updated));
+    }
+
+    public function removeMember(string $key, string $member): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('manageMembers', $project);
+
+        $this->projects->removeMember($project, $member);
+
+        return $this->noContent();
+    }
+
+    /**
+     * One row of the member list.
+     *
+     * A person and a team are presented in the same shape with a `subject`
+     * that says which. The alternative — two arrays, or a nullable person and
+     * a nullable team — makes every consumer branch before it can render a
+     * name, and this list is rendered in a table where they are one column.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentMember(ProjectMemberModel $member): array
+    {
+        return [
+            'id' => $member->id,
+            'subject' => $member->team_id === null ? 'person' : 'team',
+            'membership_id' => $member->membership_id,
+            'team_id' => $member->team_id,
+            'name' => $member->team_id === null
+                ? $member->membership?->user?->name
+                : $member->team?->name,
+            'avatar_url' => $member->membership?->user?->avatar_path,
+            'role' => $member->role,
+            'added_at' => $member->added_at->toIso8601String(),
+        ];
     }
 
     /** @return Builder<ProjectModel> */

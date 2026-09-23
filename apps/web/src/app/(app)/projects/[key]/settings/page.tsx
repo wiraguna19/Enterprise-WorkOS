@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EditProjectForm } from "@/features/project/EditProjectForm";
+import { ProjectMembers } from "@/features/project/ProjectMembers";
+import type { ProjectMember } from "@/features/project/actions";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { Project } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
@@ -45,6 +47,26 @@ export default async function ProjectSettingsPage({
   // the settings of a project exist is not this page's to disclose.
   if (!project.permissions.update) notFound();
 
+  const canManage = project.permissions.manage_members ?? false;
+
+  // The pickers are only fetched for somebody who can actually add: a reader
+  // who may see the member list has no business pulling the whole directory.
+  const [members, people, teams] = await Promise.all([
+    api<ProjectMember[]>(`/projects/${key}/members`)
+      .then((r) => r.data)
+      .catch(() => [] as ProjectMember[]),
+    canManage
+      ? api<Array<{ id: string; name: string | null }>>("/people?limit=200")
+          .then((r) => r.data)
+          .catch(() => [])
+      : Promise.resolve([]),
+    canManage
+      ? api<Array<{ id: string; name: string }>>("/teams")
+          .then((r) => r.data)
+          .catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -56,6 +78,14 @@ export default async function ProjectSettingsPage({
 
       <PageBody>
         <EditProjectForm project={project} />
+
+        <ProjectMembers
+          projectKey={project.key}
+          members={members}
+          people={people.map((person) => ({ id: person.id, label: person.name ?? "Unnamed" }))}
+          teams={teams.map((team) => ({ id: team.id, label: team.name }))}
+          canManage={canManage}
+        />
       </PageBody>
     </div>
   );
