@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property-read int|null $open_work_count      only when the directory query selects it
  * @property-read int|null $overdue_work_count   only when the directory query selects it
+ * @property-read int|null $countable_work_count only when the directory query selects it
  *
  * Column types below are hand-maintained: the schema is raw SQL (docs/03 §0),
  * so nothing can introspect it. Add a column here when you add one there, or

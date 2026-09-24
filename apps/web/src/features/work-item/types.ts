@@ -194,7 +194,15 @@ export type Project = {
   visibility: "internal" | "private";
   start_date: string | null;
   end_date: string | null;
-  progress: number;
+  /**
+   * The cached completion percentage, or `null` when the project has no
+   * countable work (ADR 0042).
+   *
+   * Nullable on purpose: "0% done" and "nothing to do yet" are different
+   * facts, and the column that stores this is NOT NULL, so the API is the only
+   * place the difference can be expressed.
+   */
+  progress: number | null;
   progress_as_of: string | null;
   member_count?: number;
   open_work_count?: number;

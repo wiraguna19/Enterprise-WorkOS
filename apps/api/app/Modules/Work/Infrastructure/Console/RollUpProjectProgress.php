@@ -52,9 +52,15 @@ final class RollUpProjectProgress extends Command
         // A project with nothing countable — no work items, or only cancelled
         // ones — is left at 0 and given a timestamp anyway. The column is
         // NOT NULL with a 0..100 check, so "no work yet" cannot be expressed
-        // here; `progress_cached_at` says the figure is current, and the
-        // directory tells those two cases apart by the open-work count it
-        // already carries.
+        // here; `progress_cached_at` says the figure is current.
+        //
+        // This comment used to add "and the directory tells those two cases
+        // apart by the open-work count it already carries". **It did not.** A
+        // project whose work is all finished also has none open, and the
+        // progress cell rendered 0% either way — a confident "0% complete"
+        // about a project nobody had put work in yet. The distinction is now
+        // made where it can be: the API answers null when the denominator is
+        // zero (ADR 0042).
         $updated = DB::update(<<<'SQL'
             UPDATE projects p
                SET progress_cache = coalesce(counted.percent, 0),

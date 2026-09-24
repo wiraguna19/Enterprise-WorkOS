@@ -56,6 +56,20 @@ final class ProjectController extends ApiController
                     ->whereColumn('work_items.project_id', 'projects.id')
                     ->whereNull('work_items.deleted_at')
                     ->whereNotIn('work_items.state_category', ['done', 'cancelled']),
+                // The DENOMINATOR behind `progress`, and the only thing that
+                // can tell "0% done" apart from "nothing to do yet" (ADR 0042).
+                // `open_work_count` cannot: a project whose work is all
+                // finished has none open and is 100%.
+                //
+                // The same filter the roll-up command uses — cancelled work is
+                // not counted, by either of them — because a percentage and
+                // the count that explains it must be computed over the same
+                // set or the explanation contradicts the number.
+                'countable_work_count' => DB::table('work_items')
+                    ->selectRaw('count(*)')
+                    ->whereColumn('work_items.project_id', 'projects.id')
+                    ->whereNull('work_items.deleted_at')
+                    ->where('work_items.state_category', '<>', 'cancelled'),
                 'overdue_work_count' => DB::table('work_items')
                     ->selectRaw('count(*)')
                     ->whereColumn('work_items.project_id', 'projects.id')

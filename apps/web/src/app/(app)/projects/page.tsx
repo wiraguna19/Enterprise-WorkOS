@@ -124,6 +124,13 @@ export default async function ProjectsPage() {
                     <Td muted>
                       {project.progress_as_of === null ? (
                         "not computed yet"
+                      ) : project.progress === null ? (
+                        /* Counted, and there was nothing to count. The bar
+                           used to render 0% here, which reads as "none of it
+                           is done" about a project nobody has put work in yet
+                           — the same confident-zero the comment above already
+                           describes, surviving the fix for it (ADR 0042). */
+                        <span className="text-n-500">no work yet</span>
                       ) : (
                         <span className="flex items-center gap-2">
                           <span

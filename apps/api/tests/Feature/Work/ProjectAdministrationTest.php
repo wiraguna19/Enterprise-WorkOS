@@ -170,3 +170,39 @@ it('answers 404, not 403, to somebody who cannot see the project at all', functi
         ->patchJson('/api/v1/projects/ENG', ['name' => 'Not yours'])
         ->assertNotFound();
 });
+
+/**
+ * "0% done" and "nothing to do yet" are different facts (ADR 0042).
+ *
+ * `projects.progress_cache` is NOT NULL with a 0..100 CHECK, so the database
+ * stores 0 for both — and the roll-up command says so in its own docblock,
+ * claiming the directory tells them apart by the open-work count it carries.
+ * It could not: a project whose work is all finished also has none open.
+ *
+ * So the directory rendered a confident "0%" for a project nobody had put work
+ * in yet. That is the same confident-zero this column was already caught in
+ * once, surviving the fix for it.
+ */
+it('reports no progress at all for a project with no work', function (): void {
+    $empty = $this->withToken($this->admin)
+        ->postJson('/api/v1/projects', ['key' => 'EMPTY', 'name' => 'Nothing in it yet'])
+        ->assertStatus(201)
+        ->json('data.key');
+
+    $row = collect($this->withToken($this->admin)->getJson('/api/v1/projects')->json('data'))
+        ->firstWhere('key', $empty);
+
+    // null, not 0. The client renders "no work yet" from this and a bar from
+    // any number — including 0, which is a real answer for a project whose
+    // work exists and is untouched.
+    expect($row['progress'])->toBeNull();
+});
+
+it('still reports 0% for a project whose work exists and is untouched', function (): void {
+    $row = collect($this->withToken($this->admin)->getJson('/api/v1/projects')->json('data'))
+        ->firstWhere('key', 'MKT');
+
+    // MKT is the seeded not-started project: it HAS work, none of it done.
+    expect($row['progress'])->not->toBeNull()
+        ->and((float) $row['progress'])->toBe(0.0);
+});
