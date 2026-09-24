@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Work\Http\Controller;
 
 use App\Modules\Governance\Application\Query\ActivityFeed;
-use App\Modules\Platform\Http\Controller\ApiController;
-use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Identity\Application\Service\ActingMembership;
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
+use App\Modules\Platform\Http\Controller\ApiController;
+use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
