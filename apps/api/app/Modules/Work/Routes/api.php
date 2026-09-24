@@ -34,6 +34,16 @@ Route::get('me/time', [MyTimeController::class, 'index'])
     ->middleware('permission:work_item.view');
 
 // ── Projects ────────────────────────────────────────────────────────────────
+// The sidebar's pinned list (docs/08 §1, ADR 0044). Read on every
+// authenticated request, so it is its own endpoint rather than a field on a
+// heavier payload.
+//
+// BEFORE `projects/{key}` — `/me/projects` cannot collide with it, but the pin
+// write below shares the `{key}` prefix and must be registered where Laravel
+// will still match it.
+Route::get('me/projects', [ProjectController::class, 'pinned'])
+    ->middleware('permission:project.view');
+
 Route::get('projects', [ProjectController::class, 'index'])
     ->middleware('permission:project.view');
 Route::post('projects', [ProjectController::class, 'store'])
@@ -69,6 +79,11 @@ Route::post('projects/{key}/archive', [ProjectController::class, 'archive'])
 // by ADR 0040 and ADR 0041 records an activity entry, and nothing could read
 // one: a write path with no read path, created by the slice that added the
 // writes.
+// Pinning is a personal act, not administration: anybody who can SEE a project
+// may keep it in their own sidebar, and the policy `view` is the whole check.
+Route::post('projects/{key}/pin', [ProjectController::class, 'setPinned'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+
 Route::get('projects/{key}/activity', [ActivityController::class, 'project'])
     ->middleware('permission:project.view');
 

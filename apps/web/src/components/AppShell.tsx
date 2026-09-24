@@ -90,6 +90,7 @@ export function AppShell({
   organization,
   permissions,
   teams,
+  pinnedProjects,
   counts,
   confined = false,
   children,
@@ -99,6 +100,15 @@ export function AppShell({
   organization: { id: string; name: string; slug: string };
   permissions: string[];
   teams: Array<{ id: string; name: string; key: string }>;
+  /**
+   * The projects this person PINNED — not the ones they can see (ADR 0044).
+   *
+   * docs/08 §1 drew this section in Phase 1 and only Teams was built. Deriving
+   * it from visibility was the cheap version and is wrong for the people it
+   * would matter most to: anybody with `project.view_all` sees every internal
+   * project, so the list would be whichever few sort first.
+   */
+  pinnedProjects: Array<{ id: string; key: string; name: string }>;
   /** Only two counters exist in the whole navigation (docs/08 §1). */
   counts: { myWork: number; inbox: number };
   /**
@@ -211,6 +221,22 @@ export function AppShell({
               />
             ))}
           </ul>
+
+          {pinnedProjects.length > 0 && (
+            // Only when there is something in it. An empty "PROJECTS" heading
+            // over nothing reads as a section that failed to load, and this
+            // product's rule is that an absence must not look like a fault.
+            <SidebarSection label="Projects">
+              {pinnedProjects.map((project) => (
+                <NavLink
+                  key={project.id}
+                  item={{ href: `/projects/${project.key}/overview`, label: project.name }}
+                  pathname={pathname}
+                />
+              ))}
+              <NavLink item={{ href: "/projects", label: "Browse all…" }} pathname={pathname} />
+            </SidebarSection>
+          )}
 
           <SidebarSection label="Teams">
             {teams.slice(0, 6).map((team) => (

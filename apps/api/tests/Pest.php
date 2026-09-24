@@ -225,6 +225,10 @@ function minimalRowFor(string $table, string $organizationId): array
         ],
 
         // ── Phase 7 ─────────────────────────────────────────────────────────
+        'pinned_projects' => $base + [
+            'membership_id' => probeMembershipIn($organizationId),
+            'project_id' => GLOBEX_PROJECT,
+        ],
         'custom_field_definitions' => $base + [
             'scope' => 'work_item',
             // ck_cfd_key_shape: lower-case, starts with a letter. A raw UUID

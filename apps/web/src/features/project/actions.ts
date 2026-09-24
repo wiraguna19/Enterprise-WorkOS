@@ -208,3 +208,24 @@ export async function removeProjectMember(key: string, memberId: string): Promis
 
   return { error: null };
 }
+
+/**
+ * Keep a project in your own sidebar, or stop (ADR 0044).
+ *
+ * Idempotent in both directions — the unique index decides, not a check here —
+ * so a double click is not an error anybody should be shown.
+ */
+export async function setProjectPinned(key: string, pinned: boolean): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/pin`, { method: "POST", body: { pinned } });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  // The LAYOUT renders the sidebar, and a path revalidation does not reach it
+  // from here — the caller refreshes. This still revalidates the directory so
+  // the star it just pressed is correct on the next render.
+  revalidatePath("/projects");
+
+  return { error: null };
+}

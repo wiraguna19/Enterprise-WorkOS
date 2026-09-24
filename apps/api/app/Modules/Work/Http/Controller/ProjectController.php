@@ -14,6 +14,7 @@ use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Service\ProjectService;
 use App\Modules\Work\Http\Resource\ProjectResource;
 use App\Modules\Work\Http\Resource\WorkItemResource;
+use App\Modules\Work\Infrastructure\Eloquent\PinnedProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectMemberModel;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
@@ -306,6 +307,104 @@ final class ProjectController extends ApiController
         $updated = $this->projects->setArchived($project, (bool) $validated['archived']);
 
         return $this->ok(new ProjectResource($updated->load(['owner.user:id,name', 'department:id,name'])));
+    }
+
+    /**
+     * The projects this person keeps in their own sidebar (ADR 0044).
+     *
+     * docs/08 §1 has drawn a pinned PROJECTS section since Phase 1 and only
+     * TEAMS was built. A pin is a CHOICE, which is why it has a table rather
+     * than being derived: "the projects you can see, capped at six" is nearly
+     * right for an employee and is *every internal project* for anybody with
+     * `project.view_all` — so the six shown would be whichever six sort first,
+     * for exactly the people with the most projects.
+     *
+     * Filtered through the same visibility scope as every other project read.
+     * A pin is not a grant: losing access to a project must remove it from the
+     * sidebar, not leave a link that 404s — and access can be taken away
+     * (ADR 0041) long after the pin was made.
+     *
+     * Archived projects are filtered out too, and their PIN is kept. Archiving
+     * is reversible, and dropping the pin would quietly punish somebody for
+     * putting a project away for a month.
+     */
+    public function pinned(): ApiResponse
+    {
+        $pins = PinnedProjectModel::query()
+            ->where('membership_id', $this->tenant->membershipId())
+            ->orderBy('position')
+            ->orderBy('created_at')
+            ->pluck('project_id');
+
+        if ($pins->isEmpty()) {
+            return ApiResponse::collection([]);
+        }
+
+        $projects = $this->visibleProjects()
+            ->whereIn('id', $pins->all())
+            ->whereNull('archived_at')
+            ->get(['id', 'key', 'name'])
+            ->keyBy('id');
+
+        // Ordered by the PIN, not by the query: `whereIn` answers in whatever
+        // order the plan produced, and a sidebar that reshuffles itself between
+        // requests is a sidebar nobody builds muscle memory for.
+        $ordered = [];
+
+        foreach ($pins as $id) {
+            $project = $projects->get($id);
+
+            if ($project instanceof ProjectModel) {
+                $ordered[] = [
+                    'id' => $project->id,
+                    'key' => $project->key,
+                    'name' => $project->name,
+                ];
+            }
+        }
+
+        return ApiResponse::collection($ordered);
+    }
+
+    /**
+     * Pin a project, or unpin it.
+     *
+     * Idempotent in both directions, and the database is what makes it so: the
+     * unique index refuses a second pin, so this does not depend on a caller
+     * checking first. Pinning twice is not an error the person should be shown
+     * — they wanted it pinned, and it is.
+     */
+    public function setPinned(Request $request, string $key): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('view', $project);
+
+        $validated = $request->validate(['pinned' => ['required', 'boolean']]);
+        $membershipId = $this->tenant->membershipId();
+
+        if (! $validated['pinned']) {
+            PinnedProjectModel::query()
+                ->where('membership_id', $membershipId)
+                ->where('project_id', $project->getKey())
+                ->delete();
+
+            return $this->noContent();
+        }
+
+        PinnedProjectModel::query()->firstOrCreate(
+            ['membership_id' => $membershipId, 'project_id' => $project->getKey()],
+            [
+                'id' => PinnedProjectModel::newId(),
+                // Appended, not inserted at the top: the list is the person's
+                // own order and a new pin has not earned a place in it.
+                'position' => (int) PinnedProjectModel::query()
+                    ->where('membership_id', $membershipId)
+                    ->max('position') + 1,
+            ],
+        );
+
+        return $this->noContent();
     }
 
     /**

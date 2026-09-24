@@ -34,8 +34,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // A confined session is refused all three of these, correctly, so they are
   // not asked for. The shell renders with an empty sidebar, which is the honest
   // picture of what that session may do.
-  const [{ data: teams }, counts, unread] = confined
-    ? [{ data: [] }, { overdue: 0, due_today: 0, open: 0, waiting_on_others: 0 }, 0]
+  const [{ data: teams }, counts, unread, pinned] = confined
+    ? [{ data: [] }, { overdue: 0, due_today: 0, open: 0, waiting_on_others: 0 }, 0, []]
     : await Promise.all([
     api<Array<{ id: string; name: string; key: string }>>("/teams", {
       tags: [`org:${me.organization.id}:reference`],
@@ -51,6 +51,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     api<{ unread: number }>("/notifications/unread-count")
       .then((r) => r.data.unread)
       .catch(() => 0),
+    // The projects this person pinned (docs/08 §1, ADR 0044). Falls back to an
+    // empty list rather than failing the shell: a sidebar section that cannot
+    // load is a missing section, and a shell that cannot render is every page.
+    api<Array<{ id: string; key: string; name: string }>>("/me/projects")
+      .then((r) => r.data)
+      .catch(() => [] as Array<{ id: string; key: string; name: string }>),
   ]).catch((error: unknown) => {
     if (isSignedOut(error)) redirect("/login");
 
@@ -64,6 +70,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       organization={me.organization}
       permissions={me.permissions}
       teams={teams}
+      pinnedProjects={pinned}
       counts={{ myWork: counts.overdue + counts.due_today, inbox: unread }}
       confined={confined}
     >

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PinToggle } from "@/features/project/PinToggle";
 import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageBody } from "@/components/ui/PageBody";
@@ -31,7 +32,15 @@ export default async function ProjectsPage() {
   // product: whether the thing exists is not this page's to disclose.
   if (!me.permissions.includes("project.view")) notFound();
 
-  const { data: projects } = await api<Project[]>("/projects");
+  const [{ data: projects }, pinned] = await Promise.all([
+    api<Project[]>("/projects"),
+    // Its own small read rather than another subquery on the directory: the
+    // layout already asks for this list on every request, so it is cached and
+    // cheap, and the alternative adds a per-row join for a star (ADR 0044).
+    api<Array<{ id: string }>>("/me/projects")
+      .then((r) => new Set(r.data.map((project) => project.id)))
+      .catch(() => new Set<string>()),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -70,6 +79,12 @@ export default async function ProjectsPage() {
             <DataTable caption="Projects you can see">
               <THead>
                 <Tr>
+                  {/* No heading: the column is a row of toggles, and "Pin"
+                      over a star reads as an instruction rather than a label.
+                      Each button carries its own accessible name. */}
+                  <Th width="w-8">
+                    <span className="sr-only">Pinned</span>
+                  </Th>
                   <Th width="w-16">Key</Th>
                   <Th>Name</Th>
                   <Th width="w-48">Progress</Th>
@@ -81,6 +96,14 @@ export default async function ProjectsPage() {
               <TBody>
                 {projects.map((project) => (
                   <Tr key={project.id}>
+                    <Td>
+                      <PinToggle
+                        projectKey={project.key}
+                        name={project.name}
+                        pinned={pinned.has(project.id)}
+                      />
+                    </Td>
+
                     <Td muted>
                       <span className="font-mono text-micro">{project.key}</span>
                     </Td>
