@@ -392,17 +392,28 @@ final class ProjectController extends ApiController
             return $this->noContent();
         }
 
-        PinnedProjectModel::query()->firstOrCreate(
-            ['membership_id' => $membershipId, 'project_id' => $project->getKey()],
-            [
-                'id' => PinnedProjectModel::newId(),
-                // Appended, not inserted at the top: the list is the person's
-                // own order and a new pin has not earned a place in it.
-                'position' => (int) PinnedProjectModel::query()
-                    ->where('membership_id', $membershipId)
-                    ->max('position') + 1,
-            ],
-        );
+        // `insertOrIgnore`, not `firstOrCreate`. Two reasons, and the first is
+        // architectural: `firstOrCreate` MASS ASSIGNS, and this codebase forbids
+        // that outright — every write names its columns, so no model here has a
+        // `$fillable` and the attempt threw. An arch test says so; this found it
+        // at runtime first because the write is in a controller.
+        //
+        // The second is the better reason. `ON CONFLICT DO NOTHING` is what
+        // makes pinning idempotent AT THE DATABASE, in one statement, rather
+        // than in a read-then-write that two clicks in the same second both
+        // pass.
+        DB::table('pinned_projects')->insertOrIgnore([
+            'id' => (string) new UuidV7,
+            'organization_id' => $this->tenant->organizationId(),
+            'membership_id' => $membershipId,
+            'project_id' => $project->getKey(),
+            // Appended, not inserted at the top: the list is the person's own
+            // order, and a new pin has not earned a place in it.
+            'position' => (int) DB::table('pinned_projects')
+                ->where('membership_id', $membershipId)
+                ->max('position') + 1,
+            'created_at' => now(),
+        ]);
 
         return $this->noContent();
     }
