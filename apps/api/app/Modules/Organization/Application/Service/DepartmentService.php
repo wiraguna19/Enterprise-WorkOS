@@ -85,7 +85,7 @@ final class DepartmentService
      * every other update in this codebase: a save that reports every field as
      * touched turns the history into noise nobody reads.
      *
-     * @param array{name?: string, code?: string} $changes
+     * @param  array{name?: string, code?: string}  $changes
      */
     public function update(DepartmentModel $department, array $changes): DepartmentModel
     {
