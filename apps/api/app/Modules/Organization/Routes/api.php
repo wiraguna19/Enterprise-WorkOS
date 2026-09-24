@@ -39,6 +39,12 @@ Route::post('departments/{department}/move', [DepartmentController::class, 'move
 
 Route::get('teams', [TeamController::class, 'index'])
     ->middleware('permission:team.view');
+// The team's own history (ADR 0045). `TeamService` has written these entries
+// since Phase 5 with nothing able to read one — the same gap a project's
+// history had, one module over.
+Route::get('teams/{team}/activity', [TeamController::class, 'activity'])
+    ->middleware('permission:team.view');
+
 Route::get('teams/{team}', [TeamController::class, 'show'])
     ->middleware('permission:team.view');
 Route::post('teams', [TeamController::class, 'store'])

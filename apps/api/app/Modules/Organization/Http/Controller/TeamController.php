@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Organization\Http\Controller;
 
+use App\Modules\Governance\Application\Query\ActivityFeed;
 use App\Modules\Organization\Application\Service\TeamService;
 use App\Modules\Organization\Http\Resource\TeamResource;
 use App\Modules\Organization\Infrastructure\Eloquent\TeamModel;
@@ -33,6 +34,7 @@ final class TeamController extends ApiController
 
     public function __construct(
         private readonly TeamService $teams,
+        private readonly ActivityFeed $activity,
     ) {}
 
     public function index(Request $request): ApiResponse
@@ -63,6 +65,31 @@ final class TeamController extends ApiController
         $this->authorize('view', $team);
 
         return $this->ok(new TeamResource($team->load(self::DETAIL_RELATIONS)));
+    }
+
+    /**
+     * What happened to this team, and who did it (ADR 0045).
+     *
+     * `TeamService` has recorded `created`, `member_added` and `member_removed`
+     * since Phase 5, and nothing could read one of them — the same write path
+     * with no read path a project's history had until ADR 0043, one module
+     * over.
+     *
+     * The shape follows that one exactly: the visibility decision is about the
+     * SUBJECT, so Organization resolves the team through its own policy and
+     * then asks Governance a question that is purely about storage. `since` is
+     * the team's own creation time, because the log is partitioned by
+     * `occurred_at` and nothing happened to a team before it existed.
+     */
+    public function activity(TeamModel $team): ApiResponse
+    {
+        $this->authorize('view', $team);
+
+        return $this->ok($this->activity->forSubject(
+            subjectType: 'team',
+            subjectId: (string) $team->getKey(),
+            since: $team->created_at,
+        ));
     }
 
     public function store(Request $request): ApiResponse

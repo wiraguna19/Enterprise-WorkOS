@@ -2,6 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageHeader } from "@/components/ui/PageHeader";
+import {
+  ActivityTimeline,
+  type ActivityEvent,
+} from "@/features/work-item/components/ActivityTimeline";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
 import { TeamMembers } from "@/features/teams/TeamMembers";
@@ -48,6 +52,13 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
           .catch(() => [])
       : Promise.resolve([]),
   ]);
+
+  // `TeamService` has written these entries since Phase 5 and nothing could
+  // read one (ADR 0045). Falls back to an empty list: a section that cannot
+  // load is a missing section, not a broken page.
+  const activity = await api<ActivityEvent[]>(`/teams/${id}/activity`)
+    .then((r) => r.data)
+    .catch(() => [] as ActivityEvent[]);
 
   // Rows, never one averaged number: an over-committed person beside an idle
   // one averages to "fine", which is the one reading of this that helps nobody
@@ -152,6 +163,16 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
             ))}
           </div>
         )}
+      </section>
+
+      <section aria-labelledby="history-heading" className="space-y-2">
+        <SectionLabel id="history-heading">History</SectionLabel>
+
+        <ActivityTimeline
+          events={activity}
+          timeZone={me.user.timezone}
+          emptyMessage="Nothing has happened to this team yet."
+        />
       </section>
     </div>
   );

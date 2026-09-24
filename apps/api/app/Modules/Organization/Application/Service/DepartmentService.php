@@ -68,6 +68,66 @@ final class DepartmentService
     }
 
     /**
+     * Rename a department, or change its code (ADR 0045).
+     *
+     * **This was not recorded at all.** The controller wrote the model
+     * directly, so `create` and `move` left entries in the activity log and a
+     * rename left nothing. A reader of that history saw a department created,
+     * a department moved, and concluded nothing else had happened — which is
+     * the worse kind of gap: **a partial record looks complete.**
+     *
+     * The code is upper-cased here rather than validated into shape twice. A
+     * person typing "eng" means ENG, and the column's CHECK is what decides;
+     * re-implementing the pattern in a request class would be a second copy of
+     * a rule that drifts from the one that enforces it.
+     *
+     * Only what actually changed is written and only that is logged, like
+     * every other update in this codebase: a save that reports every field as
+     * touched turns the history into noise nobody reads.
+     *
+     * @param array{name?: string, code?: string} $changes
+     */
+    public function update(DepartmentModel $department, array $changes): DepartmentModel
+    {
+        return $this->transactional(function () use ($department, $changes): DepartmentModel {
+            /** @var DepartmentModel $locked */
+            $locked = DepartmentModel::query()->lockForUpdate()->findOrFail($department->getKey());
+
+            $wanted = [];
+
+            if (array_key_exists('name', $changes)) {
+                $wanted['name'] = $changes['name'];
+            }
+
+            if (array_key_exists('code', $changes)) {
+                $wanted['code'] = mb_strtoupper($changes['code']);
+            }
+
+            $diff = [];
+
+            foreach ($wanted as $field => $value) {
+                $before = (string) $locked->getAttribute($field);
+
+                if ($before !== (string) $value) {
+                    $diff[$field] = ['from' => $before, 'to' => $value];
+                }
+            }
+
+            if ($diff === []) {
+                return $locked;
+            }
+
+            $locked->forceFill($wanted)->save();
+
+            $this->activity->grouped(function () use ($locked, $diff): void {
+                $this->activity->record('department', (string) $locked->getKey(), 'updated', $diff);
+            });
+
+            return $locked;
+        });
+    }
+
+    /**
      * Move a subtree.
      *
      * Two invariants are checked before anything is written: a department may

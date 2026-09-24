@@ -51,9 +51,13 @@ final class DepartmentController extends ApiController
     {
         $this->authorize('update', $department);
 
-        $department->forceFill($request->validated())->save();
+        // Through the service, which is what records it. Writing the model
+        // here left `create` and `move` in the activity log and a rename in
+        // nothing — a history that reads as complete and is not (ADR 0045).
+        /** @var array{name?: string, code?: string} $changes */
+        $changes = $request->validated();
 
-        return $this->ok(new DepartmentResource($department));
+        return $this->ok(new DepartmentResource($this->departments->update($department, $changes)));
     }
 
     public function move(MoveDepartmentRequest $request, DepartmentModel $department): ApiResponse
