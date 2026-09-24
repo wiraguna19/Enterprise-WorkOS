@@ -7,6 +7,7 @@ namespace App\Modules\Organization\Http\Controller;
 use App\Modules\Identity\Application\Service\RecentAuthentication;
 use App\Modules\Identity\Application\Service\SessionLifetime;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
+use App\Modules\Organization\Application\Service\OrganizationSettingsService;
 use App\Modules\Organization\Http\Request\UpdateMfaPolicyRequest;
 use App\Modules\Organization\Http\Request\UpdateSessionPolicyRequest;
 use App\Modules\Organization\Infrastructure\Eloquent\OrganizationModel;
@@ -36,6 +37,7 @@ final class OrganizationSettingsController extends ApiController
         private readonly TenantContext $tenant,
         private readonly SessionLifetime $lifetime,
         private readonly RecentAuthentication $recent,
+        private readonly OrganizationSettingsService $settings,
     ) {}
 
     public function show(): ApiResponse
@@ -73,7 +75,7 @@ final class OrganizationSettingsController extends ApiController
 
         $organization = $this->current();
 
-        $organization->forceFill(['require_mfa' => $request->required()])->save();
+        $this->settings->setMfaRequired($organization, $request->required());
 
         return $this->ok([
             'require_mfa' => $organization->require_mfa,
@@ -108,7 +110,7 @@ final class OrganizationSettingsController extends ApiController
             $changes['idle_timeout_minutes'] = $request->idleMinutes();
         }
 
-        $organization->forceFill($changes)->save();
+        $this->settings->setSessionPolicy($organization, $changes);
 
         $shortened = $this->lifetime->clampTo(
             (string) $organization->id,

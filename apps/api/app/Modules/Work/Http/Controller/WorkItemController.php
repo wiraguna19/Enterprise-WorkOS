@@ -233,9 +233,7 @@ final class WorkItemController extends ApiController
 
         $this->authorize('delete', $item);
 
-        // Soft delete: restoring work someone removed by mistake is a real
-        // support request, and the activity trail must survive it (docs/03 §0).
-        $item->delete();
+        $this->workItems->delete($item);
 
         return $this->noContent();
     }

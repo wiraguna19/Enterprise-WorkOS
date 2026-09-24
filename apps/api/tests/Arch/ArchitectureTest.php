@@ -11,14 +11,90 @@ use App\Modules\Platform\Infrastructure\Eloquent\BaseModel;
  * these rules are checked automatically (docs/01 §1).
  */
 
-// Controllers validate, authorize, call one service, return one resource.
-// Raw database access there is the first step toward a fat controller.
-arch('controllers never touch the database directly')
-    ->expect('Illuminate\Support\Facades\DB')
-    ->not->toBeUsedIn([
-        'App\Modules\Identity\Http\Controller',
-        'App\Modules\Organization\Http\Controller',
-    ]);
+/**
+ * Controllers validate, authorize, call one service, return one resource.
+ *
+ * This rule used to be written as `controllers never touch the database
+ * directly` and it enforced neither half of its own sentence. It named two of
+ * the thirteen controller namespaces, and what it watched was the `DB` facade —
+ * so an Eloquent write in a controller was invisible to it in the two modules
+ * it covered and in the eleven it did not. That is precisely how the department
+ * rename went unrecorded for two phases: the write was `$department->forceFill(
+ * $request->validated())->save()`, in the Organization namespace the rule
+ * already named, and the rule looked straight past it (ADR 0045, ADR 0046).
+ *
+ * What is enforced now is narrower than the old sentence and actually true: a
+ * controller does not WRITE. Reads are deliberately still allowed — a scoped
+ * query a controller hands to a resource is not what goes wrong here, and
+ * banning them would be an arch rule nobody can satisfy without a query object
+ * per endpoint. A WRITE is different in kind: the service is where the activity
+ * entry, the domain event, the `lock_version` bump and the transaction live, so
+ * a write placed beside them instead of inside them silently ships without any
+ * of the four. The rename is the whole argument — it worked, and it recorded
+ * nothing.
+ *
+ * Written as a source test rather than an arch expectation because Pest's arch
+ * API expresses "uses this class" and not "calls this method": `->save()` on a
+ * model is a method call on an instance, which no `toBeUsedIn` can see.
+ */
+test('controllers never write to the database', function (): void {
+    /**
+     * Method calls that put something in a table. `forceFill` is here even
+     * though it writes nothing by itself: it is how this codebase names the
+     * columns of a write (docs/06 §3), so it never appears except in front of
+     * one, and naming it makes the failure point at the readable line.
+     */
+    $writes = [
+        'save', 'saveQuietly', 'saveOrFail', 'delete', 'deleteQuietly',
+        'forceDelete', 'restore', 'forceFill', 'update', 'updateQuietly',
+        'updateOrInsert', 'updateOrCreate', 'insert', 'insertGetId',
+        'insertOrIgnore', 'firstOrCreate', 'create', 'createQuietly',
+        'increment', 'decrement', 'truncate', 'upsert',
+    ];
+
+    $offenders = [];
+
+    foreach (glob('app/Modules/*/Http/Controller/*.php') ?: [] as $file) {
+        $source = file_get_contents($file);
+
+        if ($source === false) {
+            continue;
+        }
+
+        // Comments are stripped first. This file's own prose names half the
+        // write methods above, and a grep that reads comments would convict
+        // the explanation of the rule along with its violations.
+        $code = '';
+
+        foreach (token_get_all($source) as $token) {
+            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], strict: true)) {
+                continue;
+            }
+
+            $code .= is_array($token) ? $token[1] : $token;
+        }
+
+        foreach (explode("\n", $code) as $number => $line) {
+            foreach ($writes as $method) {
+                // `$this->something->update(...)` is a controller delegating to
+                // an injected service, which is the shape this rule wants. Only
+                // a call on anything else — a model, a query, the DB facade —
+                // is a controller doing the write itself.
+                if (preg_match('/(->|::)'.$method.'\s*\(/', $line) !== 1) {
+                    continue;
+                }
+
+                if (preg_match('/\$this->(\w+->)?'.$method.'\s*\(/', $line) === 1) {
+                    continue;
+                }
+
+                $offenders[] = basename($file).':'.($number + 1).' '.$method.'()';
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
 
 arch('controllers extend the shared base')
     ->expect('App\Modules\Organization\Http\Controller')

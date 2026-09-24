@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Calendar\Http\Controller;
 
 use App\Modules\Calendar\Application\Query\CalendarQuery;
+use App\Modules\Calendar\Application\Service\CalendarFeedService;
 use App\Modules\Calendar\Application\Service\IcsWriter;
 use App\Modules\Calendar\Infrastructure\Eloquent\CalendarFeedModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
@@ -12,7 +13,6 @@ use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Response;
-use Illuminate\Support\Str;
 
 /**
  * Subscription URLs, and the feed they serve.
@@ -34,6 +34,7 @@ final class CalendarFeedController extends ApiController
         private readonly CalendarQuery $calendar,
         private readonly IcsWriter $ics,
         private readonly TenantContext $tenant,
+        private readonly CalendarFeedService $feeds,
     ) {}
 
     /**
@@ -45,18 +46,9 @@ final class CalendarFeedController extends ApiController
      */
     public function store(): ApiResponse
     {
-        $token = Str::random(48);
-
-        CalendarFeedModel::query()
-            ->where('membership_id', $this->tenant->membershipId())
-            ->delete();
-
-        $feed = new CalendarFeedModel;
-        $feed->forceFill([
-            'id' => CalendarFeedModel::newId(),
-            'membership_id' => $this->tenant->membershipId(),
-            'token_hash' => hash('sha256', $token),
-        ])->save();
+        ['feed' => $feed, 'token' => $token] = $this->feeds->issue(
+            $this->tenant->membershipId(),
+        );
 
         return $this->created([
             'id' => (string) $feed->getKey(),
@@ -85,9 +77,7 @@ final class CalendarFeedController extends ApiController
 
     public function destroy(): ApiResponse
     {
-        CalendarFeedModel::query()
-            ->where('membership_id', $this->tenant->membershipId())
-            ->delete();
+        $this->feeds->revoke($this->tenant->membershipId());
 
         return $this->noContent();
     }
@@ -105,7 +95,7 @@ final class CalendarFeedController extends ApiController
             abort(404);
         }
 
-        $feed->forceFill(['last_accessed_at' => now()])->saveQuietly();
+        $this->feeds->touch($feed);
 
         $body = $this->tenant->runForMembership(
             (string) $feed->organization_id,

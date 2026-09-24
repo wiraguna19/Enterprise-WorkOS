@@ -7,6 +7,7 @@ namespace App\Modules\Files\Application\Service;
 use App\Modules\Files\Domain\Contract\FileStorage;
 use App\Modules\Files\Domain\Exception\FileNotClean;
 use App\Modules\Files\Domain\Exception\UnsupportedFileType;
+use App\Modules\Files\Infrastructure\Eloquent\AttachmentModel;
 use App\Modules\Files\Infrastructure\Eloquent\FileModel;
 use App\Modules\Files\Infrastructure\Job\ScanUploadedFile;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
@@ -158,6 +159,28 @@ final class UploadService
         }
 
         return $this->storage->presignedDownloadUrl($file->path, $file->original_name);
+    }
+
+    /**
+     * Point an attachment row at a file that is already uploaded (ADR 0046).
+     *
+     * The file and the attachment are two rows on purpose: one set of bytes can
+     * hang off several work items, and deleting one attachment must not delete
+     * a file another one is still using.
+     */
+    public function attach(FileModel $file, string $attachableType, string $attachableId): AttachmentModel
+    {
+        $attachment = new AttachmentModel;
+
+        $attachment->forceFill([
+            'id' => AttachmentModel::newId(),
+            'file_id' => $file->getKey(),
+            'attachable_type' => $attachableType,
+            'attachable_id' => $attachableId,
+            'attached_by' => $this->tenant->membershipId(),
+        ])->save();
+
+        return $attachment;
     }
 
     private function sanitizeName(string $name): string

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notification\Application\Service;
 
+use App\Modules\Notification\Infrastructure\Eloquent\NotificationModel;
 use App\Modules\Platform\Domain\Contract\RealtimePublisher;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Infrastructure\Realtime\Channel;
@@ -194,6 +195,57 @@ final class NotificationDispatcher
         }
 
         return array_values(array_unique($recipients));
+    }
+
+    /**
+     * Mark notifications read, and say how many actually were (ADR 0046).
+     *
+     * Scoped to the actor's own rows and to the unread ones. The id list comes
+     * from a client, so scoping is not an optimisation: without the membership
+     * filter an id list would mark somebody else's notifications read.
+     *
+     * An empty id list means "everything", which is the "mark all read" button.
+     *
+     * @param  list<string>|null  $ids
+     */
+    public function markRead(string $membershipId, ?array $ids): int
+    {
+        return NotificationModel::query()
+            ->where('membership_id', $membershipId)
+            ->whereNull('read_at')
+            ->when($ids !== null, fn ($query) => $query->whereIn('id', $ids))
+            ->update(['read_at' => now()]);
+    }
+
+    /**
+     * Save one person's preference for one notification type.
+     *
+     * `updateOrInsert` rather than a read followed by a write: the row is keyed
+     * by (membership, type) and two saves of the same form in the same second
+     * would both pass a read-then-write check and then collide on the unique
+     * index.
+     */
+    public function savePreference(
+        string $membershipId,
+        string $type,
+        bool $inApp,
+        bool $email,
+        string $digest,
+    ): void {
+        DB::table('notification_preferences')->updateOrInsert(
+            [
+                'membership_id' => $membershipId,
+                'type' => $type,
+            ],
+            [
+                'id' => (string) new UuidV7,
+                'organization_id' => $this->tenant->organizationId(),
+                'in_app' => $inApp,
+                'email' => $email,
+                'digest' => $digest,
+                'updated_at' => now(),
+            ],
+        );
     }
 
     /** @return array<string, int> */

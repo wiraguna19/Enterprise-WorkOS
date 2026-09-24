@@ -13,8 +13,6 @@ use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Symfony\Component\Uid\UuidV7;
 
 final class NotificationController extends ApiController
 {
@@ -55,15 +53,15 @@ final class NotificationController extends ApiController
             'ids.*' => ['uuid'],
         ]);
 
-        // Scoped to the actor's own rows: an id list from the client must never
-        // be able to mark someone else's notifications read.
-        $updated = NotificationModel::query()
-            ->where('membership_id', $this->tenant->membershipId())
-            ->whereNull('read_at')
-            ->when(isset($validated['ids']), fn ($q) => $q->whereIn('id', $validated['ids']))
-            ->update(['read_at' => now()]);
+        /** @var list<string>|null $ids */
+        $ids = $validated['ids'] ?? null;
 
-        return $this->ok(['marked_read' => $updated]);
+        return $this->ok([
+            'marked_read' => $this->notifications->markRead(
+                $this->tenant->membershipId(),
+                $ids,
+            ),
+        ]);
     }
 
     public function preferences(): ApiResponse
@@ -89,19 +87,15 @@ final class NotificationController extends ApiController
             'digest' => ['sometimes', 'in:off,daily,weekly'],
         ]);
 
-        DB::table('notification_preferences')->updateOrInsert(
-            [
-                'membership_id' => $this->tenant->membershipId(),
-                'type' => $validated['type'],
-            ],
-            [
-                'id' => (string) new UuidV7,
-                'organization_id' => $this->tenant->organizationId(),
-                'in_app' => $validated['in_app'] ?? true,
-                'email' => $validated['email'] ?? false,
-                'digest' => $validated['digest'] ?? 'off',
-                'updated_at' => now(),
-            ],
+        $this->notifications->savePreference(
+            $this->tenant->membershipId(),
+            (string) $validated['type'],
+            // A missing key is the default for that channel, not "off": this is
+            // a PATCH of one type's row, and treating absence as false would
+            // switch e-mail off every time somebody changed the digest beside it.
+            (bool) ($validated['in_app'] ?? true),
+            (bool) ($validated['email'] ?? false),
+            (string) ($validated['digest'] ?? 'off'),
         );
 
         return $this->noContent();

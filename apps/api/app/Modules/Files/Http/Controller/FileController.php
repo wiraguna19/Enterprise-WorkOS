@@ -7,7 +7,6 @@ namespace App\Modules\Files\Http\Controller;
 use App\Modules\Files\Application\Service\UploadService;
 use App\Modules\Files\Infrastructure\Eloquent\AttachmentModel;
 use App\Modules\Files\Infrastructure\Eloquent\FileModel;
-use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
@@ -107,14 +106,7 @@ final class FileController extends ApiController
         /** @var FileModel $file */
         $file = FileModel::query()->findOrFail($validated['file_id']);
 
-        $attachment = new AttachmentModel;
-        $attachment->forceFill([
-            'id' => AttachmentModel::newId(),
-            'file_id' => $file->getKey(),
-            'attachable_type' => 'work_item',
-            'attachable_id' => $item->getKey(),
-            'attached_by' => app(TenantContext::class)->membershipId(),
-        ])->save();
+        $attachment = $this->uploads->attach($file, 'work_item', (string) $item->getKey());
 
         return $this->created([
             'id' => $attachment->id,

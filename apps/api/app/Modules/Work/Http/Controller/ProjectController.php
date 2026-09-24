@@ -22,7 +22,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Symfony\Component\Uid\UuidV7;
 
 final class ProjectController extends ApiController
 {
@@ -204,35 +203,7 @@ final class ProjectController extends ApiController
             'end_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
         ]);
 
-        $project = DB::transaction(function () use ($validated): ProjectModel {
-            $project = new ProjectModel;
-            $id = ProjectModel::newId();
-
-            $project->forceFill($validated + [
-                'id' => $id,
-                'owner_membership_id' => $this->tenant->membershipId(),
-                'workflow_id' => DB::table('workflows')
-                    ->where('organization_id', $this->tenant->organizationId())
-                    ->where('applies_to_type', 'task')
-                    ->where('is_default', true)
-                    ->value('id'),
-            ])->save();
-
-            // The creator is a member. Creating a project you cannot then see
-            // is the kind of bug that only shows up in production.
-            DB::table('project_members')->insert([
-                'id' => (string) new UuidV7,
-                'organization_id' => $this->tenant->organizationId(),
-                'project_id' => $id,
-                'membership_id' => $this->tenant->membershipId(),
-                'role' => 'owner',
-                'added_at' => now(),
-            ]);
-
-            return $project;
-        });
-
-        return $this->created(new ProjectResource($project));
+        return $this->created(new ProjectResource($this->projects->create($validated)));
     }
 
     /**
@@ -369,10 +340,10 @@ final class ProjectController extends ApiController
     /**
      * Pin a project, or unpin it.
      *
-     * Idempotent in both directions, and the database is what makes it so: the
-     * unique index refuses a second pin, so this does not depend on a caller
-     * checking first. Pinning twice is not an error the person should be shown
-     * — they wanted it pinned, and it is.
+     * Both directions are one endpoint because both are the same act from the
+     * person's side — a star they toggle. The idempotence that makes double
+     * clicks harmless lives in the service, where the unique index is
+     * (ProjectService::setPinned).
      */
     public function setPinned(Request $request, string $key): ApiResponse
     {
@@ -381,39 +352,12 @@ final class ProjectController extends ApiController
         $this->authorize('view', $project);
 
         $validated = $request->validate(['pinned' => ['required', 'boolean']]);
-        $membershipId = $this->tenant->membershipId();
 
-        if (! $validated['pinned']) {
-            PinnedProjectModel::query()
-                ->where('membership_id', $membershipId)
-                ->where('project_id', $project->getKey())
-                ->delete();
-
-            return $this->noContent();
-        }
-
-        // `insertOrIgnore`, not `firstOrCreate`. Two reasons, and the first is
-        // architectural: `firstOrCreate` MASS ASSIGNS, and this codebase forbids
-        // that outright — every write names its columns, so no model here has a
-        // `$fillable` and the attempt threw. An arch test says so; this found it
-        // at runtime first because the write is in a controller.
-        //
-        // The second is the better reason. `ON CONFLICT DO NOTHING` is what
-        // makes pinning idempotent AT THE DATABASE, in one statement, rather
-        // than in a read-then-write that two clicks in the same second both
-        // pass.
-        DB::table('pinned_projects')->insertOrIgnore([
-            'id' => (string) new UuidV7,
-            'organization_id' => $this->tenant->organizationId(),
-            'membership_id' => $membershipId,
-            'project_id' => $project->getKey(),
-            // Appended, not inserted at the top: the list is the person's own
-            // order, and a new pin has not earned a place in it.
-            'position' => (int) DB::table('pinned_projects')
-                ->where('membership_id', $membershipId)
-                ->max('position') + 1,
-            'created_at' => now(),
-        ]);
+        $this->projects->setPinned(
+            $project,
+            $this->tenant->membershipId(),
+            (bool) $validated['pinned'],
+        );
 
         return $this->noContent();
     }

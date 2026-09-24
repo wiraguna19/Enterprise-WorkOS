@@ -7,6 +7,7 @@ namespace App\Modules\Insights\Http\Controller;
 use App\Modules\Files\Domain\Contract\FileStorage;
 use App\Modules\Insights\Application\Report\ReportRegistry;
 use App\Modules\Insights\Application\Report\WriterRegistry;
+use App\Modules\Insights\Application\Service\ExportRequests;
 use App\Modules\Insights\Domain\Exception\ExportNotReady;
 use App\Modules\Insights\Domain\Exception\ExportRateLimited;
 use App\Modules\Insights\Domain\Exception\UnsupportedExportFormat;
@@ -17,7 +18,6 @@ use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
-use Symfony\Component\Uid\UuidV7;
 
 /**
  * The four reports, and their exports (docs/05, ADR 0011).
@@ -37,6 +37,7 @@ final class ReportController extends ApiController
         private readonly WriterRegistry $writers,
         private readonly TenantContext $tenant,
         private readonly FileStorage $storage,
+        private readonly ExportRequests $exports,
     ) {}
 
     /**
@@ -101,21 +102,7 @@ final class ReportController extends ApiController
             );
         }
 
-        $export = new ReportExportModel;
-
-        $export->forceFill([
-            'id' => (string) new UuidV7,
-            'organization_id' => $this->tenant->organizationId(),
-            // Whose eyes the worker will use. Not decoration: this is what the
-            // job binds, and therefore what the file will contain.
-            'requested_by_membership_id' => $this->tenant->membershipId(),
-            'report_key' => $key,
-            'format' => $format,
-            // Stored verbatim so a file can be explained months later without
-            // guessing which filters produced it.
-            'parameters' => $request->except(['format']),
-            'status' => 'pending',
-        ])->save();
+        $export = $this->exports->request($key, $format, $request->except(['format']));
 
         BuildReportExport::dispatch(
             (string) $this->tenant->organizationId(),

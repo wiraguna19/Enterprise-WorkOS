@@ -388,6 +388,27 @@ final class WorkItemService
     }
 
     /**
+     * Remove a work item, and say so in its own history (ADR 0046).
+     *
+     * A soft delete: restoring work somebody removed by mistake is a real
+     * support request, and the activity trail must survive it (docs/03 §0).
+     *
+     * The entry is written BEFORE the delete, not after. `deleted_at` puts the
+     * row outside the default scope, and an activity write that reads the item
+     * back afterwards would be writing about something it can no longer see.
+     */
+    public function delete(WorkItemModel $item): void
+    {
+        $this->transactional(function () use ($item): void {
+            $this->activity->record('work_item', (string) $item->getKey(), 'deleted', [
+                'reference' => ['from' => $item->reference, 'to' => null],
+            ]);
+
+            $item->delete();
+        });
+    }
+
+    /**
      * Take `custom_fields` out of an attribute bag and hand it back.
      *
      * By reference, because the caller's array is what gets `forceFill`ed onto

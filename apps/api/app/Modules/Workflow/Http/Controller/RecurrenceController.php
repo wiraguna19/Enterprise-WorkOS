@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Workflow\Http\Controller;
 
-use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
+use App\Modules\Workflow\Application\Service\RecurrenceService;
 use App\Modules\Workflow\Http\Request\CreateRecurrenceRequest;
 use App\Modules\Workflow\Infrastructure\Eloquent\RecurrenceModel;
 
@@ -22,7 +22,7 @@ use App\Modules\Workflow\Infrastructure\Eloquent\RecurrenceModel;
 final class RecurrenceController extends ApiController
 {
     public function __construct(
-        private readonly TenantContext $tenant,
+        private readonly RecurrenceService $recurrences,
     ) {}
 
     public function index(): ApiResponse
@@ -40,19 +40,16 @@ final class RecurrenceController extends ApiController
     public function store(CreateRecurrenceRequest $request): ApiResponse
     {
         $next = $request->firstOccurrenceAfterNow();
+        $endsAt = $request->input('ends_at');
 
-        $recurrence = new RecurrenceModel;
-        $recurrence->forceFill([
-            'id' => RecurrenceModel::newId(),
-            'created_by_membership_id' => $this->tenant->membershipId(),
-            'rrule' => $request->string('rrule')->toString(),
-            'template' => $request->array('template'),
+        $recurrence = $this->recurrences->create(
+            $request->string('rrule')->toString(),
+            $request->array('template'),
             // Validation has already proven there is one; the null-coalesce is
             // for the type checker, not for a case that can happen.
-            'next_run_at' => $next ?? now()->addDay(),
-            'ends_at' => $request->input('ends_at'),
-            'is_active' => true,
-        ])->save();
+            $next ?? now()->addDay(),
+            is_string($endsAt) ? $endsAt : null,
+        );
 
         return $this->created($this->present($recurrence));
     }
@@ -69,7 +66,7 @@ final class RecurrenceController extends ApiController
         /** @var RecurrenceModel $recurrence */
         $recurrence = RecurrenceModel::query()->findOrFail($id);
 
-        $recurrence->forceFill(['is_active' => false])->save();
+        $this->recurrences->deactivate($recurrence);
 
         return $this->noContent();
     }

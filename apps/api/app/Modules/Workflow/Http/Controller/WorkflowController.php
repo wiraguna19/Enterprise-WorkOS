@@ -12,6 +12,7 @@ use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use App\Modules\Workflow\Application\Service\ManualRuleRun;
 use App\Modules\Workflow\Application\Service\RuleVocabulary;
 use App\Modules\Workflow\Application\Service\TransitionService;
+use App\Modules\Workflow\Application\Service\WorkflowRuleService;
 use App\Modules\Workflow\Http\Request\RunRuleRequest;
 use App\Modules\Workflow\Http\Request\SaveRuleRequest;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
@@ -26,6 +27,9 @@ final class WorkflowController extends ApiController
         private readonly TransitionService $transitions,
         private readonly WorkItemVisibility $visibility,
         private readonly ManualRuleRun $manual,
+        // Not `$rules`: this controller already answers `rules()`, and a
+        // property that shadows a method reads as a typo forever after.
+        private readonly WorkflowRuleService $ruleEditor,
     ) {}
 
     public function index(): ApiResponse
@@ -127,10 +131,7 @@ final class WorkflowController extends ApiController
     {
         $this->authorize('create', WorkflowRuleModel::class);
 
-        $rule = new WorkflowRuleModel;
-        $rule->forceFill([
-            'id' => WorkflowRuleModel::newId(),
-            'workflow_id' => null,
+        $rule = $this->ruleEditor->create([
             'name' => $request->string('name')->toString(),
             'description' => $request->string('description')->toString(),
             'trigger' => $request->string('trigger')->toString(),
@@ -138,9 +139,7 @@ final class WorkflowController extends ApiController
             'actions' => array_values($request->array('actions')),
             'is_active' => $request->boolean('is_active', true),
             'run_order' => $request->integer('run_order'),
-            'failure_count' => 0,
-            'disabled_reason' => null,
-        ])->save();
+        ]);
 
         return $this->created($this->presentRule($rule));
     }
@@ -164,10 +163,7 @@ final class WorkflowController extends ApiController
 
         $this->authorize('update', $rule);
 
-        $attributes = [
-            'failure_count' => 0,
-            'disabled_reason' => null,
-        ];
+        $changes = [];
 
         // Only what was sent. A form that posts every field turns "switch this
         // off" into a rewrite of the conditions with whatever the client last
@@ -175,11 +171,11 @@ final class WorkflowController extends ApiController
         // edit made a minute earlier.
         foreach (['name', 'description', 'trigger', 'conditions', 'actions', 'is_active', 'run_order'] as $field) {
             if ($request->has($field)) {
-                $attributes[$field] = $request->input($field);
+                $changes[$field] = $request->input($field);
             }
         }
 
-        $rule->forceFill($attributes)->save();
+        $this->ruleEditor->update($rule, $changes);
 
         return $this->ok($this->presentRule($rule));
     }

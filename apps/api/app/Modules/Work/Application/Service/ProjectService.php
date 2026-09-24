@@ -9,10 +9,12 @@ use App\Modules\Platform\Application\Event\RecordsDomainEvents;
 use App\Modules\Platform\Domain\Exception\ConcurrencyConflict;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Work\Domain\Exception\ProjectMembershipRefused;
+use App\Modules\Work\Infrastructure\Eloquent\PinnedProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectMemberModel;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Uid\UuidV7;
 
 /**
  * The transaction boundary for project writes (docs/01 §3, ADR 0040).
@@ -295,6 +297,99 @@ final class ProjectService
 
             return $member;
         });
+    }
+
+    /**
+     * Create a project, and put its creator on it (ADR 0046).
+     *
+     * One transaction, because the second write is not optional: `project_members`
+     * is what decides project visibility, so a project created without its
+     * creator is a project the creator cannot then see. That is the kind of bug
+     * that only shows up in production, and a partial commit would produce it.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function create(array $attributes): ProjectModel
+    {
+        return $this->transactional(function () use ($attributes): ProjectModel {
+            $project = new ProjectModel;
+            $id = ProjectModel::newId();
+
+            $project->forceFill($attributes + [
+                'id' => $id,
+                'owner_membership_id' => $this->tenant->membershipId(),
+                // The organization's default task workflow. Asked of the table
+                // rather than named by a constant: which workflow is default is
+                // a setting, and a constant here would be a second copy of it.
+                'workflow_id' => DB::table('workflows')
+                    ->where('organization_id', $this->tenant->organizationId())
+                    ->where('applies_to_type', 'task')
+                    ->where('is_default', true)
+                    ->value('id'),
+            ])->save();
+
+            DB::table('project_members')->insert([
+                'id' => (string) new UuidV7,
+                'organization_id' => $this->tenant->organizationId(),
+                'project_id' => $id,
+                'membership_id' => $this->tenant->membershipId(),
+                'role' => 'owner',
+                'added_at' => now(),
+            ]);
+
+            $this->activity->record('project', (string) $id, 'created', [
+                'key' => ['from' => null, 'to' => $project->key],
+                'name' => ['from' => null, 'to' => $project->name],
+            ]);
+
+            return $project;
+        });
+    }
+
+    /**
+     * Pin a project for one person, or unpin it.
+     *
+     * Idempotent in both directions, and the database is what makes it so: the
+     * unique index refuses a second pin, so this does not depend on a caller
+     * checking first. Pinning twice is not an error the person should be shown
+     * — they wanted it pinned, and it is.
+     *
+     * `insertOrIgnore`, not `firstOrCreate`. Two reasons, and the first is
+     * architectural: `firstOrCreate` MASS ASSIGNS, and this codebase forbids
+     * that outright — every write names its columns, so no model here has a
+     * `$fillable` and the attempt threw. The second is the better reason:
+     * `ON CONFLICT DO NOTHING` is what makes pinning idempotent AT THE DATABASE,
+     * in one statement, rather than in a read-then-write that two clicks in the
+     * same second both pass.
+     *
+     * Nothing is recorded in the activity log, deliberately. A pin is one
+     * person's arrangement of their own sidebar, not something that happened to
+     * the project, and putting it in the project's history would bury the acts
+     * that did.
+     */
+    public function setPinned(ProjectModel $project, string $membershipId, bool $pinned): void
+    {
+        if (! $pinned) {
+            PinnedProjectModel::query()
+                ->where('membership_id', $membershipId)
+                ->where('project_id', $project->getKey())
+                ->delete();
+
+            return;
+        }
+
+        DB::table('pinned_projects')->insertOrIgnore([
+            'id' => (string) new UuidV7,
+            'organization_id' => $this->tenant->organizationId(),
+            'membership_id' => $membershipId,
+            'project_id' => $project->getKey(),
+            // Appended, not inserted at the top: the list is the person's own
+            // order, and a new pin has not earned a place in it.
+            'position' => (int) DB::table('pinned_projects')
+                ->where('membership_id', $membershipId)
+                ->max('position') + 1,
+            'created_at' => now(),
+        ]);
     }
 
     private function ownerCount(ProjectModel $project): int
