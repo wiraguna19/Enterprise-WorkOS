@@ -24,16 +24,22 @@ export type ActivityEvent = {
 export function ActivityTimeline({
   events,
   timeZone,
+  emptyMessage = "Nothing has happened to this item yet.",
 }: {
   events: ActivityEvent[];
   timeZone: string;
+  /**
+   * The sentence for an empty timeline.
+   *
+   * A parameter rather than a second component: this one is now read by a
+   * project as well as a work item, and the only thing that differs is the
+   * noun. Copying the component to change one word is how two timelines end up
+   * rendering the same log differently.
+   */
+  emptyMessage?: string;
 }) {
   if (events.length === 0) {
-    return (
-      <p className="py-2 text-body-sm text-n-500">
-        Nothing has happened to this item yet.
-      </p>
-    );
+    return <p className="py-2 text-body-sm text-n-500">{emptyMessage}</p>;
   }
 
   return (
@@ -116,9 +122,32 @@ function describe(verb: string, changes: Record<string, unknown>): string {
       return "logged time";
     case "time_removed":
       return "removed a time entry";
+
+    // Projects (ADR 0040, ADR 0041). These were written for two commits with
+    // nothing able to read them, so this list had never seen them — an
+    // unmapped verb renders as itself, which is why the gap looked like
+    // nothing rather than like a bug.
+    case "archived":
+      return "archived it";
+    case "restored":
+      return "brought it back";
+    case "member_added":
+      return `gave access${roleIn(changes)}`;
+    case "member_removed":
+      return "took access away";
+    case "member_role_changed":
+      return `changed a role${roleIn(changes)}`;
+
     default:
       return verb.replace(/_/g, " ");
   }
+}
+
+/** " as manager", or nothing when the row does not say. */
+function roleIn(changes: Record<string, unknown>): string {
+  const role = changes.role as { from?: string; to?: string } | undefined;
+
+  return role?.to === undefined ? "" : ` as ${role.to}`;
 }
 
 function listFields(changes: Record<string, unknown>): string {

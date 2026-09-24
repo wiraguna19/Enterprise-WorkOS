@@ -1,8 +1,13 @@
 import { notFound } from "next/navigation";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { EditProjectForm } from "@/features/project/EditProjectForm";
 import { ProjectMembers } from "@/features/project/ProjectMembers";
+import {
+  ActivityTimeline,
+  type ActivityEvent,
+} from "@/features/work-item/components/ActivityTimeline";
 import type { ProjectMember } from "@/features/project/actions";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { Project } from "@/features/work-item/types";
@@ -29,7 +34,7 @@ export default async function ProjectSettingsPage({
 }: {
   params: Promise<{ key: string }>;
 }) {
-  const [, { key }] = await Promise.all([requireUser(), params]);
+  const [me, { key }] = await Promise.all([requireUser(), params]);
 
   let project: Project;
 
@@ -51,10 +56,15 @@ export default async function ProjectSettingsPage({
 
   // The pickers are only fetched for somebody who can actually add: a reader
   // who may see the member list has no business pulling the whole directory.
-  const [members, people, teams] = await Promise.all([
+  const [members, activity, people, teams] = await Promise.all([
     api<ProjectMember[]>(`/projects/${key}/members`)
       .then((r) => r.data)
       .catch(() => [] as ProjectMember[]),
+    // Read here because this is the page where every one of those events is
+    // caused: renames, archives, and every change to who has access (ADR 0043).
+    api<ActivityEvent[]>(`/projects/${key}/activity`)
+      .then((r) => r.data)
+      .catch(() => [] as ActivityEvent[]),
     canManage
       ? api<Array<{ id: string; name: string | null }>>("/people?limit=200")
           .then((r) => r.data)
@@ -86,6 +96,18 @@ export default async function ProjectSettingsPage({
           teams={teams.map((team) => ({ id: team.id, label: team.name }))}
           canManage={canManage}
         />
+
+        <Panel
+          id="history"
+          title="History"
+          description="Who changed this project, and who gained or lost access to it."
+        >
+          <ActivityTimeline
+            events={activity}
+            timeZone={me.user.timezone}
+            emptyMessage="Nothing has happened to this project yet."
+          />
+        </Panel>
       </PageBody>
     </div>
   );

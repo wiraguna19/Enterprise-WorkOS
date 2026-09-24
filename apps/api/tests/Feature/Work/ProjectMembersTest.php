@@ -153,3 +153,47 @@ it('refuses somebody who may read the project but not manage its access', functi
         ])
         ->assertForbidden();
 });
+
+/**
+ * Every project write records an activity entry, and for two commits nothing
+ * could read one (ADR 0043).
+ *
+ * A write path with no read path — this project's most repeated defect, and
+ * here self-inflicted: the slice that added the writes did not add the reader.
+ * It matters most for access, because `project_members` keeps removed rows
+ * precisely so "who could see this and when" stays answerable, and the answer
+ * was stored and unreachable.
+ */
+it('says who gained and lost access, and when', function (): void {
+    $tono = DB::table('memberships')
+        ->join('users', 'users.id', '=', 'memberships.user_id')
+        ->where('users.email', 'tono@acme.test')
+        ->value('memberships.id');
+
+    $added = $this->withToken($this->admin)
+        ->postJson('/api/v1/projects/ENG/members', ['membership_id' => $tono, 'role' => 'viewer'])
+        ->assertStatus(201)
+        ->json('data.id');
+
+    $this->withToken($this->admin)
+        ->deleteJson("/api/v1/projects/ENG/members/{$added}")
+        ->assertNoContent();
+
+    $verbs = collect($this->withToken($this->admin)
+        ->getJson('/api/v1/projects/ENG/activity')
+        ->assertOk()
+        ->json('data'))
+        ->flatMap(fn (array $group) => collect($group['entries'])->pluck('verb'))
+        ->all();
+
+    expect($verbs)->toContain('member_added')
+        ->toContain('member_removed');
+});
+
+it('refuses the history of a project the reader cannot see', function (): void {
+    // 404, like every other refusal about a project somebody is not on: whether
+    // it exists is not the answer to disclose (docs/05 §3).
+    $this->withToken($this->outsider)
+        ->getJson('/api/v1/projects/FIN/activity')
+        ->assertNotFound();
+});

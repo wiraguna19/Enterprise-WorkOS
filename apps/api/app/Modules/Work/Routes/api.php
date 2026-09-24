@@ -65,6 +65,13 @@ Route::post('projects/{key}/archive', [ProjectController::class, 'archive'])
 // Guarded on `project.view` with the POLICY deciding, like the edit above: a
 // project's owner manages their own project's access without holding
 // `project.manage_members` organization-wide.
+// What happened to this project, and who did it (ADR 0043). Every write added
+// by ADR 0040 and ADR 0041 records an activity entry, and nothing could read
+// one: a write path with no read path, created by the slice that added the
+// writes.
+Route::get('projects/{key}/activity', [ActivityController::class, 'project'])
+    ->middleware('permission:project.view');
+
 Route::get('projects/{key}/members', [ProjectController::class, 'members'])
     ->middleware('permission:project.view');
 Route::post('projects/{key}/members', [ProjectController::class, 'addMember'])
