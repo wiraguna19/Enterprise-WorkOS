@@ -11,6 +11,7 @@ import {
 } from "@/features/custom-fields/CustomFieldInputs";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { createWorkItem } from "../actions";
+import { humanize, type TemplatePrefill } from "../templates";
 
 type Option = { id: string; label: string };
 
@@ -51,6 +52,7 @@ export function NewWorkItemForm({
   types,
   priorities,
   customFields,
+  template,
 }: {
   projects: Option[];
   people: Option[];
@@ -62,20 +64,31 @@ export function NewWorkItemForm({
   priorities: string[];
   /** The organization's own fields, blank (ADR 0038). */
   customFields: CustomFieldAnswer[];
+  /**
+   * The template this form was opened from, already laid over a blank form
+   * (ADR 0047). Only initial values: nothing below treats a prefilled field
+   * differently from a typed one, because to the API there is no difference.
+   */
+  template?: { name: string; prefill: TemplatePrefill };
 }) {
+  const prefill = template?.prefill;
+
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [type, setType] = useState("");
+  const [title, setTitle] = useState(prefill?.title ?? "");
+  const [description, setDescription] = useState(prefill?.description ?? "");
+  const [type, setType] = useState(prefill?.type ?? "");
   const [projectId, setProjectId] = useState(defaultProjectId ?? "");
-  const [priority, setPriority] = useState("");
+  const [priority, setPriority] = useState(prefill?.priority ?? "");
   const [startDate, setStartDate] = useState("");
-  const [dueAt, setDueAt] = useState("");
-  const [estimate, setEstimate] = useState("");
+  const [dueAt, setDueAt] = useState(prefill?.dueAt ?? "");
+  const [estimate, setEstimate] = useState(prefill?.estimate ?? "");
   const [assigneeId, setAssigneeId] = useState("");
   const [reviewerId, setReviewerId] = useState("");
-  const [custom, setCustom] = useState<Record<string, string>>(() => initialValues(customFields));
+  const [custom, setCustom] = useState<Record<string, string>>(() => ({
+    ...initialValues(customFields),
+    ...prefill?.custom,
+  }));
 
   const [error, setError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
@@ -176,6 +189,18 @@ export function NewWorkItemForm({
         }
       >
       <div className="space-y-4">
+      {template !== undefined && (
+        // What the template did AND what it did not. A skipped answer is named
+        // here, because the alternative is a field that silently stayed blank
+        // on a form somebody believed was filled in for them.
+        <p role="status" className="text-caption text-n-500">
+          Filled in from <span className="font-medium text-n-700">{template.name}</span>. Change
+          anything before creating.
+          {template.prefill.notApplied.length > 0 &&
+            ` Skipped, because the field no longer accepts it: ${template.prefill.notApplied.join(", ")}.`}
+        </p>
+      )}
+
       <Field id={titleId} label="Title">
         <input
           id={titleId}
@@ -235,7 +260,7 @@ export function NewWorkItemForm({
             <option value="">Default</option>
             {types.map((value) => (
               <option key={value} value={value}>
-                {label(value)}
+                {humanize(value)}
               </option>
             ))}
           </select>
@@ -251,7 +276,7 @@ export function NewWorkItemForm({
             <option value="">Default</option>
             {priorities.map((value) => (
               <option key={value} value={value}>
-                {label(value)}
+                {humanize(value)}
               </option>
             ))}
           </select>
@@ -351,9 +376,4 @@ export function NewWorkItemForm({
       </Panel>
     </form>
   );
-}
-
-/** `approval_work` is not a word. The API's vocabulary is not the user's. */
-function label(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
 }

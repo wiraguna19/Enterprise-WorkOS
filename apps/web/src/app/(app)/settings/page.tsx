@@ -56,6 +56,12 @@ const SECTIONS: Array<{
     permission: "custom_field.manage",
   },
   {
+    href: "/settings/templates",
+    label: "Templates",
+    description: "Starting points for new work — a type, a priority, a checklist, a deadline.",
+    permission: "work_item_template.manage",
+  },
+  {
     href: "/settings/audit",
     label: "Audit log",
     description: "Who did what, and when — sign-ins, invitations, role changes.",

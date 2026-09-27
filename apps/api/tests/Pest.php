@@ -246,6 +246,12 @@ function minimalRowFor(string $table, string $organizationId): array
             'work_item_id' => GLOBEX_WORK_ITEM,
             'value_text' => 'Probe',
         ],
+        // Unique per organization on lower(name), so the probe is named after its
+        // own id. `fields` takes its '{}' default, which ck_wit_fields_object
+        // accepts — a probe needs a row, not a meaningful template.
+        'work_item_templates' => $base + [
+            'name' => 'Probe template '.substr($id, 0, 8),
+        ],
 
         default => $base,
     };

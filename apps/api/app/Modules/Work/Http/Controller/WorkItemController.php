@@ -101,6 +101,26 @@ final class WorkItemController extends ApiController
         return ApiResponse::collection($this->customFields->blankFor('work_item'));
     }
 
+    /**
+     * The closed vocabularies a work item form offers, served (ADR 0047).
+     *
+     * The create form kept its own copy of `TYPES` and `PRIORITIES` under a
+     * comment admitting it — "when Phase 7 needs the same thing, the fix is one
+     * endpoint that names them, not a fourth copy". The template editor is that
+     * need: it offers the same two lists, and a third hand-written copy is the
+     * one that would have drifted first.
+     *
+     * Behind `work_item.view` rather than `create`: these are the words every
+     * list of work already prints, not a capability.
+     */
+    public function vocabulary(): ApiResponse
+    {
+        return ApiResponse::item([
+            'types' => WorkItemModel::TYPES,
+            'priorities' => WorkItemModel::PRIORITIES,
+        ]);
+    }
+
     public function store(CreateWorkItemRequest $request): ApiResponse
     {
         $item = $this->workItems->create($request->validated());

@@ -9,6 +9,7 @@ use App\Modules\Work\Http\Controller\MyWorkController;
 use App\Modules\Work\Http\Controller\ProjectController;
 use App\Modules\Work\Http\Controller\TimeEntryController;
 use App\Modules\Work\Http\Controller\WorkItemController;
+use App\Modules\Work\Http\Controller\WorkItemTemplateController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -96,6 +97,27 @@ Route::patch('projects/{key}/members/{member}', [ProjectController::class, 'setM
 Route::delete('projects/{key}/members/{member}', [ProjectController::class, 'removeMember'])
     ->middleware(['permission:project.view', 'throttle:writes']);
 
+// ── Templates ───────────────────────────────────────────────────────────────
+// Starting points for the create form (ADR 0047). A template PREFILLS that form
+// and creates nothing: there is no "create from template" endpoint, because a
+// second door into creating work would need a second copy of every rule the
+// first one enforces, and the copy is always the weaker door.
+//
+// The read is behind `work_item.create`, not the administration permission:
+// the person who reads a template is the person filling in the form. A create
+// form that read an admin-only endpoint turned one required custom field into a
+// lockout for everybody but an admin (ADR 0038); this does not repeat it.
+Route::get('work-item-templates', [WorkItemTemplateController::class, 'index'])
+    ->middleware('permission:work_item.create');
+Route::post('work-item-templates', [WorkItemTemplateController::class, 'store'])
+    ->middleware(['permission:work_item_template.manage', 'throttle:writes']);
+Route::patch('work-item-templates/{id}', [WorkItemTemplateController::class, 'update'])
+    ->middleware(['permission:work_item_template.manage', 'throttle:writes']);
+// A DELETE that deletes. Nothing refers to a template, so there is nothing a
+// retirement would be keeping it for — and the audit entry keeps what it held.
+Route::delete('work-item-templates/{id}', [WorkItemTemplateController::class, 'destroy'])
+    ->middleware(['permission:work_item_template.manage', 'throttle:writes']);
+
 // ── Work items ──────────────────────────────────────────────────────────────
 // Keyed by human reference (ENG-142) rather than UUID: it is what people paste
 // into chat, and a readable URL is a small thing that makes a product feel
@@ -110,6 +132,9 @@ Route::post('work-items', [WorkItemController::class, 'store'])
 // tidiness one.
 Route::get('work-items/fields', [WorkItemController::class, 'fields'])
     ->middleware('permission:work_item.create');
+// Same ordering constraint as `fields`, for the same reason.
+Route::get('work-items/vocabulary', [WorkItemController::class, 'vocabulary'])
+    ->middleware('permission:work_item.view');
 
 Route::get('work-items/{reference}', [WorkItemController::class, 'show'])
     ->middleware('permission:work_item.view')->name('work-items.show');

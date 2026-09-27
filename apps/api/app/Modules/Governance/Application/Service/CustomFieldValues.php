@@ -181,6 +181,48 @@ final class CustomFieldValues
     }
 
     /**
+     * Check answers without writing them, and hand back what would be stored.
+     *
+     * For something that is not a record and never becomes one — a work item
+     * template (ADR 0047). The refusals are {@see write()}'s, for its reasons:
+     * an unknown key, a retired field, a value of the wrong type, an option the
+     * field does not offer. A template holding any of those would prefill a
+     * form the API then refuses — a trap with a friendly name.
+     *
+     * Blank answers are dropped rather than refused. A template that leaves a
+     * field empty says nothing about it, and "required" is the create form's
+     * question, asked of the person filling it in, not of the template.
+     *
+     * @param  array<string, mixed>  $answers
+     * @return array<string, string>
+     */
+    public function normalize(string $scope, array $answers): array
+    {
+        $definitions = $this->fields->all($scope)->keyBy('key');
+        $out = [];
+
+        foreach ($answers as $key => $raw) {
+            if ($raw === null || $raw === '') {
+                continue;
+            }
+
+            $definition = $definitions->get($key);
+
+            if (! $definition instanceof CustomFieldDefinitionModel) {
+                throw CustomFieldRefused::unknownField((string) $key);
+            }
+
+            if (! $definition->isLive()) {
+                throw CustomFieldRefused::notLive($definition->label);
+            }
+
+            $out[(string) $key] = $this->coerce($definition, $raw);
+        }
+
+        return $out;
+    }
+
+    /**
      * Are the required fields answered?
      *
      * Asked separately from {@see write()}, and asked only at CREATION. A new
