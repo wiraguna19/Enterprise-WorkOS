@@ -37,9 +37,12 @@ final class OrganizationSettingsService
         // Unchanged is not an event. A person pressing save on a form they did
         // not edit would otherwise fill the history with acts nobody performed.
         if ($was !== $required) {
+            // Keyed by the column, like every other entry: the timeline reads
+            // `{field: {from, to}}`, and a flat `{from, to}` is a record that
+            // was written and cannot be rendered — PHPStan caught it before a
+            // reader did.
             $this->activity->record('organization', (string) $organization->getKey(), 'organization.mfa_policy_changed', [
-                'from' => $was,
-                'to' => $required,
+                'require_mfa' => ['from' => $was, 'to' => $required],
             ]);
         }
 

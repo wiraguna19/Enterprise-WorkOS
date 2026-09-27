@@ -9,6 +9,7 @@ use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Workflow\Application\Service\RecurrenceService;
 use App\Modules\Workflow\Http\Request\CreateRecurrenceRequest;
 use App\Modules\Workflow\Infrastructure\Eloquent\RecurrenceModel;
+use Carbon\CarbonImmutable;
 
 /**
  * Standing instructions to create work (docs/03 §4, docs/10 Phase 5).
@@ -45,9 +46,12 @@ final class RecurrenceController extends ApiController
         $recurrence = $this->recurrences->create(
             $request->string('rrule')->toString(),
             $request->array('template'),
-            // Validation has already proven there is one; the null-coalesce is
-            // for the type checker, not for a case that can happen.
-            $next ?? now()->addDay(),
+            // Validation has already proven there is one; the null branch is
+            // for the type checker, not for a case that can happen. Converted,
+            // not passed through: the request yields a plain DateTimeImmutable
+            // and the service takes a CarbonInterface, so handing it over as-is
+            // was a TypeError on every recurrence anybody tried to create.
+            $next === null ? now()->addDay() : CarbonImmutable::instance($next),
             is_string($endsAt) ? $endsAt : null,
         );
 
