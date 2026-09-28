@@ -32,7 +32,7 @@ function makeRecurrence(array $overrides = []): string
 {
     $id = (string) new UuidV7;
 
-    DB::table('recurrences')->insert([
+    $row = [
         'id' => $id,
         'organization_id' => '01900000-0000-7000-8000-0000000000ac',
         'created_by_membership_id' => '01900000-0000-7000-8000-000000000202',
@@ -46,7 +46,11 @@ function makeRecurrence(array $overrides = []): string
         'created_at' => now()->subMonth(),
         'updated_at' => now(),
         ...$overrides,
-    ]);
+    ];
+
+    // Written as the organization it belongs to: the tests bind Acme, and
+    // under Row-Level Security Acme may not write a Globex rule.
+    actingWithinTenant((string) $row['organization_id'], fn () => DB::table('recurrences')->insert($row));
 
     return $id;
 }

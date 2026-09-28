@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -110,10 +111,15 @@ it('does not touch the password of somebody who already has an account', functio
     expect($after)->toBe($before);
 
     // And he is now in both organizations, with one user behind them.
-    $memberships = DB::table('memberships as m')
-        ->join('users as u', 'u.id', '=', 'm.user_id')
-        ->where('u.email', 'gil@globex.test')
-        ->count();
+    // Across both organizations on purpose, so it says so: under Row-Level
+    // Security the bound tenant would see only its own row.
+    $memberships = app(TenantContext::class)->runAsPlatform(
+        'test: count a person\'s memberships everywhere',
+        fn (): int => DB::table('memberships as m')
+            ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->where('u.email', 'gil@globex.test')
+            ->count(),
+    );
 
     expect($memberships)->toBe(2);
 });

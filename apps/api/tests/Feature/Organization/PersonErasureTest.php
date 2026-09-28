@@ -177,13 +177,13 @@ it('refuses an account that belongs to another organization too', function (): v
     // reach into a tenant whose administrator never asked and may be obliged to
     // keep the record; revoking access here and leaving the name would report
     // "erased" over somebody still named on every comment.
-    DB::table('memberships')->insert([
+    actingWithinTenant('01900000-0000-7000-8000-0000000000b0', fn () => DB::table('memberships')->insert([
         'id' => (string) new UuidV7,
         'organization_id' => '01900000-0000-7000-8000-0000000000b0',
         'user_id' => $user,
         'status' => 'active',
         'joined_at' => now(),
-    ]);
+    ]));
 
     $this->withToken($this->admin)
         ->postJson("/api/v1/people/{$membership}/erase")

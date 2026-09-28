@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -157,7 +158,12 @@ it('does not punish a rule when the run log itself cannot be written', function 
     // The exact shape found in a development database: new code, un-migrated
     // schema, so every insert into the run log throws. Reproduced here by
     // taking the table away, which is the same thing from the engine's side.
-    DB::statement('ALTER TABLE workflow_rule_runs RENAME TO workflow_rule_runs_hidden');
+    // As the connecting role: under Row-Level Security a bound tenant is
+    // `workos_tenant`, which owns nothing and may not rename a table.
+    app(TenantContext::class)->runAsPlatform(
+        'test: take the run log away',
+        fn () => DB::statement('ALTER TABLE workflow_rule_runs RENAME TO workflow_rule_runs_hidden'),
+    );
 
     try {
         $this->withToken($this->loginAs('rina@acme.test'))
@@ -170,7 +176,10 @@ it('does not punish a rule when the run log itself cannot be written', function 
             // them was lost.
             ->assertJsonPath('data.outcome', 'applied');
     } finally {
-        DB::statement('ALTER TABLE workflow_rule_runs_hidden RENAME TO workflow_rule_runs');
+        app(TenantContext::class)->runAsPlatform(
+            'test: give the run log back',
+            fn () => DB::statement('ALTER TABLE workflow_rule_runs_hidden RENAME TO workflow_rule_runs'),
+        );
     }
 
     // And the rule is not blamed for the log's failure. Before this, five such

@@ -180,7 +180,10 @@ it('carries work through the whole lifecycle and leaves an honest trail', functi
     // records it because it happened; collapsing it would hide the moment the
     // decision took effect, which is the one a reviewer looks for.
     $categories = DB::table('work_item_transitions')
-        ->where('work_item_id', $id)->orderBy('occurred_at')->pluck('to_category')->all();
+        // By id as well: every transition in one test shares the transaction's
+        // `now()`, so `occurred_at` alone leaves the order to the planner — and
+        // Row-Level Security changes the plan (ids are UUIDv7, so time-ordered).
+        ->where('work_item_id', $id)->orderBy('occurred_at')->orderBy('id')->pluck('to_category')->all();
 
     expect($categories)->toBe([
         'backlog', 'in_progress', 'in_review', 'in_progress', 'in_review', 'in_review', 'done',

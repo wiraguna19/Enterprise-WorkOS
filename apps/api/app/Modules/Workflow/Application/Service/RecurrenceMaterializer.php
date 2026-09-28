@@ -82,12 +82,20 @@ final class RecurrenceMaterializer
      */
     private function dueRecurrenceIds(CarbonImmutable $now): array
     {
-        $rows = DB::table('recurrences')
-            ->where('is_active', true)
-            ->where('next_run_at', '<=', $now)
-            ->orderBy('next_run_at')
-            ->limit(self::BATCH)
-            ->pluck('id');
+        // Through platform mode, so the crossing is said out loud (ADR 0051):
+        // from the scheduler no tenant is bound and this changes nothing, but
+        // run from anywhere that has one — a test, a console command called
+        // mid-request — Row-Level Security would show that tenant's rules
+        // only, and the rest would silently never fire.
+        $rows = $this->tenant->runAsPlatform(
+            'find recurrences due in every organization',
+            fn () => DB::table('recurrences')
+                ->where('is_active', true)
+                ->where('next_run_at', '<=', $now)
+                ->orderBy('next_run_at')
+                ->limit(self::BATCH)
+                ->pluck('id'),
+        );
 
         return array_values(array_map(strval(...), $rows->all()));
     }
@@ -96,13 +104,18 @@ final class RecurrenceMaterializer
     private function materializeOne(string $id, CarbonImmutable $now): string
     {
         return DB::transaction(function () use ($id, $now): string {
+            // Across tenants for the same reason as above — this read is what
+            // learns WHICH organization to bind next.
             /** @var object{id: string, organization_id: string}|null $row */
-            $row = DB::table('recurrences')
-                ->where('id', $id)
-                ->where('is_active', true)
-                ->where('next_run_at', '<=', $now)
-                ->lockForUpdate()
-                ->first(['id', 'organization_id']);
+            $row = $this->tenant->runAsPlatform(
+                'claim a due recurrence',
+                fn () => DB::table('recurrences')
+                    ->where('id', $id)
+                    ->where('is_active', true)
+                    ->where('next_run_at', '<=', $now)
+                    ->lockForUpdate()
+                    ->first(['id', 'organization_id']),
+            );
 
             // Another worker took it between the read and the lock, or someone
             // switched it off. Both mean: not ours.
@@ -212,10 +225,13 @@ final class RecurrenceMaterializer
      */
     private function deactivate(string $id, string $error): void
     {
-        DB::table('recurrences')->where('id', $id)->update([
-            'is_active' => false,
-            'updated_at' => now(),
-        ]);
+        $this->tenant->runAsPlatform(
+            'switch off a failing recurrence',
+            fn () => DB::table('recurrences')->where('id', $id)->update([
+                'is_active' => false,
+                'updated_at' => now(),
+            ]),
+        );
 
         Log::error('recurrence.failed', [
             'recurrence_id' => $id,

@@ -119,7 +119,9 @@ it('records the act in every organization the person belongs to', function (): v
 
     $sarah = DB::table('users')->where('email', 'sarah@acme.test')->value('id');
 
-    DB::table('memberships')->insert([
+    // Written as Globex: the test is bound to Acme, and under Row-Level
+    // Security Acme may not write a Globex row.
+    actingWithinTenant('01900000-0000-7000-8000-0000000000b0', fn () => DB::table('memberships')->insert([
         'id' => (string) new UuidV7,
         'organization_id' => '01900000-0000-7000-8000-0000000000b0',
         'user_id' => $sarah,
@@ -127,7 +129,7 @@ it('records the act in every organization the person belongs to', function (): v
         'joined_at' => now(),
         'created_at' => now(),
         'updated_at' => now(),
-    ]);
+    ]));
 
     $this->withToken($this->loginAs('rina@acme.test'))
         ->deleteJson('/api/v1/people/'.membershipIdOf('sarah@acme.test').'/mfa')

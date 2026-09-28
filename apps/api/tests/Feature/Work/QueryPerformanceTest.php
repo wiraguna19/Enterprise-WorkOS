@@ -28,7 +28,15 @@ function queryLogFor(callable $work): array
     $log = array_values(array_map(fn (array $entry): string => (string) $entry['query'], DB::getQueryLog()));
     DB::disableQueryLog();
 
-    return $log;
+    // The tenant boundary's own statements are left out when Row-Level Security
+    // is on (ADR 0051): two per change of tenant, the same in every request,
+    // and documented as the price of the feature. A budget exists to catch an
+    // N+1 in the APPLICATION, and counting these would make every bound fail
+    // under CI's RLS job for a reason no code review could act on.
+    return array_values(array_filter(
+        $log,
+        fn (string $sql): bool => preg_match("/^(SET ROLE|RESET ROLE|SELECT set_config\\('app\\.organization_id')/i", ltrim($sql)) !== 1,
+    ));
 }
 
 /**
