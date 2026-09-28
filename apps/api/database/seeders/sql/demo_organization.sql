@@ -91,7 +91,10 @@ WHERE r.key = 'manager' AND p.key IN (
     'department.view','team.view','team.create','team.update','team.manage_members',
     'person.view','person.view_workload','person.invite',
     'activity.view',
-    'report.view'
+    'report.view',
+    -- ADR 0049. Repeated here because the migration that grants it runs
+    -- before this seed creates the role.
+    'api_token.create'
 );
 
 -- Employee: sees the org and its people, changes nothing structural.

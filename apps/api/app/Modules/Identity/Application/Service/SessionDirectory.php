@@ -42,6 +42,10 @@ final class SessionDirectory
     {
         $sessions = SessionModel::query()
             ->where('user_id', $user->getKey())
+            // Devices you are signed in on. API tokens have their own screen
+            // (ADR 0049): a token listed here as "a device" would read as a
+            // stranger signed in as you.
+            ->where('kind', 'session')
             ->whereNull('revoked_at')
             ->where('expires_at', '>', now())
             ->orderByDesc('last_used_at')

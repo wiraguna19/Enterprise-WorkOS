@@ -39,6 +39,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  * @property CarbonImmutable|null $reauthenticated_at
  * @property CarbonImmutable|null $revoked_at
  * @property string|null $revoked_reason
+ * @property string $kind
  * @property CarbonImmutable $created_at
  */
 final class SessionModel extends PersonalAccessToken
@@ -139,8 +140,43 @@ final class SessionModel extends PersonalAccessToken
         return (bool) $this->getAttribute('require_mfa');
     }
 
+    /**
+     * A token made for a machine rather than a browser sign-in (ADR 0049).
+     *
+     * Same table, same lookup, same membership check on every request — and
+     * four differences, each enforced where it applies: no idle timeout
+     * (below), no clamp by the session lifetime (SessionLifetime), never
+     * re-authenticated (it cannot reach `auth.*`, LimitApiTokens), and no
+     * writes unless it was made to.
+     */
+    public function isApiToken(): bool
+    {
+        return $this->kind === 'api_token';
+    }
+
+    /**
+     * May this token change anything?
+     *
+     * A browser session carries `*`; a token carries `read`, or `read` and
+     * `write`. Asked only of tokens, but answered honestly for both.
+     */
+    public function canWrite(): bool
+    {
+        $abilities = $this->abilities;
+
+        return in_array('*', $abilities, strict: true) || in_array('write', $abilities, strict: true);
+    }
+
     public function hasGoneIdle(): bool
     {
+        // A token belongs to a script that may run once a week. The idle
+        // window exists for a browser somebody walked away from, and applying
+        // it here would break every integration in an organization that turned
+        // it on — for a risk the token's own expiry already bounds (ADR 0049).
+        if ($this->isApiToken()) {
+            return false;
+        }
+
         // Carried by the join in `findToken`, not a column on this table. It
         // arrives as an original attribute rather than a dirty one, so the
         // `save()` below writes `revoked_at` and `revoked_reason` alone.

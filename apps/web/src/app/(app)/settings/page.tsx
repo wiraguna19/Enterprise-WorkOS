@@ -44,6 +44,11 @@ const SECTIONS: Array<{
     description: "Every device that can act as you, and how to end one.",
   },
   {
+    href: "/settings/api-tokens",
+    label: "API tokens",
+    description: "Let a script or an integration act as you, without your password.",
+  },
+  {
     href: "/settings/roles",
     label: "Roles",
     description: "What each role may do, and the ones you write yourself.",

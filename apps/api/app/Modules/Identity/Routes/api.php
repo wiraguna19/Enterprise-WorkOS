@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Identity\Http\Controller\ApiTokenController;
 use App\Modules\Identity\Http\Controller\AuthController;
 use App\Modules\Identity\Http\Controller\InvitationAcceptController;
 use Illuminate\Support\Facades\Route;
@@ -70,6 +71,24 @@ Route::prefix('auth')->group(function (): void {
             ->middleware('throttle:writes')
             ->name('auth.mfa.recovery_codes');
     });
+});
+
+/**
+ * A person's own API tokens (ADR 0049).
+ *
+ * Named `api_tokens.*` because the name is what `LimitApiTokens` refuses to a
+ * token: every route here is for a browser session, so a leaked token cannot
+ * mint another. Listing and revoking need no permission — somebody who lost
+ * `api_token.create` must still be able to see and end what they made.
+ */
+Route::prefix('me/api-tokens')->middleware('auth:sanctum')->group(function (): void {
+    Route::get('', [ApiTokenController::class, 'index'])->name('api_tokens.index');
+    Route::post('', [ApiTokenController::class, 'store'])
+        ->middleware(['permission:api_token.create', 'throttle:writes'])
+        ->name('api_tokens.store');
+    Route::delete('{id}', [ApiTokenController::class, 'destroy'])
+        ->middleware('throttle:writes')
+        ->name('api_tokens.destroy');
 });
 
 /**

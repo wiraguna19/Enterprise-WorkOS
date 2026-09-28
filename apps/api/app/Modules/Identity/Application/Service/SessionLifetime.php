@@ -58,6 +58,11 @@ final class SessionLifetime
 
         $shortened = SessionModel::query()
             ->where('organization_id', $organizationId)
+            // Sessions only. A token's lifetime was chosen when it was made,
+            // for an integration somebody will have to re-key when it ends;
+            // shortening the browser policy must not break it silently
+            // (ADR 0049).
+            ->where('kind', 'session')
             ->whereNull('revoked_at')
             // Only the ones that outlive the new limit. Without this the
             // statement would also push EXPIRED sessions back into the future,

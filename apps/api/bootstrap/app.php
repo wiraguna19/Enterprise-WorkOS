@@ -7,6 +7,7 @@ use App\Modules\Calendar\Providers\CalendarServiceProvider;
 use App\Modules\Collaboration\Providers\CollaborationServiceProvider;
 use App\Modules\Files\Providers\FilesServiceProvider;
 use App\Modules\Governance\Providers\GovernanceServiceProvider;
+use App\Modules\Identity\Http\Middleware\LimitApiTokens;
 use App\Modules\Identity\Http\Middleware\RequireAnyPermission;
 use App\Modules\Identity\Http\Middleware\RequirePermission;
 use App\Modules\Identity\Http\Middleware\RequireSecondFactor;
@@ -74,6 +75,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // organization require a second factor — is answered by the
             // session's organization and by nothing the client says (ADR 0033).
             RequireSecondFactor::class,
+            // What an API token may not do, whatever its author may (ADR 0049).
+            // After the two above, so a token of somebody who has lost their
+            // membership, or who owes a second factor, is refused for THAT.
+            LimitApiTokens::class,
         ]);
 
         /*
@@ -102,6 +107,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             before: SubstituteBindings::class,
             prepend: RequireSecondFactor::class,
+        );
+
+        // And the token limits before the bindings too: a token refused a
+        // route should not first cost the tenant-scoped query that resolves it.
+        $middleware->prependToPriorityList(
+            before: SubstituteBindings::class,
+            prepend: LimitApiTokens::class,
         );
 
         $middleware->alias([
