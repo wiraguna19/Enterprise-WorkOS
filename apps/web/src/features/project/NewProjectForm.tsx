@@ -28,7 +28,18 @@ type Option = { id: string; label: string };
  * The creator becomes the owner and a member, in the same transaction, on the
  * server. Nothing here says so, because nothing here decides it.
  */
-export function NewProjectForm({ departments }: { departments: Option[] }) {
+export function NewProjectForm({
+  departments,
+  priorities,
+}: {
+  departments: Option[];
+  /**
+   * Served by `GET /work-items/vocabulary` (ADR 0047). Projects and work items
+   * share one priority scale — the two tables carry the same CHECK — so there
+   * is one list to read, not a copy per form.
+   */
+  priorities: string[];
+}) {
   const router = useRouter();
 
   const [key, setKey] = useState("");
@@ -193,7 +204,7 @@ export function NewProjectForm({ departments }: { departments: Option[] }) {
             className={INPUT}
           >
             <option value="">Default</option>
-            {["low", "medium", "high", "urgent"].map((value) => (
+            {priorities.map((value) => (
               <option key={value} value={value}>
                 {value.charAt(0).toUpperCase() + value.slice(1)}
               </option>

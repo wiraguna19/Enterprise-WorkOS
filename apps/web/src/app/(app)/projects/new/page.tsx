@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { NewProjectForm } from "@/features/project/NewProjectForm";
+import type { WorkVocabulary } from "@/features/work-item/templates";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -34,9 +35,16 @@ export default async function NewProjectPage() {
     );
   }
 
-  const departments = await api<Department[]>("/departments")
-    .then((r) => r.data)
-    .catch(() => [] as Department[]);
+  const [departments, priorities] = await Promise.all([
+    api<Department[]>("/departments")
+      .then((r) => r.data)
+      .catch(() => [] as Department[]),
+    // Served, not copied (ADR 0047). If it fails the form still offers
+    // "Default", which is a real answer.
+    api<WorkVocabulary>("/work-items/vocabulary")
+      .then((r) => r.data.priorities)
+      .catch(() => [] as string[]),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -46,6 +54,7 @@ export default async function NewProjectPage() {
       />
 
       <NewProjectForm
+        priorities={priorities}
         departments={departments.map((department) => ({
           id: department.id,
           // Indented by depth: the list is ordered by `path`, so nesting is the

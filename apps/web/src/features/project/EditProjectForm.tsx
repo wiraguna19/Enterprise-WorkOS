@@ -9,7 +9,6 @@ import type { Project } from "@/features/work-item/types";
 import { setProjectArchived, updateProject, type ProjectEdit } from "./actions";
 
 const STATUSES = ["planning", "active", "on_hold", "completed", "cancelled"];
-const PRIORITIES = ["low", "medium", "high", "urgent"];
 
 /**
  * Correcting a project (ADR 0040).
@@ -31,7 +30,14 @@ const PRIORITIES = ["low", "medium", "high", "urgent"];
  * renaming and re-parenting a department are separate: one fixes a spelling,
  * the other takes a project off every board in the organization.
  */
-export function EditProjectForm({ project }: { project: Project }) {
+export function EditProjectForm({
+  project,
+  priorities,
+}: {
+  project: Project;
+  /** Served by `GET /work-items/vocabulary` (ADR 0047) — one scale for projects and work. */
+  priorities: string[];
+}) {
   const router = useRouter();
 
   const [name, setName] = useState(project.name);
@@ -161,7 +167,7 @@ export function EditProjectForm({ project }: { project: Project }) {
                 onChange={(event) => setPriority(event.target.value as Project["priority"])}
                 className={INPUT}
               >
-                {PRIORITIES.map((candidate) => (
+                {(priorities.includes(project.priority) ? priorities : [project.priority, ...priorities]).map((candidate) => (
                   <option key={candidate} value={candidate}>
                     {candidate}
                   </option>

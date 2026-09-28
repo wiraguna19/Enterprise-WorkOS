@@ -9,6 +9,7 @@ import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { BrowseFilters } from "@/features/work-item/browse/BrowseFilters";
 import { activeCount, apiQuery, type BrowseParams } from "@/features/work-item/browse/query";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
+import type { WorkVocabulary } from "@/features/work-item/templates";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, describeApiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -46,7 +47,7 @@ export default async function BrowseWorkPage({
   // typed, pasted, bookmarked and followed from an old message.
   if (!me.permissions.includes("work_item.view")) notFound();
 
-  const [projects, customFields] = await Promise.all([
+  const [projects, customFields, priorities] = await Promise.all([
     api<Array<{ id: string; key: string; name: string }>>("/projects?limit=200")
       .then((r) => r.data)
       .catch(() => []),
@@ -57,6 +58,10 @@ export default async function BrowseWorkPage({
     api<CustomFieldAnswer[]>("/work-items/fields")
       .then((r) => r.data)
       .catch(() => [] as CustomFieldAnswer[]),
+    // The priority scale, served rather than copied (ADR 0047).
+    api<WorkVocabulary>("/work-items/vocabulary")
+      .then((r) => r.data.priorities)
+      .catch(() => [] as string[]),
   ]);
 
   let items: WorkItem[] = [];
@@ -104,6 +109,7 @@ export default async function BrowseWorkPage({
               id: project.id,
               label: `${project.key} · ${project.name}`,
             }))}
+            priorities={priorities}
             customFields={customFields}
             active={active}
           />

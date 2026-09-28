@@ -11,6 +11,7 @@ import {
 import type { ProjectMember } from "@/features/project/actions";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { Project } from "@/features/work-item/types";
+import type { WorkVocabulary } from "@/features/work-item/templates";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -56,7 +57,7 @@ export default async function ProjectSettingsPage({
 
   // The pickers are only fetched for somebody who can actually add: a reader
   // who may see the member list has no business pulling the whole directory.
-  const [members, activity, people, teams] = await Promise.all([
+  const [members, activity, people, teams, priorities] = await Promise.all([
     api<ProjectMember[]>(`/projects/${key}/members`)
       .then((r) => r.data)
       .catch(() => [] as ProjectMember[]),
@@ -75,6 +76,10 @@ export default async function ProjectSettingsPage({
           .then((r) => r.data)
           .catch(() => [])
       : Promise.resolve([]),
+    // The priority scale, served rather than copied (ADR 0047).
+    api<WorkVocabulary>("/work-items/vocabulary")
+      .then((r) => r.data.priorities)
+      .catch(() => [] as string[]),
   ]);
 
   return (
@@ -87,7 +92,7 @@ export default async function ProjectSettingsPage({
       <ProjectTabs projectKey={project.key} active="settings" canManage />
 
       <PageBody>
-        <EditProjectForm project={project} />
+        <EditProjectForm project={project} priorities={priorities} />
 
         <ProjectMembers
           projectKey={project.key}

@@ -97,11 +97,13 @@ Still owed, and named here so they are not assumed:
   for their own project asks an admin.
 - **Recurrences cannot pick a template.** They keep their embedded one. The
   shapes match, so this is a join, not a migration of meaning.
-- **Other copies of the vocabulary remain**: `CreateRecurrenceRequest` keeps a
-  private `TYPES`, and `NewRecurrenceForm`, `EditWorkItemForm`,
-  `NewProjectForm`, `EditProjectForm` and the browse filters each write the
-  priorities out. This slice paid the copy it would otherwise have added; the
-  rest are now one endpoint away.
+- ~~**Other copies of the vocabulary remain.**~~ Paid:
+  `CreateRecurrenceRequest` reads `WorkItemModel`'s constants, and every form
+  that offers a priority — the recurrence form, the edit form, both project
+  forms and the browse filters — reads `GET /work-items/vocabulary`. Projects
+  validate against the same `WorkItemModel::PRIORITIES`: one scale, carried by
+  the same CHECK on both tables. (Project STATUSES are a different list, and
+  the edit form still writes them out.)
 - **No E2E flow.** Nobody has yet opened the picker as an employee and created
   an item from a template — the only check that finds a call that does not
   work.

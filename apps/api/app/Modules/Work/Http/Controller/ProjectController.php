@@ -204,7 +204,9 @@ final class ProjectController extends ApiController
             'description' => ['sometimes', 'string', 'max:20000'],
             'department_id' => ['sometimes', 'nullable', 'uuid'],
             'visibility' => ['sometimes', 'in:internal,private'],
-            'priority' => ['sometimes', 'in:low,medium,high,urgent'],
+            // One priority scale for projects and work items: the two tables
+            // carry the same CHECK, and the vocabulary serves the one list.
+            'priority' => ['sometimes', Rule::in(WorkItemModel::PRIORITIES)],
             'start_date' => ['sometimes', 'nullable', 'date'],
             'end_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],
         ]);
@@ -236,7 +238,9 @@ final class ProjectController extends ApiController
             'description' => ['sometimes', 'string', 'max:20000'],
             'department_id' => ['sometimes', 'nullable', 'uuid'],
             'visibility' => ['sometimes', 'in:internal,private'],
-            'priority' => ['sometimes', 'in:low,medium,high,urgent'],
+            // One priority scale for projects and work items: the two tables
+            // carry the same CHECK, and the vocabulary serves the one list.
+            'priority' => ['sometimes', Rule::in(WorkItemModel::PRIORITIES)],
             'status' => ['sometimes', Rule::in(ProjectModel::STATUSES)],
             'start_date' => ['sometimes', 'nullable', 'date'],
             'end_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:start_date'],

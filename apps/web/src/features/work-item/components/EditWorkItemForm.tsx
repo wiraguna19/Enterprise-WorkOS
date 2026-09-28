@@ -38,6 +38,7 @@ import { deleteWorkItem, updateWorkItem, type WorkItemEdit } from "../actions";
  */
 export function EditWorkItemForm({
   reference,
+  priorities,
   initial,
   customFields,
   lockVersion,
@@ -45,6 +46,8 @@ export function EditWorkItemForm({
   timeZone,
 }: {
   reference: string;
+  /** Served by `GET /work-items/vocabulary` (ADR 0047), never written out here. */
+  priorities: string[];
   initial: {
     title: string;
     description: string;
@@ -159,7 +162,9 @@ export function EditWorkItemForm({
             onChange={(event) => setPriority(event.target.value)}
             className={INPUT}
           >
-            {["low", "medium", "high", "urgent"].map((value) => (
+            {/* The item's own value is kept even if the list failed to load,
+                so an edit never silently changes a field nobody touched. */}
+            {(priorities.includes(priority) ? priorities : [priority, ...priorities]).map((value) => (
               <option key={value} value={value}>
                 {value.charAt(0).toUpperCase() + value.slice(1)}
               </option>

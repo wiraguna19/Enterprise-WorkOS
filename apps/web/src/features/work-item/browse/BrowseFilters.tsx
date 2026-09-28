@@ -5,7 +5,7 @@ import { useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
-import { CATEGORIES, PRIORITIES, SORTS } from "./query";
+import { CATEGORIES, SORTS } from "./query";
 
 /**
  * The filter bar. Every control writes to the URL and nothing else (ADR 0012).
@@ -21,10 +21,13 @@ import { CATEGORIES, PRIORITIES, SORTS } from "./query";
  */
 export function BrowseFilters({
   projects,
+  priorities,
   customFields,
   active,
 }: {
   projects: Array<{ id: string; label: string }>;
+  /** Served by `GET /work-items/vocabulary` (ADR 0047), never written out here. */
+  priorities: string[];
   customFields: CustomFieldAnswer[];
   active: number;
 }) {
@@ -78,7 +81,7 @@ export function BrowseFilters({
             className={INPUT}
           >
             <option value="">Any</option>
-            {PRIORITIES.map((priority) => (
+            {priorities.map((priority) => (
               <option key={priority} value={priority}>
                 {priority}
               </option>

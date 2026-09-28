@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EditWorkItemForm } from "@/features/work-item/components/EditWorkItemForm";
+import type { WorkVocabulary } from "@/features/work-item/templates";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -48,6 +49,12 @@ export default async function EditWorkItemPage({
     );
   }
 
+  // The priority scale is served, not written out here (ADR 0047). A failed
+  // read leaves the form with the item's own value only — never a guess.
+  const priorities = await api<WorkVocabulary>("/work-items/vocabulary")
+    .then((r) => r.data.priorities)
+    .catch(() => [] as string[]);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -57,6 +64,7 @@ export default async function EditWorkItemPage({
 
       <EditWorkItemForm
         reference={item.reference}
+        priorities={priorities}
         initial={{
           title: item.title,
           description: item.description ?? "",

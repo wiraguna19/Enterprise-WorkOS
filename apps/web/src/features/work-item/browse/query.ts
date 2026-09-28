@@ -31,7 +31,6 @@ export type BrowseParams = {
 
 export const CATEGORIES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"] as const;
 
-export const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
 export const SORTS: Array<{ value: string; label: string }> = [
   { value: "position", label: "Board order" },
