@@ -10,8 +10,10 @@ use App\Modules\Identity\Http\Middleware\ResolveTenant;
 use App\Modules\Identity\Infrastructure\Console\PruneExpiredSessions;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -55,6 +57,15 @@ final class IdentityServiceProvider extends ServiceProvider
         require base_path('routes/channels.php');
 
         $this->registerRateLimiters();
+
+        // A migration may change what every role grants — the permission
+        // seeders do exactly that, straight into `role_permissions` — and the
+        // per-membership cache versions cannot see it. Without this, a newly
+        // granted permission stayed invisible for up to fifteen minutes to
+        // anybody whose set was already cached (ADR 0049).
+        Event::listen(MigrationsEnded::class, function (): void {
+            $this->app->make(PermissionResolver::class)->invalidateEverything();
+        });
     }
 
     /**

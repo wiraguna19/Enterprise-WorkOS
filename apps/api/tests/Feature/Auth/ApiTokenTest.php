@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Identity\Application\Service\SessionLifetime;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -196,3 +197,38 @@ it('offers three lifetimes and two levels of access, and nothing else', function
     'forever' => [['access' => 'read', 'expires_in_days' => 36500]],
     'a custom scope' => [['access' => 'admin', 'expires_in_days' => 30]],
 ]);
+
+it('answers a script that sends no Accept header with 401, not a redirect to a login page', function (): void {
+    [$id, $value] = makeApiToken($this->admin);
+
+    $this->withToken($this->admin)->deleteJson("/api/v1/me/api-tokens/{$id}")->assertNoContent();
+
+    // `get`, not `getJson`: curl sends no Accept header, and neither do most
+    // scripts. The default sent this request to `route('login')`, which does
+    // not exist in an API, and it came back a 500 with a stack trace.
+    $this->withToken($value)
+        ->get('/api/v1/auth/me')
+        ->assertUnauthorized()
+        ->assertJsonPath('error.code', 'auth.unauthenticated');
+});
+
+it('shows a permission a migration granted without waiting for the cache to expire', function (): void {
+    // Warm Sarah's cached permission set, as a signed-in browser would.
+    $before = $this->withToken($this->employee)->getJson('/api/v1/auth/me')->json('data.permissions');
+
+    expect($before)->not->toContain('api_token.create');
+
+    // What a permission-seeding migration does: straight into role_permissions,
+    // past every per-membership cache version.
+    DB::statement(<<<'SQL'
+        INSERT INTO role_permissions (role_id, permission_id)
+        SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+         WHERE r.key = 'employee' AND p.key = 'api_token.create'
+    SQL);
+
+    event(new MigrationsEnded('up'));
+
+    $after = $this->withToken($this->employee)->getJson('/api/v1/auth/me')->json('data.permissions');
+
+    expect($after)->toContain('api_token.create');
+});

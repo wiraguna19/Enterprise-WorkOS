@@ -32,6 +32,20 @@ final class PermissionResolver
 {
     private const TTL_SECONDS = 900;
 
+    /**
+     * One counter for the whole catalogue, bumped after every `migrate`.
+     *
+     * The per-membership version answers "this person's roles changed". It
+     * cannot answer "the ROLES changed underneath everybody" — which is exactly
+     * what a permission-seeding migration does, writing `role_permissions`
+     * straight to the database. Found when `api_token.create` was granted to
+     * org admins and the org admin could not see it for fifteen minutes, while
+     * a manager who signed in afterwards could (ADR 0049). Every permission
+     * migration in this product has had the same gap; nobody noticed because
+     * the TTL closed it before anybody looked.
+     */
+    private const CATALOGUE_VERSION_KEY = 'perms_catalogue_version';
+
     /** Per-request memoization; the same membership is resolved many times. */
     /** @var array<string, list<string>> */
     private array $memo = [];
@@ -106,6 +120,15 @@ final class PermissionResolver
     public function invalidate(string $membershipId): void
     {
         Cache::increment($this->versionKey($membershipId));
+    }
+
+    /**
+     * Orphan every cached permission set at once — after a migration has
+     * changed what roles grant. Same technique as above, one level up.
+     */
+    public function invalidateEverything(): void
+    {
+        Cache::increment(self::CATALOGUE_VERSION_KEY);
     }
 
     /** @return list<string> */
@@ -227,8 +250,9 @@ final class PermissionResolver
     private function cacheKey(MembershipModel $membership): string
     {
         $version = Cache::get($this->versionKey((string) $membership->getKey()), 0);
+        $catalogue = Cache::get(self::CATALOGUE_VERSION_KEY, 0);
 
-        return "perms:{$membership->getKey()}:v{$version}";
+        return "perms:{$membership->getKey()}:v{$version}:c{$catalogue}";
     }
 
     private function versionKey(string $membershipId): string

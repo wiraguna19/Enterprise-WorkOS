@@ -116,6 +116,15 @@ return Application::configure(basePath: dirname(__DIR__))
             prepend: LimitApiTokens::class,
         );
 
+        // This is an API: an unauthenticated request is answered 401, never
+        // redirected. Laravel's default sends a request WITHOUT an
+        // `Accept: application/json` header to `route('login')`, which does not
+        // exist here — so a script calling with a revoked token got a 500 and
+        // a stack trace instead of "Authentication is required". Invisible
+        // until API tokens (ADR 0049): the only caller before them was the
+        // Next.js server, which always sends the header.
+        $middleware->redirectGuestsTo(fn (): ?string => null);
+
         $middleware->alias([
             'permission' => RequirePermission::class,
             // `permission:` ANDs its arguments; this one ORs them, for a route
