@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Workflow\Http\Controller\RecurrenceController;
+use App\Modules\Workflow\Http\Controller\WebhookEndpointController;
 use App\Modules\Workflow\Http\Controller\WorkflowController;
 use App\Modules\Workflow\Http\Controller\WorkflowGraphController;
 use Illuminate\Support\Facades\Route;
@@ -52,6 +53,30 @@ Route::post('workflow-rules', [WorkflowController::class, 'storeRule'])
     ->middleware(['permission:workflow.manage', 'throttle:writes']);
 Route::patch('workflow-rules/{id}', [WorkflowController::class, 'updateRule'])
     ->middleware(['permission:workflow.manage', 'throttle:writes']);
+
+// ── Webhooks (ADR 0048) ─────────────────────────────────────────────────────
+// Where this organization's events may be sent. Every route is
+// `webhook.manage`, reads included — the list holds addresses, and a webhook
+// address is often a credential. A rule author reaches endpoint NAMES through
+// `workflow-vocabulary`, never through here.
+//
+// There is no route that takes a URL and sends to it. A rule names an endpoint
+// registered here; that indirection is the bound ADR 0014 asked for.
+Route::prefix('webhook-endpoints')
+    ->middleware('permission:webhook.manage')
+    ->group(function (): void {
+        Route::get('', [WebhookEndpointController::class, 'index']);
+        Route::post('', [WebhookEndpointController::class, 'store'])->middleware('throttle:writes');
+        Route::patch('{id}', [WebhookEndpointController::class, 'update'])->middleware('throttle:writes');
+        Route::delete('{id}', [WebhookEndpointController::class, 'destroy'])->middleware('throttle:writes');
+        // On/off and a new secret are their own verbs, not fields on the
+        // PATCH: each is a security act with its own audit entry, and a form
+        // that saved a rename must never rotate a secret on the way through.
+        Route::post('{id}/active', [WebhookEndpointController::class, 'setActive'])->middleware('throttle:writes');
+        Route::post('{id}/secret', [WebhookEndpointController::class, 'rotateSecret'])->middleware('throttle:writes');
+        Route::post('{id}/test', [WebhookEndpointController::class, 'test'])->middleware('throttle:writes');
+        Route::get('{id}/deliveries', [WebhookEndpointController::class, 'deliveries']);
+    });
 
 // ── Editing the graph (ADR 0015) ────────────────────────────────────────────
 // In place, never copy-on-write: `version` and `superseded_by_id` stay unused

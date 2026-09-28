@@ -48,8 +48,17 @@ const OPERATOR_PHRASES: Record<string, string> = {
 const VALUELESS = ["is_null", "is_not_null"];
 const MULTI = ["in", "not_in"];
 
+/** What the action picker says. A type this file has no word for prints as itself. */
+const ACTION_LABELS: Record<string, string> = {
+  notify: "Notify",
+  escalate: "Escalate",
+  webhook: "Send a webhook",
+};
+
 type ActionDraft = {
   type: string;
+  /** Webhook only: which registered endpoint. Never a URL (ADR 0048). */
+  endpoint_id: string;
   to: string[];
   notification_type: string;
   message: string;
@@ -70,8 +79,15 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
     (rule?.actions ?? []).map(toDraft).concat(rule ? [] : [emptyAction(vocabulary)]),
   );
 
-  const buildable = vocabulary.actions.filter((type) =>
-    (BUILDABLE_ACTIONS as readonly string[]).includes(type),
+  const buildable = vocabulary.actions.filter(
+    (type) =>
+      (BUILDABLE_ACTIONS as readonly string[]).includes(type) &&
+      // Not offered when nothing is registered: a webhook with nowhere to go
+      // is a choice whose only outcome is a refusal on save. Still offered to
+      // a rule that already has one, so editing it does not drop the action.
+      (type !== "webhook" ||
+        vocabulary.webhook_endpoints.length > 0 ||
+        actions.some((action) => action.type === "webhook")),
   );
 
   // Only the facts this trigger actually supplies. A condition on
@@ -267,7 +283,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
               >
                 {buildable.map((type) => (
                   <option key={type} value={type}>
-                    {type === "notify" ? "Notify" : "Escalate"}
+                    {ACTION_LABELS[type] ?? type}
                   </option>
                 ))}
               </select>
@@ -284,7 +300,30 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
               )}
             </div>
 
-            {action.type === "notify" ? (
+            {action.type === "webhook" ? (
+              <Field
+                id={`endpoint-${index}`}
+                label="To"
+                hint="Endpoints are registered by an administrator in Settings → Webhooks. What is sent is the work item's facts as this rule sees them, signed."
+              >
+                <select
+                  id={`endpoint-${index}`}
+                  className={INPUT}
+                  value={action.endpoint_id}
+                  onChange={(event) => update(setActions, index, { endpoint_id: event.target.value })}
+                >
+                  <option value="">Choose an endpoint</option>
+                  {vocabulary.webhook_endpoints.map((endpoint) => (
+                    <option key={endpoint.id} value={endpoint.id}>
+                      {/* Said in the option, not hidden: a rule may point at
+                          a switched-off endpoint, and its deliveries will be
+                          refused until somebody switches it back on. */}
+                      {endpoint.is_active ? endpoint.name : `${endpoint.name} (switched off)`}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : action.type === "notify" ? (
               <>
                 <fieldset className="flex flex-wrap gap-3">
                   <legend className="mb-1 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
@@ -397,6 +436,7 @@ function update<T>(
 function emptyAction(vocabulary: Vocabulary): ActionDraft {
   return {
     type: vocabulary.actions.includes("notify") ? "notify" : "escalate",
+    endpoint_id: "",
     to: ["assignee"],
     notification_type: "workflow.rule",
     message: "",
@@ -410,6 +450,7 @@ function toDraft(action: { type: string; with?: Record<string, unknown> }): Acti
 
   return {
     type: action.type,
+    endpoint_id: String(config.endpoint_id ?? ""),
     to: Array.isArray(config.to) ? config.to.map(String) : ["assignee"],
     notification_type: String(config.notification_type ?? "workflow.rule"),
     message: String(config.message ?? ""),
@@ -419,6 +460,13 @@ function toDraft(action: { type: string; with?: Record<string, unknown> }): Acti
 }
 
 function fromDraft(draft: ActionDraft): { type: string; with: Record<string, unknown> } {
+  // Only the endpoint. The notify and escalate fields of the same draft are
+  // not the webhook's business, and a stored key nothing reads is a setting
+  // that looks like it does something.
+  if (draft.type === "webhook") {
+    return { type: draft.type, with: { endpoint_id: draft.endpoint_id } };
+  }
+
   if (draft.type === "notify") {
     const config: Record<string, unknown> = {
       to: draft.to,

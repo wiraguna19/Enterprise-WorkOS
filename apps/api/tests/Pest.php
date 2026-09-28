@@ -252,6 +252,19 @@ function minimalRowFor(string $table, string $organizationId): array
         'work_item_templates' => $base + [
             'name' => 'Probe template '.substr($id, 0, 8),
         ],
+        // https, per ck_whe_https; the secret column only needs to be non-empty
+        // — nothing decrypts a probe.
+        'webhook_endpoints' => $base + [
+            'name' => 'Probe endpoint '.substr($id, 0, 8),
+            'url' => 'https://example.invalid/probe',
+            'secret_encrypted' => 'probe',
+        ],
+        'webhook_deliveries' => $base + [
+            'endpoint_id' => probeWebhookEndpointIn($organizationId),
+            'event' => 'ping',
+            'dedupe_key' => 'probe:'.$id,
+            'payload' => '{}',
+        ],
 
         default => $base,
     };
@@ -275,6 +288,27 @@ function probeCustomFieldIn(string $organizationId): string
         'key' => 'probe_'.substr(str_replace('-', '', $id), 0, 8),
         'label' => 'Probe field',
         'type' => 'text',
+    ]);
+
+    return $id;
+}
+
+/**
+ * A webhook endpoint for a delivery probe to belong to.
+ *
+ * Inserted fresh each time for the reason the custom field probe is: a cached
+ * id would outlive the RefreshDatabase rollback and point at nothing.
+ */
+function probeWebhookEndpointIn(string $organizationId): string
+{
+    $id = (string) new UuidV7;
+
+    DB::table('webhook_endpoints')->insert([
+        'id' => $id,
+        'organization_id' => $organizationId,
+        'name' => 'Probe endpoint '.substr($id, 0, 8),
+        'url' => 'https://example.invalid/probe',
+        'secret_encrypted' => 'probe',
     ]);
 
     return $id;

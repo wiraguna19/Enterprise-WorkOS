@@ -62,6 +62,12 @@ const SECTIONS: Array<{
     permission: "work_item_template.manage",
   },
   {
+    href: "/settings/webhooks",
+    label: "Webhooks",
+    description: "Where automation rules may send this organization's events, and whether they arrived.",
+    permission: "webhook.manage",
+  },
+  {
     href: "/settings/audit",
     label: "Audit log",
     description: "Who did what, and when — sign-ins, invitations, role changes.",

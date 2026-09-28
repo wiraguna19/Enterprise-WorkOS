@@ -12,9 +12,11 @@ use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use App\Modules\Workflow\Application\Service\ManualRuleRun;
 use App\Modules\Workflow\Application\Service\RuleVocabulary;
 use App\Modules\Workflow\Application\Service\TransitionService;
+use App\Modules\Workflow\Application\Service\Webhook\WebhookEndpoints;
 use App\Modules\Workflow\Application\Service\WorkflowRuleService;
 use App\Modules\Workflow\Http\Request\RunRuleRequest;
 use App\Modules\Workflow\Http\Request\SaveRuleRequest;
+use App\Modules\Workflow\Infrastructure\Eloquent\WebhookEndpointModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
@@ -30,6 +32,7 @@ final class WorkflowController extends ApiController
         // Not `$rules`: this controller already answers `rules()`, and a
         // property that shadows a method reads as a typo forever after.
         private readonly WorkflowRuleService $ruleEditor,
+        private readonly WebhookEndpoints $webhooks,
     ) {}
 
     public function index(): ApiResponse
@@ -124,7 +127,17 @@ final class WorkflowController extends ApiController
      */
     public function vocabulary(): ApiResponse
     {
-        return $this->ok(RuleVocabulary::all());
+        return $this->ok(RuleVocabulary::all() + [
+            // Where a `webhook` action may send: names only (ADR 0048). The
+            // rule author holds `workflow.manage`, not `webhook.manage`, and
+            // an address is often a credential — so the builder learns what
+            // each endpoint is CALLED and whether it is on, and nothing else.
+            'webhook_endpoints' => $this->webhooks->all()->map(fn (WebhookEndpointModel $endpoint): array => [
+                'id' => $endpoint->id,
+                'name' => $endpoint->name,
+                'is_active' => $endpoint->is_active,
+            ])->values()->all(),
+        ]);
     }
 
     public function storeRule(SaveRuleRequest $request): ApiResponse

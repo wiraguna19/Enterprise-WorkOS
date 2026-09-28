@@ -7,8 +7,10 @@ namespace App\Modules\Workflow\Http\Request;
 use App\Modules\Workflow\Application\Service\ActionExecutor;
 use App\Modules\Workflow\Application\Service\RuleVocabulary;
 use App\Modules\Workflow\Domain\ConditionEvaluator;
+use App\Modules\Workflow\Infrastructure\Eloquent\WebhookEndpointModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Validator;
 
 /**
@@ -54,6 +56,10 @@ final class SaveRuleRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            foreach ($this->webhookRefusals() as $field => $refusal) {
+                $validator->errors()->add($field, $refusal);
+            }
+
             if ($validator->errors()->has('conditions') || ! $this->has('conditions')) {
                 return;
             }
@@ -62,6 +68,37 @@ final class SaveRuleRequest extends FormRequest
                 $validator->errors()->add('conditions', $refusal);
             }
         });
+    }
+
+    /**
+     * A `webhook` action must name an endpoint that exists here (ADR 0048).
+     *
+     * Refused at the door for the reason every action should be: a rule saved
+     * pointing at nothing fails on its first match, in a queued job, and
+     * disables itself a few matches later — the typo reported as a broken rule.
+     *
+     * @return array<string, string> field => refusal
+     */
+    private function webhookRefusals(): array
+    {
+        $refusals = [];
+        $message = 'A webhook action has to name an endpoint registered in Settings → Webhooks.';
+
+        foreach ($this->array('actions') as $index => $action) {
+            if (! is_array($action) || ($action['type'] ?? null) !== 'webhook') {
+                continue;
+            }
+
+            $endpointId = $action['with']['endpoint_id'] ?? null;
+
+            if (! is_string($endpointId) || ! Str::isUuid($endpointId)
+                || ! WebhookEndpointModel::query()->whereKey($endpointId)->exists()
+            ) {
+                $refusals["actions.{$index}.with.endpoint_id"] = $message;
+            }
+        }
+
+        return $refusals;
     }
 
     /**

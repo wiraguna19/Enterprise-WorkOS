@@ -14,7 +14,7 @@ import type { Rule, RuleAction, RuleCondition } from "./types";
  * and saying so is more honest than a field that implies mastery. **A
  * placeholder that refuses does not rot.**
  */
-export const BUILDABLE_ACTIONS = ["notify", "escalate"] as const;
+export const BUILDABLE_ACTIONS = ["notify", "escalate", "webhook"] as const;
 
 export type Leaf = { field: string; op: string; value: unknown };
 

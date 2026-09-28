@@ -25,10 +25,14 @@ use Illuminate\Support\Facades\Log;
 final class ActionExecutor
 {
     /**
-     * The closed set. Phase 4 ships five; `create_work_item` and `webhook`
-     * are deliberately absent until Phase 7 — the first can generate unbounded
-     * work through a loop the recursion guard cannot see, and the second lets a
-     * rule reach the internet.
+     * The closed set. Phase 4 shipped five; Phase 7 adds `webhook`, now that
+     * it has the bound ADR 0014 asked for — a rule names a REGISTERED endpoint,
+     * never a URL, and the request itself is made by a queued delivery behind a
+     * destination guard (ADR 0048).
+     *
+     * `create_work_item` is still absent, for ADR 0014's reason: each item it
+     * made would start a new causation chain, so the recursion guard could not
+     * see a rule that creates work which triggers the rule.
      *
      * @var array<string, class-string>
      */
@@ -38,6 +42,7 @@ final class ActionExecutor
         'transition' => Action\TransitionAction::class,
         'create_approval' => Action\CreateApprovalAction::class,
         'escalate' => Action\EscalateAction::class,
+        'webhook' => Action\WebhookAction::class,
     ];
 
     /**

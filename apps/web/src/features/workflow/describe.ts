@@ -49,6 +49,7 @@ const ACTIONS: Record<string, string> = {
   transition: "Move",
   create_approval: "Open an approval",
   escalate: "Escalate",
+  webhook: "Send a webhook",
 };
 
 /** The trigger in words, or the key itself. */

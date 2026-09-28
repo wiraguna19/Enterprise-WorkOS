@@ -111,4 +111,12 @@ export type Vocabulary = {
   audiences: string[];
   /** The seven buckets every state maps to (docs/02 §7). */
   state_categories: string[];
+  /**
+   * Where a `webhook` action may send — names only (ADR 0048). The address is
+   * `webhook.manage`'s business and often a credential, so the builder never
+   * sees it: it chooses among places somebody else approved.
+   */
+  webhook_endpoints: WebhookEndpointChoice[];
 };
+
+export type WebhookEndpointChoice = { id: string; name: string; is_active: boolean };
