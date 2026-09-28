@@ -40,15 +40,22 @@ export function ProjectTabs({
 }) {
   const views = [...VIEWS];
 
+  // Scrolls sideways rather than wrapping or spilling. Six entries do not fit
+  // 375px, and without `overflow-x-auto` the last of them — Settings, the only
+  // way into a project's members — sat past the right edge of a phone with no
+  // way to reach it. The mobile run of the project flow found it by timing out.
   return (
-    <nav aria-label="Project views" className="flex gap-4 border-b border-n-100 text-body">
+    <nav
+      aria-label="Project views"
+      className="flex gap-4 overflow-x-auto whitespace-nowrap border-b border-n-100 text-body"
+    >
       {views.map((view) => (
         <Link
           key={view.segment}
           href={`/projects/${projectKey}/${view.segment}`}
           aria-current={view.segment === active ? "page" : undefined}
           className={clsx(
-            "border-b-2 pb-2 transition-colors duration-[120ms]",
+            "shrink-0 border-b-2 pb-2 transition-colors duration-[120ms]",
             view.segment === active
               ? "border-a-500 font-medium text-n-900"
               : "border-transparent text-n-500 hover:text-n-700",
@@ -78,7 +85,7 @@ export function ProjectTabs({
           type="button"
           disabled
           title={`${view} view ships in a later phase`}
-          className="cursor-not-allowed pb-2 text-n-500/60"
+          className="shrink-0 cursor-not-allowed pb-2 text-n-500/60"
         >
           {view}
         </button>
@@ -89,7 +96,7 @@ export function ProjectTabs({
           href={`/projects/${projectKey}/${MANAGE.segment}`}
           aria-current={active === MANAGE.segment ? "page" : undefined}
           className={clsx(
-            "border-b-2 pb-2 transition-colors duration-[120ms]",
+            "shrink-0 border-b-2 pb-2 transition-colors duration-[120ms]",
             active === MANAGE.segment
               ? "border-a-500 font-medium text-n-900"
               : "border-transparent text-n-500 hover:text-n-700",

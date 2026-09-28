@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { call, eventually, type Session } from "./support/api";
 import { test, signedInPhone } from "./support/auth";
+import { answerRequiredFields } from "./support/flows";
 
 /**
  * docs/11 §4, flow 4 — "Manager: create work item with assignee and due date".
@@ -74,8 +75,11 @@ test.describe("creating work", () => {
     await page.getByLabel("Title").fill(title);
     await page.getByLabel("Description").fill("Created by the end-to-end suite.");
     await page.getByLabel("Priority").selectOption("high");
-    await page.getByLabel("Due").fill(due);
+    // `exact`: the nav's My Work badge is labelled "My Work: 3 due or
+    // overdue", and a label matches as a case-insensitive substring.
+    await page.getByLabel("Due", { exact: true }).fill(due);
     await page.getByLabel("Assignee").selectOption({ label: sarahsName });
+    await answerRequiredFields(page, ahmad);
 
     await page.getByRole("button", { name: "Create work item" }).click();
 

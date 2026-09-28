@@ -145,7 +145,9 @@ test.describe("the manager's dashboard", () => {
         + "below would be showing somebody else's arrangement.",
     ).toContain(overdue.reference);
 
-    await expect(page.getByLabel("Overdue")).toBeVisible();
+    // The region, by role: the nav's My Work badge is labelled "… due or
+    // overdue" and would match a bare label as a substring.
+    await expect(page.getByRole("region", { name: "Overdue", exact: true })).toBeVisible();
 
     // ── and nothing is named twice ────────────────────────────────────────
     //
@@ -252,7 +254,9 @@ const COMMITTED = ["todo", "in_progress", "in_review"];
  * with an id rather than a styled `<div>`.
  */
 async function referencesIn(page: Page, heading: string): Promise<string[]> {
-  const section = page.getByLabel(heading);
+  // By role and exact name, for the same badge: "Overdue" as a bare label also
+  // matches "My Work: 3 due or overdue", and then `count()` says 2.
+  const section = page.getByRole("region", { name: heading, exact: true });
 
   if (await section.count() === 0) {
     // Not rendered at all, which is what an empty section does here: a heading

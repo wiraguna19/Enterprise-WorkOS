@@ -104,3 +104,40 @@ export async function moveThroughTheInterface(
 
   return transition;
 }
+
+type DeclaredField = {
+  label: string;
+  type: "text" | "number" | "date" | "select";
+  options: string[];
+  required: boolean;
+  live: boolean;
+};
+
+/**
+ * Answer every REQUIRED custom field the organization has declared, on a
+ * create form that is already open.
+ *
+ * Read from the API rather than written down, because these are the
+ * organization's own fields (ADR 0038) and an administrator adds one whenever
+ * they like: the template flow's first run failed on a required "Client" that
+ * nobody seeded — somebody had declared it by hand while trying the settings
+ * screen. A required field the flow is not about must not decide whether the
+ * flow passes; one it IS about is asserted by that flow, not answered here.
+ */
+export async function answerRequiredFields(page: Page, session: Session): Promise<void> {
+  const fields = await call<DeclaredField[]>(session, "/work-items/fields");
+
+  for (const field of fields) {
+    if (!field.required || !field.live) continue;
+
+    const input = page.getByLabel(`${field.label} *`, { exact: true });
+
+    if (field.type === "select") {
+      await input.selectOption(field.options[0] ?? "");
+    } else if ((await input.inputValue()) === "") {
+      await input.fill(
+        field.type === "number" ? "1" : field.type === "date" ? "2030-01-01" : "E2E",
+      );
+    }
+  }
+}
