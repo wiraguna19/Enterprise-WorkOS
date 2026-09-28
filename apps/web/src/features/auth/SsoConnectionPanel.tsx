@@ -26,6 +26,8 @@ export type SsoSettings = {
   connection: SsoConnection | null;
   service_provider: { entity_id: string; acs_url: string; metadata_url: string };
   password_sessions: number;
+  /** Who could sign in neither way once it is required (ADR 0052). */
+  members_outside_domains: Array<{ membership_id: string; name: string; email: string }>;
 };
 
 /**
@@ -72,7 +74,11 @@ export function SsoConnectionPanel({ settings }: { settings: SsoSettings }) {
       <ConnectionForm connection={connection} />
 
       {connection !== null && (
-        <EnforcementPanel connection={connection} passwordSessions={settings.password_sessions} />
+        <EnforcementPanel
+          connection={connection}
+          passwordSessions={settings.password_sessions}
+          outside={settings.members_outside_domains}
+        />
       )}
     </>
   );
@@ -238,9 +244,11 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
 function EnforcementPanel({
   connection,
   passwordSessions,
+  outside,
 }: {
   connection: SsoConnection;
   passwordSessions: number;
+  outside: SsoSettings["members_outside_domains"];
 }) {
   const [error, setError] = useState<string | null>(null);
   const [needsPassword, setNeedsPassword] = useState(false);
@@ -306,6 +314,10 @@ function EnforcementPanel({
           </p>
         )}
 
+        {outside.length > 0 && (
+          <LockedOut people={outside} enforced={connection.enforced} />
+        )}
+
         <Button
           variant={connection.enforced ? "destructive" : "affirmative"}
           size="sm"
@@ -326,5 +338,42 @@ function EnforcementPanel({
         )}
       </div>
     </Panel>
+  );
+}
+
+/**
+ * People outside every SSO domain, by name (ADR 0052).
+ *
+ * Shown whether or not it is already required: before, it is the warning;
+ * after, it is the list of people who currently cannot get in. Named, not
+ * counted — "3 people" does not tell an administrator whether it is the
+ * contractors they meant to exclude or the manager down the hall.
+ */
+function LockedOut({
+  people,
+  enforced,
+}: {
+  people: SsoSettings["members_outside_domains"];
+  enforced: boolean;
+}) {
+  const shown = people.slice(0, 8);
+
+  return (
+    <div className="rounded-md border border-s-danger/30 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
+      <p>
+        {people.length} {people.length === 1 ? "person's address is" : "people's addresses are"}{" "}
+        outside every domain above, so {enforced ? "they cannot sign in at all right now" : "requiring it would leave them unable to sign in"}
+        {" "}— the identity provider is never asked about them, and passwords are refused:
+      </p>
+      <ul className="mt-1 list-disc pl-5">
+        {shown.map((person) => (
+          <li key={person.membership_id}>
+            {person.name} <span className="text-n-500">({person.email})</span>
+          </li>
+        ))}
+      </ul>
+      {people.length > shown.length && <p className="mt-1">…and {people.length - shown.length} more.</p>}
+      <p className="mt-1">Add their domain above, or change their address, first.</p>
+    </div>
   );
 }

@@ -44,6 +44,11 @@ final class SsoConnectionController extends ApiController
             // What requiring SSO would end, named before the button is
             // pressed — a setting and its consequence (ADR 0028).
             'password_sessions' => $this->connections->passwordSessionsExcept($this->session($request)),
+            // And who it would lock out entirely — the consequence that lands
+            // on people rather than on devices (ADR 0052).
+            'members_outside_domains' => $connection === null
+                ? []
+                : $this->connections->membersOutsideDomains($connection),
         ]);
     }
 

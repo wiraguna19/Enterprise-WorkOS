@@ -306,6 +306,27 @@ it('does not create an account for an address nobody invited', function (): void
 
 // ── Requiring it ────────────────────────────────────────────────────────────
 
+it('names the people requiring it would lock out, before anybody presses the button', function (): void {
+    // Found by hand: enforcement with example.com as the only domain locked
+    // Ahmad (@acme.test) out of both doors, and the panel had only counted
+    // sessions.
+    connectAcme($this->rina, ['example.com'])->assertOk();
+
+    $emails = collect($this->withToken($this->rina)->getJson('/api/v1/sso-connection')
+        ->assertOk()
+        ->json('data.members_outside_domains'))
+        ->pluck('email');
+
+    // Rina keeps the break-glass, so a password still gets her in.
+    expect($emails)->toContain('ahmad@acme.test')
+        ->and($emails)->not->toContain('rina@acme.test');
+
+    connectAcme($this->rina, ['acme.test'])->assertOk();
+
+    expect($this->withToken($this->rina)->getJson('/api/v1/sso-connection')
+        ->json('data.members_outside_domains'))->toBe([]);
+});
+
 it('will not require a connection nobody has signed in through', function (): void {
     connectAcme($this->rina)->assertOk();
 

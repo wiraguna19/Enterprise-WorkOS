@@ -109,6 +109,13 @@ edges worked out rather than left to chance:
 - **Switching it on ends every session a password opened there**, except the
   one asking, and says how many. A requirement that left thirty days of
   password sessions running would not be one — ADR 0028's lesson.
+- **The people it would lock out are named before it is pressed.** Active
+  members whose address is outside every SSO domain — and who do not hold the
+  break-glass — can sign in neither way once passwords are refused: the IdP is
+  never asked about them and the password form turns them away. Found when
+  enforcement was first tried by hand and locked a manager out while the panel
+  counted sessions. The screen lists them by name; it warns rather than
+  refuses, because excluding contractors can be exactly what is meant.
 - **The break-glass:** people holding `sso.manage` may still sign in with a
   password, so a down IdP or a bad certificate never locks out the people who
   can fix it. Every use is audited as `auth.sso_bypassed` in that organization.

@@ -6,9 +6,11 @@ namespace App\Modules\Identity\Application\Service;
 
 use App\Modules\Governance\Application\Service\AuditLogger;
 use App\Modules\Identity\Domain\Exception\SingleSignOnRefused;
+use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SsoConnectionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SsoDomainModel;
+use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
 use App\Modules\Identity\Infrastructure\Saml\SamlToolkit;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
@@ -32,6 +34,7 @@ final class SsoConnections
         private readonly AuditLogger $audit,
         private readonly TenantContext $tenant,
         private readonly SamlToolkit $saml,
+        private readonly PermissionResolver $permissions,
     ) {}
 
     public function current(): ?SsoConnectionModel
@@ -217,6 +220,63 @@ final class SsoConnections
         }
 
         return $query->count();
+    }
+
+    /**
+     * The people requiring single sign-on would lock out.
+     *
+     * Active members whose address is outside the connection's domains can
+     * sign in neither way once passwords are refused: the IdP is never asked
+     * about them, and the password form turns them away. Found the first time
+     * enforcement was tried by hand — a manager was locked out, and the panel
+     * had counted SESSIONS, which is the wrong noun: the consequence lands on
+     * people. Named rather than counted, so the administrator can see whether
+     * it is a contractor they meant to exclude or half the company.
+     *
+     * The break-glass holders are left out, because a password still works for
+     * them (see AuthenticationService::passwordMayEnter()).
+     *
+     * @return list<array{membership_id: string, name: string, email: string}>
+     */
+    public function membersOutsideDomains(SsoConnectionModel $connection): array
+    {
+        $domains = $connection->domains->pluck('domain')->all();
+        $out = [];
+
+        $members = MembershipModel::query()
+            ->where('status', 'active')
+            ->whereNull('revoked_at')
+            ->get();
+
+        // One read for every address rather than a relation per row.
+        $users = UserModel::query()
+            ->whereIn('id', $members->pluck('user_id')->all())
+            ->get(['id', 'name', 'email'])
+            ->keyBy('id');
+
+        foreach ($members as $membership) {
+            $user = $users->get($membership->user_id);
+            $email = mb_strtolower((string) $user?->email);
+            $domain = str_contains($email, '@') ? substr($email, (int) strrpos($email, '@') + 1) : '';
+
+            if (in_array($domain, $domains, strict: true)) {
+                continue;
+            }
+
+            if ($this->permissions->has($membership, 'sso.manage')) {
+                continue;
+            }
+
+            $out[] = [
+                'membership_id' => (string) $membership->getKey(),
+                'name' => (string) $user?->name,
+                'email' => $email,
+            ];
+        }
+
+        usort($out, static fn ($a, $b): int => strcmp($a['name'], $b['name']));
+
+        return $out;
     }
 
     // ── What sign-in asks ───────────────────────────────────────────────────
