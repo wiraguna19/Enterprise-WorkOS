@@ -326,6 +326,28 @@ export async function updateWorkItem(
 }
 
 /**
+ * Bring archived work back to its board and lists (ADR 0054).
+ *
+ * Not the restore the delete below disclaims: that one is a deleted item, and
+ * there is still no button for it. This is closed work that aged out of view.
+ */
+export async function restoreWorkItem(reference: string): Promise<ActionState> {
+  try {
+    await api(`/work-items/${reference}/restore`, { method: "POST" });
+  } catch (error) {
+    return failure(error);
+  }
+
+  // Back on its board and in the lists (ADR 0054). The board's path is not
+  // known here, so every project page is revalidated with the item's own.
+  revalidatePath(`/work/${reference}`);
+  revalidatePath("/projects", "layout");
+  revalidatePath("/work");
+
+  return { error: null };
+}
+
+/**
  * Delete a work item.
  *
  * Soft, on the server: the row and its trail survive, because restoring work

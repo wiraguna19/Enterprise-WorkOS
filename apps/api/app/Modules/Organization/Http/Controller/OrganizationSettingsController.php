@@ -8,6 +8,7 @@ use App\Modules\Identity\Application\Service\RecentAuthentication;
 use App\Modules\Identity\Application\Service\SessionLifetime;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Organization\Application\Service\OrganizationSettingsService;
+use App\Modules\Organization\Http\Request\UpdateArchivePolicyRequest;
 use App\Modules\Organization\Http\Request\UpdateMfaPolicyRequest;
 use App\Modules\Organization\Http\Request\UpdateSessionPolicyRequest;
 use App\Modules\Organization\Infrastructure\Eloquent\OrganizationModel;
@@ -51,6 +52,7 @@ final class OrganizationSettingsController extends ApiController
             'session_lifetime_days' => (int) $organization->session_lifetime_days,
             'idle_timeout_minutes' => $organization->idle_timeout_minutes,
             'require_mfa' => $organization->require_mfa,
+            'archive_closed_after_days' => $organization->archive_closed_after_days,
             // How many people the policy would confine if it were switched on
             // right now — or is confining, if it already is. The number is the
             // difference between a setting and a consequence (ADR 0028), and
@@ -125,6 +127,22 @@ final class OrganizationSettingsController extends ApiController
             // setting and a consequence, and the person who pressed the button
             // is the one who should learn it first.
             'sessions_shortened' => $shortened,
+        ]);
+    }
+
+    /**
+     * How long closed work stays on boards and lists here (ADR 0054).
+     *
+     * No password prompt: this changes where finished work is SHOWN, and
+     * nothing about who may see or do anything. Restoring an item is one
+     * click, and every archived item still opens by its reference.
+     */
+    public function updateArchivePolicy(UpdateArchivePolicyRequest $request): ApiResponse
+    {
+        $organization = $this->settings->setArchivePolicy($this->current(), $request->days());
+
+        return $this->ok([
+            'archive_closed_after_days' => $organization->archive_closed_after_days,
         ]);
     }
 

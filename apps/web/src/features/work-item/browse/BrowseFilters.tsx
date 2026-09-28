@@ -176,6 +176,14 @@ export function BrowseFilters({
           onChange={(on) => set("unassigned", on ? "1" : "")}
         />
         <Toggle
+          label="Include archived"
+          on={value("archived") === "include" || value("archived") === "only"}
+          // Archived work is closed work out of the working set (ADR 0054).
+          // Off by default, like the board; `only` arrives from a board's
+          // "see them" link and is kept until this is switched off.
+          onChange={(on) => set("archived", on ? "include" : "")}
+        />
+        <Toggle
           label="Mine"
           on={value("assignee") === "me"}
           // `me` is resolved by the server (docs/05 §4), so this screen never

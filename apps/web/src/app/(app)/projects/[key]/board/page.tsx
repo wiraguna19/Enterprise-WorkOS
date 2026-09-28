@@ -87,6 +87,7 @@ export default async function BoardPage({
       <Board
         columns={board.columns}
         projectKey={board.project.key}
+        projectId={board.project.id}
         timeZone={me.user.timezone}
       />
     </div>

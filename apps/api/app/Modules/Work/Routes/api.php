@@ -143,6 +143,12 @@ Route::patch('work-items/{reference}', [WorkItemController::class, 'update'])
 Route::delete('work-items/{reference}', [WorkItemController::class, 'destroy'])
     ->middleware(['permission:work_item.delete', 'throttle:writes']);
 
+// Archived work back into the working set (ADR 0054). An edit, by the same
+// permission and policy as any other: it changes where the item is shown, not
+// what it is.
+Route::post('work-items/{reference}/restore', [WorkItemController::class, 'restore'])
+    ->middleware(['permission:work_item.update', 'throttle:writes']);
+
 // State changes are ACTIONS, not field edits: they carry rules and side
 // effects, and modelling them as PATCH pushes workflow logic into the client.
 Route::post('work-items/{reference}/transition', [WorkItemController::class, 'transition'])

@@ -52,7 +52,7 @@ final class ListWorkItemsRequest extends FormRequest
     private const ALLOWED = [
         'project_id', 'milestone_id', 'parent_id', 'type', 'priority',
         'state_category', 'state_id', 'assignee_id', 'team_id',
-        'overdue', 'unassigned', 'tag',
+        'overdue', 'unassigned', 'tag', 'archived',
     ];
 
     /** The prefix docs/05 §4 publishes for an organization's own fields. */
@@ -95,6 +95,7 @@ final class ListWorkItemsRequest extends FormRequest
             'filter.overdue' => ['sometimes', 'boolean'],
             'filter.unassigned' => ['sometimes', 'boolean'],
             'filter.tag' => ['sometimes', 'string', 'max:60'],
+            'filter.archived' => ['sometimes', 'string', Rule::in(['include', 'only'])],
             'q' => ['sometimes', 'string', 'min:2', 'max:200'],
             'sort' => ['sometimes', 'string', 'max:80', $this->onlySortableFields(...)],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
@@ -207,6 +208,18 @@ final class ListWorkItemsRequest extends FormRequest
     public function applyFilters(Builder $query): Builder
     {
         $filter = (array) $this->input('filter', []);
+
+        // Archived work is out of the working set (ADR 0054): absent by
+        // default, `include` to see everything, `only` for the archive alone.
+        // In here rather than in the controller so it is decided with the
+        // other filters — and so no caller can forget it.
+        $archived = $filter['archived'] ?? null;
+
+        if ($archived === 'only') {
+            $query->whereNotNull('archived_at');
+        } elseif ($archived !== 'include') {
+            $query->whereNull('archived_at');
+        }
 
         if (isset($filter['project_id'])) {
             $query->where('project_id', $filter['project_id']);

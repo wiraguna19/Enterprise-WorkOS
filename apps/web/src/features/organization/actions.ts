@@ -223,3 +223,23 @@ export async function setMfaPolicy(required: boolean): Promise<MfaPolicyResult> 
     };
   }
 }
+
+/**
+ * How long closed work stays on boards and lists here (ADR 0054). `null` is
+ * "never archive". No password prompt: this changes where finished work is
+ * shown, not who may see or do anything.
+ */
+export async function setArchivePolicy(days: number | null): Promise<{ error: string | null }> {
+  try {
+    await api("/organization/settings/archive-policy", {
+      method: "PATCH",
+      body: { archive_closed_after_days: days },
+    });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  revalidatePath("/settings/organization");
+
+  return { error: null };
+}

@@ -137,8 +137,11 @@ final class ProjectController extends ApiController
             ->orderBy('position')
             ->get(['id', 'key', 'label', 'category', 'color', 'position']);
 
+        // The working set only (ADR 0054): archived work is counted separately
+        // below, so a Done column says how much it left out rather than
+        // carrying every item the project ever finished.
         $totals = DB::table('work_items')
-            ->selectRaw('workflow_state_id, count(*) as total')
+            ->selectRaw('workflow_state_id, count(*) filter (where archived_at is null) as total, count(*) filter (where archived_at is not null) as archived')
             ->where('organization_id', $this->tenant->organizationId())
             ->where('project_id', $project->id)
             ->whereNull('deleted_at')
@@ -157,7 +160,8 @@ final class ProjectController extends ApiController
                     ->selectRaw('id, row_number() over (partition by workflow_state_id order by position) as card_rank')
                     ->where('organization_id', $this->tenant->organizationId())
                     ->where('project_id', $project->id)
-                    ->whereNull('deleted_at'),
+                    ->whereNull('deleted_at')
+                    ->whereNull('archived_at'),
                 'ranked',
             )
             ->where('card_rank', '<=', self::CARDS_PER_COLUMN)
@@ -184,6 +188,8 @@ final class ProjectController extends ApiController
                     // reader who has to subtract two numbers to learn that the
                     // column is truncated will not subtract them.
                     'hidden_count' => max(0, $total - $cards->count()),
+                    // Archived here, not shown and not in `total` (ADR 0054).
+                    'archived_count' => (int) ($totals[$state->id]->archived ?? 0),
                     'items' => WorkItemResource::collection($cards),
                 ];
             })->values(),

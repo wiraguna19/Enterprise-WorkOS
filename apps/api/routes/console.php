@@ -50,6 +50,15 @@ Schedule::command('work:roll-up-project-progress')
     ->onOneServer()
     ->withoutOverlapping();
 
+// Closed work leaves the working set (ADR 0054): done or cancelled, and
+// untouched for as long as the organization keeps it in view. Daily, in the
+// quiet hours — nobody is waiting on it, and a board is no worse for carrying
+// yesterday's finished work until tonight.
+Schedule::command('work:archive-closed-work')
+    ->dailyAt('03:30')
+    ->onOneServer()
+    ->withoutOverlapping();
+
 // Export files do not live forever, and the expiry column would be a lie
 // without something acting on it (ADR 0011). Daily: an export lives a week, so
 // an hour's imprecision at the end of it costs nobody anything.

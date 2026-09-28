@@ -6,6 +6,7 @@ namespace App\Modules\Work\Providers;
 
 use App\Modules\Work\Http\Policy\ProjectPolicy;
 use App\Modules\Work\Http\Policy\WorkItemPolicy;
+use App\Modules\Work\Infrastructure\Console\ArchiveClosedWork;
 use App\Modules\Work\Infrastructure\Console\RollUpProjectProgress;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
@@ -30,7 +31,7 @@ final class WorkServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([RollUpProjectProgress::class]);
+            $this->commands([RollUpProjectProgress::class, ArchiveClosedWork::class]);
         }
 
         Gate::policy(WorkItemModel::class, WorkItemPolicy::class);

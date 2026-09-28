@@ -97,6 +97,9 @@ final class WorkItemResource extends BaseResource
             'comment_count' => $this->whenCounted('comments'),
 
             'completed_at' => $this->resource->completed_at?->toIso8601String(),
+            // Closed work out of the working set (ADR 0054). Still openable,
+            // still counted; a list that shows one says so.
+            'archived_at' => $this->resource->archived_at?->toIso8601String(),
             'created_at' => $this->resource->created_at?->toIso8601String(),
             'updated_at' => $this->resource->updated_at?->toIso8601String(),
 

@@ -10,6 +10,7 @@ import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { DueDate } from "@/features/work-item/components/DueDate";
 import { AssignmentHistory } from "@/features/work-item/components/AssignmentHistory";
 import { ActivityTimeline, type ActivityEvent } from "@/features/work-item/components/ActivityTimeline";
+import { ArchivedNotice } from "@/features/work-item/components/ArchivedNotice";
 import { AssigneePicker } from "@/features/work-item/components/AssigneePicker";
 import {
   AttachmentPanel,
@@ -190,6 +191,15 @@ export default async function WorkItemPage({
           </Field>
         </div>
       </header>
+
+      {item.archived_at && (
+        <ArchivedNotice
+          reference={item.reference}
+          archivedAt={item.archived_at}
+          canRestore={item.permissions.update ?? false}
+          timeZone={me.user.timezone}
+        />
+      )}
 
       {/* The thread on the left, the record on the right (ADR 0024). What
           somebody opens a work item to DO is read the description and say

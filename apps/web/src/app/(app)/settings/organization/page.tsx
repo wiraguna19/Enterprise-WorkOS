@@ -3,6 +3,7 @@ import { KeyValue, KeyValueItem } from "@/components/ui/KeyValue";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
+import { ArchivePolicyForm } from "@/features/organization/ArchivePolicyForm";
 import { MfaPolicyForm } from "@/features/organization/MfaPolicyForm";
 import { SessionPolicyForm } from "@/features/organization/SessionPolicyForm";
 import { api } from "@/lib/api";
@@ -31,6 +32,7 @@ type Settings = {
   idle_timeout_minutes: number | null;
   require_mfa: boolean;
   people_without_mfa: number;
+  archive_closed_after_days: number | null;
 };
 
 export default async function OrganizationSettingsPage() {
@@ -72,6 +74,11 @@ export default async function OrganizationSettingsPage() {
         <SessionPolicyForm
           current={data.session_lifetime_days}
           currentIdle={data.idle_timeout_minutes}
+          editable={me.permissions.includes("organization.manage_settings")}
+        />
+
+        <ArchivePolicyForm
+          current={data.archive_closed_after_days}
           editable={me.permissions.includes("organization.manage_settings")}
         />
       </PageBody>

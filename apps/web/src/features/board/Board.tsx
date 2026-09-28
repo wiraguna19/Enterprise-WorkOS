@@ -35,10 +35,13 @@ type Picked = {
 export function Board({
   columns,
   projectKey,
+  projectId,
   timeZone,
 }: {
   columns: Column[];
   projectKey: string;
+  /** For the link to a column's archive, which the browse screen filters by id. */
+  projectId?: string;
   timeZone: string;
 }) {
   const [picked, setPicked] = useState<Picked | null>(null);
@@ -256,6 +259,7 @@ export function Board({
               key={column.state.id}
               column={column}
               projectKey={projectKey}
+              projectId={projectId}
               timeZone={timeZone}
               picked={picked}
               draggingRef={draggingRef}
@@ -306,6 +310,7 @@ export function Board({
 function BoardColumnDropZone({
   column,
   projectKey,
+  projectId,
   timeZone,
   picked,
   draggingRef,
@@ -318,6 +323,7 @@ function BoardColumnDropZone({
 }: {
   column: Column;
   projectKey: string;
+  projectId?: string;
   timeZone: string;
   picked: Picked | null;
   draggingRef: RefObject<{ item: WorkItem; fromStateId: string } | null>;
@@ -444,6 +450,26 @@ function BoardColumnDropZone({
           >
             see the whole column
           </Link>
+        </p>
+      )}
+
+      {(column.archived_count ?? 0) > 0 && (
+        <p className="px-1 pt-2 text-caption text-n-500">
+          {/* Archived work has left the board, not the product (ADR 0054):
+              said here so a Done column that shrank overnight reads as
+              housekeeping rather than as loss. */}
+          {column.archived_count} archived
+          {projectId && (
+            <>
+              {" "}—{" "}
+              <Link
+                href={`/work?project=${projectId}&archived=only`}
+                className="text-a-500 underline underline-offset-2"
+              >
+                see them
+              </Link>
+            </>
+          )}
         </p>
       )}
     </section>

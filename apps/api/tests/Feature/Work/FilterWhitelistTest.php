@@ -27,7 +27,7 @@ it('refuses a filter key it does not answer, and names it', function (): void {
         ->assertStatus(422)
         // The KEY in the message. "Invalid filter" helps nobody, and the
         // commonest cause of this is a typo one letter long.
-        ->assertJsonFragment(['filter' => ['Unknown filter "assignee". Allowed: project_id, milestone_id, parent_id, type, priority, state_category, state_id, assignee_id, team_id, overdue, unassigned, tag, or cf_<key> for a custom field.']]);
+        ->assertJsonFragment(['filter' => ['Unknown filter "assignee". Allowed: project_id, milestone_id, parent_id, type, priority, state_category, state_id, assignee_id, team_id, overdue, unassigned, tag, archived, or cf_<key> for a custom field.']]);
 });
 
 it('still answers every filter it always has', function (): void {

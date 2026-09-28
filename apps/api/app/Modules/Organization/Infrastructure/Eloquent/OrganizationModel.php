@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $session_lifetime_days
  * @property int|null $idle_timeout_minutes
  * @property bool $require_mfa
+ * @property int|null $archive_closed_after_days
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  * @property CarbonImmutable|null $deleted_at
@@ -42,6 +43,7 @@ final class OrganizationModel extends BaseModel
             'session_lifetime_days' => 'integer',
             'idle_timeout_minutes' => 'integer',
             'require_mfa' => 'boolean',
+            'archive_closed_after_days' => 'integer',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
             'deleted_at' => 'immutable_datetime',

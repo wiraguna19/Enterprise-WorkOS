@@ -410,6 +410,31 @@ final class WorkItemService
     }
 
     /**
+     * Bring archived work back into the working set (ADR 0054).
+     *
+     * Writing it resets `updated_at`, which is the clock the archive sweep
+     * reads — so an item restored today is not archived again tonight. Nothing
+     * else about the item changes: it is still done or cancelled, and moving it
+     * is a separate act (reopening clears the flag by itself, in the database).
+     */
+    public function restore(WorkItemModel $item): WorkItemModel
+    {
+        if ($item->archived_at === null) {
+            return $item;
+        }
+
+        $this->transactional(function () use ($item): void {
+            $this->activity->record('work_item', (string) $item->getKey(), 'restored', [
+                'archived_at' => ['from' => $item->archived_at?->toIso8601String(), 'to' => null],
+            ]);
+
+            $item->forceFill(['archived_at' => null])->save();
+        });
+
+        return $item;
+    }
+
+    /**
      * Take `custom_fields` out of an attribute bag and hand it back.
      *
      * By reference, because the caller's array is what gets `forceFill`ed onto

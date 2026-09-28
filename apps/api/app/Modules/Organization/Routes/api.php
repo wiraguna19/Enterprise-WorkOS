@@ -147,3 +147,7 @@ Route::patch('organization/settings/session-policy', [OrganizationSettingsContro
 // at all.
 Route::patch('organization/settings/mfa-policy', [OrganizationSettingsController::class, 'updateMfaPolicy'])
     ->middleware(['permission:organization.manage_settings', 'throttle:writes']);
+
+// How long closed work stays on boards and lists (ADR 0054).
+Route::patch('organization/settings/archive-policy', [OrganizationSettingsController::class, 'updateArchivePolicy'])
+    ->middleware(['permission:organization.manage_settings', 'throttle:writes']);

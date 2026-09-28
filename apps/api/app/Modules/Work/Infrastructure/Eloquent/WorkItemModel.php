@@ -53,6 +53,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $lock_version
  * @property mixed $search_vector
  * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $archived_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  * @property CarbonImmutable|null $deleted_at
@@ -76,6 +77,7 @@ final class WorkItemModel extends TenantModel
             'start_date' => 'immutable_date',
             'due_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',
+            'archived_at' => 'immutable_datetime',
             'estimate_hours' => 'decimal:2',
             'actual_hours_cache' => 'decimal:2',
             'position' => 'float',

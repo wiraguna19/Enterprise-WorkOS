@@ -253,6 +253,16 @@ final class WorkItemController extends ApiController
         return $this->ok(new WorkItemResource($moved));
     }
 
+    /** Out of the archive, back into the working set (ADR 0054). */
+    public function restore(string $reference): ApiResponse
+    {
+        $item = $this->findVisible($reference);
+
+        $this->authorize('update', $item);
+
+        return $this->ok(new WorkItemResource($this->workItems->restore($item)->load('state')));
+    }
+
     public function destroy(string $reference): ApiResponse
     {
         $item = $this->findVisible($reference);

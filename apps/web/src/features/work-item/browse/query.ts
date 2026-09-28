@@ -21,6 +21,8 @@ export type BrowseParams = {
   assignee?: string;
   late?: string;
   unassigned?: string;
+  /** `include` or `only`; absent leaves archived work out (ADR 0054). */
+  archived?: string;
   sort?: string;
   cursor?: string;
   /** `cf_<key>=value`, kept verbatim so a declared field needs no code here. */
@@ -50,7 +52,7 @@ export const SORTS: Array<{ value: string; label: string }> = [
  * beside a list must count what the list shows** — the same rule this product
  * already learned when the inbox header disagreed with the badge in the shell.
  */
-const SENT = ["category", "priority", "project", "assignee", "late", "unassigned"] as const;
+const SENT = ["category", "priority", "project", "assignee", "late", "unassigned", "archived"] as const;
 
 /** Is this parameter one of an organization's own fields? */
 export function isCustomKey(key: string): boolean {
@@ -83,6 +85,9 @@ export function apiQuery(params: BrowseParams, limit = 50): string {
   add("filter[assignee_id]", params.assignee);
   if (params.late === "1") query.set("filter[overdue]", "1");
   if (params.unassigned === "1") query.set("filter[unassigned]", "1");
+  if (params.archived === "include" || params.archived === "only") {
+    query.set("filter[archived]", params.archived);
+  }
 
   for (const [key, value] of Object.entries(params)) {
     if (isCustomKey(key)) add(`filter[${key}]`, value);

@@ -77,4 +77,25 @@ final class OrganizationSettingsService
 
         return $organization;
     }
+
+    /**
+     * How long closed work stays in view (ADR 0054). Null is "never".
+     *
+     * Recorded like the other two: when a Done column suddenly empties, "who
+     * changed the archive window, and from what" is the first question.
+     */
+    public function setArchivePolicy(OrganizationModel $organization, ?int $days): OrganizationModel
+    {
+        $was = $organization->archive_closed_after_days;
+
+        $organization->forceFill(['archive_closed_after_days' => $days])->save();
+
+        if ($was !== $days) {
+            $this->activity->record('organization', (string) $organization->getKey(), 'organization.archive_policy_changed', [
+                'archive_closed_after_days' => ['from' => $was, 'to' => $days],
+            ]);
+        }
+
+        return $organization;
+    }
 }

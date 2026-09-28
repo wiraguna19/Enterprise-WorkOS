@@ -58,6 +58,11 @@ export type WorkItem = {
    */
   custom_fields?: CustomFieldAnswer[];
   completed_at: string | null;
+  /**
+   * Closed work out of the working set (ADR 0054). Optional: responses from
+   * before the column existed do not carry it.
+   */
+  archived_at?: string | null;
   created_at: string;
   lock_version: number;
   /**
@@ -232,5 +237,7 @@ export type BoardColumn = {
    */
   total: number;
   hidden_count: number;
+  /** Archived in this state: not in `total`, not on the board (ADR 0054). */
+  archived_count?: number;
   items: WorkItem[];
 };
