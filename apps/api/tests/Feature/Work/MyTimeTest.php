@@ -29,13 +29,21 @@ it('groups a person their own hours by day', function (): void {
     // Immutable on purpose: ->addDay() on a mutable Carbon would move the very
     // variable the assertions below compare against, and the test would pass or
     // fail depending on which line read it last.
-    $monday = CarbonImmutable::now()->startOfWeek();
+    //
+    // LAST week, not this one. This test used to log this week's Monday and
+    // Tuesday, and on a Monday the Tuesday is tomorrow — which the API refuses,
+    // correctly, as a future date. It failed one day in seven, on a day nothing
+    // changed. A past week has both days in the past on every day it runs; the
+    // default window is covered by the next test.
+    $monday = CarbonImmutable::now()->startOfWeek()->subWeek();
 
     logTime($this->sarah, ['hours' => 2, 'logged_on' => $monday->toDateString()]);
     logTime($this->sarah, ['hours' => 1.5, 'logged_on' => $monday->toDateString(), 'note' => 'review']);
     logTime($this->sarah, ['hours' => 4, 'logged_on' => $monday->addDay()->toDateString()]);
 
-    $response = $this->withToken($this->sarah)->getJson('/api/v1/me/time')->assertOk();
+    $response = $this->withToken($this->sarah)->getJson(
+        '/api/v1/me/time?from='.$monday->toDateString().'&to='.$monday->endOfWeek()->toDateString()
+    )->assertOk();
 
     $days = collect($response->json('data'));
     $first = $days->firstWhere('date', $monday->toDateString());
