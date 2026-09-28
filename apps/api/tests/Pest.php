@@ -69,7 +69,7 @@ function minimalRowFor(string $table, string $organizationId): array
         'memberships' => $base + [
             // A user who is NOT already a member here, or the probe collides
             // with the seed's own membership row.
-            'user_id' => ACME_USER_RINA,
+            'user_id' => ACME_USER_NOT_IN_GLOBEX,
             'status' => 'active',
         ],
         'employee_profiles' => $base + [
@@ -323,8 +323,17 @@ const GLOBEX_STATE_TODO = '01900002-0000-7000-8000-000000000019';
 const GLOBEX_PROJECT = '01900003-0000-7000-8000-000000000009';
 const GLOBEX_TEAM = '01900000-0000-7000-8000-000000000901';
 
-/** An Acme user, used where a probe needs a person who is not a member here. */
-const ACME_USER_RINA = '01900000-0000-7000-8000-000000000001';
+/**
+ * An Acme user, used where a probe needs a person who is not a member of
+ * Globex — the probe inserts a Globex membership for them, and
+ * `uq_memberships_org_user` allows one per organization.
+ *
+ * Tono, the contractor. It was Rina until ADR 0050 made her a Globex member in
+ * the seed, and every membership probe failed on the unique index at once. So
+ * the constant names the property it depends on rather than whoever had it: if
+ * Tono ever joins Globex in the seed, this is the line to change.
+ */
+const ACME_USER_NOT_IN_GLOBEX = '01900000-0000-7000-8000-000000000008';
 
 /**
  * A pending approval to hang probe approvers and decisions off.
@@ -361,7 +370,7 @@ function probeMembershipIn(string $organizationId): string
     DB::table('memberships')->insert([
         'id' => $id,
         'organization_id' => $organizationId,
-        'user_id' => ACME_USER_RINA,
+        'user_id' => ACME_USER_NOT_IN_GLOBEX,
         'status' => 'active',
     ]);
 

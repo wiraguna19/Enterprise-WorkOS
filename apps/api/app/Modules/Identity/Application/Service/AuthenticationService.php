@@ -175,6 +175,11 @@ final class AuthenticationService
         MembershipModel $membership,
         Request $request,
         bool $viaMfa = false,
+        // The organization this person is switching FROM, when this session is
+        // a switch rather than a sign-in (ADR 0050). It changes two things:
+        // the re-authentication window stays shut, and the audit entry says
+        // what happened instead of calling it a login.
+        ?string $switchedFrom = null,
     ): array {
         // Read BEFORE the transaction and BEFORE the tenant resolver: how long
         // this session may live belongs to the organization being signed in to
@@ -182,7 +187,7 @@ final class AuthenticationService
         // and were the same for every tenant in the product.
         $lifetimeDays = $this->lifetime->daysFor((string) $membership->organization_id);
 
-        return DB::transaction(function () use ($user, $membership, $request, $lifetimeDays, $viaMfa): array {
+        return DB::transaction(function () use ($user, $membership, $request, $lifetimeDays, $viaMfa, $switchedFrom): array {
             $plainSecret = Str::random(48);
 
             $session = new SessionModel;
@@ -198,12 +203,16 @@ final class AuthenticationService
                 'expires_at' => now()->addDays($lifetimeDays),
                 // Signing in IS proving yourself, so the window for sensitive
                 // acts opens here (ADR 0034) rather than making somebody type
-                // their password twice in a row.
-                'reauthenticated_at' => now(),
+                // their password twice in a row. Switching organization is not:
+                // nobody typed anything, and a window opened by a click would
+                // let a borrowed laptop erase somebody in the second tenant.
+                'reauthenticated_at' => $switchedFrom === null ? now() : null,
                 'created_at' => now(),
             ])->save();
 
-            $user->forceFill(['last_login_at' => now()])->save();
+            if ($switchedFrom === null) {
+                $user->forceFill(['last_login_at' => now()])->save();
+            }
 
             // Bound to the organization, not merely describing it in metadata.
             // Signing in happens before the tenant resolver has run, so this
@@ -213,11 +222,23 @@ final class AuthenticationService
             // was invisible to the organization it was a login to.
             $this->tenant->runFor(
                 (string) $membership->organization_id,
-                fn () => $this->audit->record('auth.login', [
-                    'session_id' => $session->getKey(),
-                    'session_lifetime_days' => $lifetimeDays,
-                    'second_factor' => $viaMfa,
-                ], $request, actorUserId: (string) $user->getKey()),
+                function () use ($session, $lifetimeDays, $viaMfa, $switchedFrom, $request, $user): void {
+                    if ($switchedFrom === null) {
+                        $this->audit->record('auth.login', [
+                            'session_id' => $session->getKey(),
+                            'session_lifetime_days' => $lifetimeDays,
+                            'second_factor' => $viaMfa,
+                        ], $request, actorUserId: (string) $user->getKey());
+
+                        return;
+                    }
+
+                    $this->audit->record('auth.organization_switched_in', [
+                        'session_id' => $session->getKey(),
+                        'from_organization_id' => $switchedFrom,
+                        'session_lifetime_days' => $lifetimeDays,
+                    ], $request, actorUserId: (string) $user->getKey());
+                },
             );
 
             return [
@@ -228,6 +249,92 @@ final class AuthenticationService
                 'membership' => $membership,
             ];
         });
+    }
+
+    /**
+     * The organizations this person may act in, for the switcher (ADR 0050).
+     *
+     * Active memberships only — a revoked one is an organization they left,
+     * and listing it would offer a switch the API refuses. Read with a join
+     * rather than through the organization directory once per row: the list is
+     * short, but it is asked by a menu, and a menu should not cost N queries.
+     *
+     * @return list<array{id: string, name: string, slug: string, current: bool}>
+     */
+    public function organizationsFor(UserModel $user, ?string $currentOrganizationId): array
+    {
+        $rows = DB::table('memberships')
+            ->join('organizations', 'organizations.id', '=', 'memberships.organization_id')
+            ->where('memberships.user_id', $user->getKey())
+            ->where('memberships.status', 'active')
+            ->whereNull('memberships.revoked_at')
+            ->orderBy('organizations.name')
+            ->get(['organizations.id', 'organizations.name', 'organizations.slug']);
+
+        $out = [];
+
+        foreach ($rows as $row) {
+            $out[] = [
+                'id' => (string) $row->id,
+                'name' => (string) $row->name,
+                'slug' => (string) $row->slug,
+                'current' => (string) $row->id === $currentOrganizationId,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Move to another organization this person belongs to (docs/06 §1, ADR 0050).
+     *
+     * docs/06 has said since Phase 1 that "switching organizations issues a new
+     * token", and nothing did. It issues one here — a new SESSION, bound to the
+     * other organization, living by THAT organization's lifetime and answering
+     * to its second-factor requirement — and ends the one that asked. Never a
+     * header or a parameter that re-scopes an existing session: the tenant is
+     * a property of the session row, and a row that could change tenant would
+     * be a row the client could point anywhere.
+     *
+     * The membership is looked up by the organization id AND this user, so
+     * naming an organization you do not belong to answers exactly as naming
+     * one that does not exist.
+     *
+     * @return array{mfa_required: false, token: string, session: SessionModel, user: UserModel, membership: MembershipModel}
+     */
+    public function switchOrganization(
+        UserModel $user,
+        SessionModel $current,
+        string $organizationId,
+        Request $request,
+    ): array {
+        if (! Str::isUuid($organizationId)) {
+            throw new NoActiveMembership('You do not belong to that organization.');
+        }
+
+        $membership = $this->resolveMembership($user, $organizationId);
+
+        $result = $this->issueSession(
+            $user,
+            $membership,
+            $request,
+            switchedFrom: (string) $current->organization_id,
+        );
+
+        // After the new session exists, not before: a failure above leaves the
+        // person where they were rather than signed out of both.
+        $current->revoke('switched_organization');
+
+        // Recorded in BOTH organizations: the one being left writes where the
+        // person went, the one being entered (in issueSession) where they came
+        // from. Each organization's audit view is its own, and a switch that
+        // only one side could see would be half a record.
+        $this->audit->record('auth.organization_switched_out', [
+            'session_id' => $current->getKey(),
+            'to_organization_id' => $organizationId,
+        ], $request);
+
+        return $result;
     }
 
     public function logout(SessionModel $session, Request $request): void

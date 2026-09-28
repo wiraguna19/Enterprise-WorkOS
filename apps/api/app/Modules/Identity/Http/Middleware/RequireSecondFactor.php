@@ -16,7 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
  * **Confinement, not a locked door.** Somebody without a factor in an
  * organization that requires one still signs in, and the session they get can
  * do exactly four things: say who they are, sign out, start enrolment, and
- * finish it. Everything else answers 403 `auth.mfa_required`.
+ * finish it — and, since ADR 0050, leave for another organization they belong
+ * to. Everything else answers 403 `auth.mfa_required`.
  *
  * Refusing the sign-in instead would be simpler and wrong in two directions at
  * once. It locks out every person who had no warning, on a switch somebody else
@@ -36,7 +37,7 @@ use Symfony\Component\HttpFoundation\Response;
 final class RequireSecondFactor
 {
     /**
-     * The four routes a confined session may still reach.
+     * The routes a confined session may still reach.
      *
      * By NAME, not by path: a path list drifts the first time somebody moves a
      * route, and it drifts silently, in the direction of letting more through.
@@ -51,6 +52,11 @@ final class RequireSecondFactor
         'auth.logout',
         'auth.mfa.begin',
         'auth.mfa.confirm',
+        // Leaving (ADR 0050). The requirement is THIS organization's; somebody
+        // who also belongs to one that does not require a factor must be able
+        // to go there, or confinement here becomes a lockout everywhere.
+        'auth.organizations',
+        'auth.organization.switch',
     ];
 
     /**

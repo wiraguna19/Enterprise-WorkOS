@@ -50,7 +50,12 @@ INSERT INTO memberships (id, organization_id, user_id, status, invited_at, joine
  ('01900000-0000-7000-8000-000000000207','01900000-0000-7000-8000-0000000000ac','01900000-0000-7000-8000-000000000007','active', now()-interval '5 months',  now()-interval '5 months',  NULL),
  ('01900000-0000-7000-8000-000000000208','01900000-0000-7000-8000-0000000000ac','01900000-0000-7000-8000-000000000008','active', now()-interval '2 months',  now()-interval '2 months',  NULL),
  ('01900000-0000-7000-8000-000000000209','01900000-0000-7000-8000-0000000000ac','01900000-0000-7000-8000-000000000009','revoked',now()-interval '3 years',  now()-interval '3 years',  now()-interval '1 month'),
- ('01900000-0000-7000-8000-000000000301','01900000-0000-7000-8000-0000000000b0','01900000-0000-7000-8000-000000000101','active', now()-interval '1 year',   now()-interval '1 year',   NULL);
+ ('01900000-0000-7000-8000-000000000301','01900000-0000-7000-8000-0000000000b0','01900000-0000-7000-8000-000000000101','active', now()-interval '1 year',   now()-interval '1 year',   NULL),
+ -- Rina also belongs to Globex, as an employee (ADR 0050). The one person in
+ -- the seed with two memberships, so switching organizations can be tried by
+ -- hand. Joined a month ago, AFTER her Acme membership, so signing in without
+ -- choosing still lands in Acme — the oldest membership — as it always has.
+ ('01900000-0000-7000-8000-000000000302','01900000-0000-7000-8000-0000000000b0','01900000-0000-7000-8000-000000000001','active', now()-interval '1 month',  now()-interval '1 month',  NULL);
 
 -- ── roles ────────────────────────────────────────────────────────────────────
 -- `level` is for display ordering and for "can this role manage that role",
@@ -119,7 +124,8 @@ INSERT INTO membership_roles (organization_id, membership_id, role_id) VALUES
  ('01900000-0000-7000-8000-0000000000ac','01900000-0000-7000-8000-000000000206','01900000-0000-7000-8000-000000000403'),
  ('01900000-0000-7000-8000-0000000000ac','01900000-0000-7000-8000-000000000207','01900000-0000-7000-8000-000000000403'),
  ('01900000-0000-7000-8000-0000000000ac','01900000-0000-7000-8000-000000000208','01900000-0000-7000-8000-000000000404'),
- ('01900000-0000-7000-8000-0000000000b0','01900000-0000-7000-8000-000000000301','01900000-0000-7000-8000-000000000501');
+ ('01900000-0000-7000-8000-0000000000b0','01900000-0000-7000-8000-000000000301','01900000-0000-7000-8000-000000000501'),
+ ('01900000-0000-7000-8000-0000000000b0','01900000-0000-7000-8000-000000000302','01900000-0000-7000-8000-000000000502');
 
 -- ── departments (materialized path) ──────────────────────────────────────────
 -- Operations is intentionally empty — an empty state that ships with the seed

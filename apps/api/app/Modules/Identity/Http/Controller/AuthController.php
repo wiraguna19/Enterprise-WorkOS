@@ -172,6 +172,47 @@ final class AuthController extends ApiController
         ];
     }
 
+    /** The organizations this person belongs to, for the switcher (ADR 0050). */
+    public function organizations(Request $request): ApiResponse
+    {
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        /** @var SessionModel $session */
+        $session = $user->currentAccessToken();
+
+        return $this->ok($this->auth->organizationsFor($user, $session->organization_id));
+    }
+
+    /**
+     * Move to another organization: a new session there, this one ended.
+     *
+     * Answers exactly like a sign-in — a token and its expiry — because to the
+     * client that is what it is. The web server swaps the cookie; the browser
+     * never sees either token.
+     */
+    public function switchOrganization(Request $request): ApiResponse
+    {
+        $validated = $request->validate([
+            'organization_id' => ['required', 'string'],
+        ]);
+
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        /** @var SessionModel $session */
+        $session = $user->currentAccessToken();
+
+        $result = $this->auth->switchOrganization(
+            $user,
+            $session,
+            (string) $validated['organization_id'],
+            $request,
+        );
+
+        return $this->ok($this->sessionPayload($result));
+    }
+
     public function logout(Request $request): ApiResponse
     {
         /** @var UserModel $user the route is behind auth:sanctum */

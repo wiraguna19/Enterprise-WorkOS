@@ -33,6 +33,15 @@ Route::prefix('auth')->group(function (): void {
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
+
+        // Switching organization (ADR 0050). Under `auth.` on purpose: an API
+        // token is bound to the organization it was made in, and LimitApiTokens
+        // refuses every `auth.*` route but `auth.me` — so a token cannot hop.
+        Route::get('organizations', [AuthController::class, 'organizations'])
+            ->name('auth.organizations');
+        Route::post('organization', [AuthController::class, 'switchOrganization'])
+            ->middleware('throttle:writes')
+            ->name('auth.organization.switch');
         Route::get('me', [AuthController::class, 'me'])->name('auth.me');
 
         // What else is signed in as me, and stopping it (ADR 0023). No
