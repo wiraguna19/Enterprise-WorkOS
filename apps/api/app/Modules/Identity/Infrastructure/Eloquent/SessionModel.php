@@ -40,6 +40,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  * @property CarbonImmutable|null $revoked_at
  * @property string|null $revoked_reason
  * @property string $kind
+ * @property string $authenticated_by
  * @property CarbonImmutable $created_at
  */
 final class SessionModel extends PersonalAccessToken
@@ -152,6 +153,19 @@ final class SessionModel extends PersonalAccessToken
     public function isApiToken(): bool
     {
         return $this->kind === 'api_token';
+    }
+
+    /**
+     * Did an organization's identity provider vouch for this session, rather
+     * than the account's own password (ADR 0052)?
+     *
+     * Three rules read it: the organization's second-factor requirement does
+     * not confine it (the IdP is where that factor lives), it cannot switch to
+     * another organization, and it cannot change the account's own factor.
+     */
+    public function isSingleSignOn(): bool
+    {
+        return $this->authenticated_by === 'sso';
     }
 
     /**

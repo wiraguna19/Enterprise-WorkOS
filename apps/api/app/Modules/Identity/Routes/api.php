@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Modules\Identity\Http\Controller\ApiTokenController;
 use App\Modules\Identity\Http\Controller\AuthController;
 use App\Modules\Identity\Http\Controller\InvitationAcceptController;
+use App\Modules\Identity\Http\Controller\SingleSignOnController;
+use App\Modules\Identity\Http\Controller\SsoConnectionController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -114,4 +116,48 @@ Route::prefix('invitations')->middleware('throttle:invitation')->group(function 
         ->name('invitations.preview');
     Route::post('{token}/accept', [InvitationAcceptController::class, 'accept'])
         ->name('invitations.accept');
+});
+
+/**
+ * Signing in through an organization's identity provider (ADR 0052).
+ *
+ * Reachable with nothing, like login — they are how a session is made. The web
+ * server calls all four; the browser never talks to this API directly.
+ * `start` carries an address and is throttled like login; the two after it
+ * carry single-use random values and get a limiter of their own.
+ */
+Route::prefix('auth/sso')->group(function (): void {
+    Route::post('start', [SingleSignOnController::class, 'start'])
+        ->middleware('throttle:login')
+        ->name('auth.sso.start');
+    Route::post('acs', [SingleSignOnController::class, 'consume'])
+        ->middleware('throttle:sso')
+        ->name('auth.sso.consume');
+    Route::post('complete', [SingleSignOnController::class, 'complete'])
+        ->middleware('throttle:sso')
+        ->name('auth.sso.complete');
+    Route::get('metadata', [SingleSignOnController::class, 'metadata'])
+        ->middleware('throttle:sso')
+        ->name('auth.sso.metadata');
+});
+
+/**
+ * The organization's identity provider (ADR 0052).
+ *
+ * `sso.manage` on every route, the read included: the connection names who
+ * may vouch for everybody here, and the read is what a person uses to decide
+ * whether to change it. Every write also asks for the password again, in the
+ * controller, which is also what keeps API tokens out of it.
+ */
+Route::prefix('sso-connection')->middleware(['auth:sanctum', 'permission:sso.manage'])->group(function (): void {
+    Route::get('', [SsoConnectionController::class, 'show'])->name('sso.connection.show');
+    Route::put('', [SsoConnectionController::class, 'save'])
+        ->middleware('throttle:writes')
+        ->name('sso.connection.save');
+    Route::delete('', [SsoConnectionController::class, 'destroy'])
+        ->middleware('throttle:writes')
+        ->name('sso.connection.destroy');
+    Route::patch('enforcement', [SsoConnectionController::class, 'enforcement'])
+        ->middleware('throttle:writes')
+        ->name('sso.connection.enforcement');
 });

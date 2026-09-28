@@ -26,3 +26,15 @@ export const SESSION_COOKIE = SESSION_COOKIE_SECURE
 export const MFA_CHALLENGE_COOKIE = SESSION_COOKIE_SECURE
   ? "__Host-workos-mfa"
   : "workos-mfa";
+
+/**
+ * The browser that started a single sign-on round trip (ADR 0052).
+ *
+ * Holds a random binding the API only knows the digest of, plus where to land
+ * afterwards. `SameSite=Lax` on purpose: it is NOT sent with the identity
+ * provider's cross-site POST, and it IS sent with the same-site redirect that
+ * follows — which is exactly the step that has to prove it is the same browser.
+ */
+export const SSO_BINDING_COOKIE = SESSION_COOKIE_SECURE
+  ? "__Host-workos-sso"
+  : "workos-sso";

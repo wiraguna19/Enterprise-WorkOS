@@ -46,9 +46,19 @@ export function LoginForm({ next }: { next: string }) {
 
       <Submit />
 
-      <p className="pt-2 text-caption text-n-500">
+      <p className="flex justify-between gap-4 pt-2 text-caption text-n-500">
         <a href="/forgot-password" className="text-a-500 hover:text-a-700 hover:underline">
           Forgot your password?
+        </a>
+        {/* A link, not a second button on this form: single sign-on asks for
+            an address and nothing else, and a password typed on the way
+            there would go nowhere (ADR 0052). The destination travels with
+            it, so an SSO sign-in lands where a password one would. */}
+        <a
+          href={next === "/" ? "/login/sso" : `/login/sso?next=${encodeURIComponent(next)}`}
+          className="text-a-500 hover:text-a-700 hover:underline"
+        >
+          Sign in with single sign-on
         </a>
       </p>
     </form>

@@ -7,6 +7,7 @@ namespace App\Modules\Identity\Application\Service;
 use App\Modules\Governance\Application\Service\AuditLogger;
 use App\Modules\Identity\Domain\Exception\InvalidCredentials;
 use App\Modules\Identity\Domain\Exception\MultiFactorRefused;
+use App\Modules\Identity\Domain\Exception\SingleSignOnRefused;
 use App\Modules\Identity\Domain\Support\Totp;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
@@ -59,6 +60,8 @@ final class MultiFactor
      */
     public function begin(UserModel $user, Request $request): array
     {
+        $this->refuseFromSingleSignOn($user);
+
         if ($user->hasMfaEnabled()) {
             throw new MultiFactorRefused(
                 'Two-factor authentication is already on for this account.',
@@ -103,6 +106,8 @@ final class MultiFactor
      */
     public function confirm(UserModel $user, string $code, Request $request): array
     {
+        $this->refuseFromSingleSignOn($user);
+
         if ($user->hasMfaEnabled()) {
             throw new MultiFactorRefused(
                 'Two-factor authentication is already on for this account.',
@@ -457,5 +462,25 @@ final class MultiFactor
         }
 
         return Crypt::decryptString($user->mfa_secret_encrypted);
+    }
+
+    /**
+     * The account's own second factor is changed only by a session the
+     * account's own credentials opened (ADR 0052).
+     *
+     * An identity provider vouches for somebody in ONE organization. If its
+     * session could enrol a factor on the account, a misconfigured — or
+     * malicious — IdP could put its own authenticator on the account of a
+     * person who also works elsewhere, and hold their password sign-in
+     * hostage. Turning a factor off and new recovery codes already ask for the
+     * password, so only the two steps of enrolment need saying.
+     */
+    private function refuseFromSingleSignOn(UserModel $user): void
+    {
+        $session = $user->currentAccessToken();
+
+        if ($session instanceof SessionModel && $session->isSingleSignOn()) {
+            throw SingleSignOnRefused::sessionBound('change your two-factor settings');
+        }
     }
 }

@@ -18,7 +18,13 @@ import { SESSION_COOKIE } from "@/lib/session-cookie";
  * the link as a stranger. The other three were always public for the same
  * reason: they are the ways IN.
  */
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/invite"];
+/**
+ * `/api/auth/sso` for single sign-on (ADR 0052): the identity provider posts
+ * its answer there from a browser that has no session yet — getting one is
+ * what the answer is for — and an IdP importing this product's metadata has
+ * no session at all.
+ */
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/invite", "/api/auth/sso"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

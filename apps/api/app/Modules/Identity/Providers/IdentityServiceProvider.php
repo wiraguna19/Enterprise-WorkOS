@@ -9,6 +9,7 @@ use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Http\Middleware\ResolveTenant;
 use App\Modules\Identity\Infrastructure\Console\PruneExpiredSessions;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
+use App\Modules\Identity\Infrastructure\Saml\SamlToolkit;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Http\Request;
@@ -28,6 +29,15 @@ final class IdentityServiceProvider extends ServiceProvider
         // membership row gets read five times in one request (docs/11 §3).
         $this->app->scoped(ActingMembership::class);
         $this->app->scoped(PermissionResolver::class);
+
+        // The service provider's URLs are the WEB application's — the browser
+        // posts the IdP's answer there, and the session cookie is set there
+        // (ADR 0052). Laravel's `app.frontend_url` is FRONTEND_URL, which the
+        // invitation links already use.
+        $this->app->singleton(
+            SamlToolkit::class,
+            fn (): SamlToolkit => new SamlToolkit((string) config('app.frontend_url', 'http://localhost:3000')),
+        );
     }
 
     public function boot(): void
@@ -96,6 +106,14 @@ final class IdentityServiceProvider extends ServiceProvider
             Limit::perMinutes(15, 10)->by($request->ip().'|'.$request->route('token')),
             Limit::perMinutes(15, 30)->by((string) $request->ip()),
         ]);
+
+        /*
+         * The IdP's answer and the step after it carry no email to key on,
+         * like an invitation. Each pending round trip is single-use, so these
+         * guard against a flood rather than a guess — the random values being
+         * guessed are 48 characters long.
+         */
+        RateLimiter::for('sso', fn (Request $request) => Limit::perMinutes(15, 60)->by((string) $request->ip()));
 
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(300)
             ->by($request->user()?->getAuthIdentifier() ?? $request->ip()));

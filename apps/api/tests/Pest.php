@@ -259,6 +259,19 @@ function minimalRowFor(string $table, string $organizationId): array
             'url' => 'https://example.invalid/probe',
             'secret_encrypted' => 'probe',
         ],
+        // A certificate column only has to be non-empty — nothing verifies a
+        // probe — and the SSO URL must be https, per ck_ssoc_https.
+        'sso_connections' => $base + [
+            'idp_entity_id' => 'https://idp.example.invalid/'.substr($id, 0, 8),
+            'idp_sso_url' => 'https://idp.example.invalid/sso',
+            'idp_certificate' => 'probe',
+        ],
+        // Unique across EVERY organization (uq_ssod_domain), so named after
+        // its own id; lower-case and dotted, per ck_ssod_domain.
+        'sso_domains' => $base + [
+            'connection_id' => probeSsoConnectionIn($organizationId),
+            'domain' => 'probe-'.substr($id, 0, 8).'.example',
+        ],
         'webhook_deliveries' => $base + [
             'endpoint_id' => probeWebhookEndpointIn($organizationId),
             'event' => 'ping',
@@ -309,6 +322,34 @@ function probeWebhookEndpointIn(string $organizationId): string
         'name' => 'Probe endpoint '.substr($id, 0, 8),
         'url' => 'https://example.invalid/probe',
         'secret_encrypted' => 'probe',
+    ]);
+
+    return $id;
+}
+
+/**
+ * An identity provider connection for a domain probe to belong to.
+ *
+ * One per organization (uq_ssoc_one_per_organization), so the one that exists
+ * is reused — inside a single test, which is the only lifetime that matters
+ * under RefreshDatabase.
+ */
+function probeSsoConnectionIn(string $organizationId): string
+{
+    $existing = DB::table('sso_connections')->where('organization_id', $organizationId)->value('id');
+
+    if (is_string($existing)) {
+        return $existing;
+    }
+
+    $id = (string) new UuidV7;
+
+    DB::table('sso_connections')->insert([
+        'id' => $id,
+        'organization_id' => $organizationId,
+        'idp_entity_id' => 'https://idp.example.invalid/'.substr($id, 0, 8),
+        'idp_sso_url' => 'https://idp.example.invalid/sso',
+        'idp_certificate' => 'probe',
     ]);
 
     return $id;

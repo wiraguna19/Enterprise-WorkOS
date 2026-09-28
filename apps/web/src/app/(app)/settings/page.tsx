@@ -49,6 +49,12 @@ const SECTIONS: Array<{
     description: "Let a script or an integration act as you, without your password.",
   },
   {
+    href: "/settings/sso",
+    label: "Single sign-on",
+    description: "The identity provider your people sign in through, and whether passwords still work.",
+    permission: "sso.manage",
+  },
+  {
     href: "/settings/roles",
     label: "Roles",
     description: "What each role may do, and the ones you write yourself.",

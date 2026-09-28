@@ -7,6 +7,7 @@ namespace App\Modules\Identity\Application\Service;
 use App\Modules\Governance\Application\Service\AuditLogger;
 use App\Modules\Identity\Domain\Exception\InvalidCredentials;
 use App\Modules\Identity\Domain\Exception\NoActiveMembership;
+use App\Modules\Identity\Domain\Exception\SingleSignOnRefused;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
@@ -29,6 +30,8 @@ final class AuthenticationService
         private readonly AuditLogger $audit,
         private readonly TenantContext $tenant,
         private readonly SessionLifetime $lifetime,
+        private readonly SsoConnections $sso,
+        private readonly PermissionResolver $permissions,
     ) {}
 
     /**
@@ -74,7 +77,7 @@ final class AuthenticationService
             throw new InvalidCredentials('These credentials do not match our records.');
         }
 
-        $membership = $this->resolveMembership($user, $organizationId);
+        $membership = $this->membershipForPassword($user, $organizationId, $email, $request);
 
         // A second factor stops here: the password was right, and that is not
         // yet a session (ADR 0030). What crosses back is a short-lived
@@ -181,6 +184,10 @@ final class AuthenticationService
         // the re-authentication window stays shut, and the audit entry says
         // what happened instead of calling it a login.
         ?string $switchedFrom = null,
+        // How the person proved who they are: 'password', or 'sso' when the
+        // organization's identity provider vouched for them (ADR 0052). Kept
+        // on the row because three rules read it for as long as it lives.
+        string $authenticatedBy = 'password',
     ): array {
         // Read BEFORE the transaction and BEFORE the tenant resolver: how long
         // this session may live belongs to the organization being signed in to
@@ -188,7 +195,7 @@ final class AuthenticationService
         // and were the same for every tenant in the product.
         $lifetimeDays = $this->lifetime->daysFor((string) $membership->organization_id);
 
-        return DB::transaction(function () use ($user, $membership, $request, $lifetimeDays, $viaMfa, $switchedFrom): array {
+        return DB::transaction(function () use ($user, $membership, $request, $lifetimeDays, $viaMfa, $switchedFrom, $authenticatedBy): array {
             $plainSecret = Str::random(48);
 
             $session = new SessionModel;
@@ -208,6 +215,7 @@ final class AuthenticationService
                 // nobody typed anything, and a window opened by a click would
                 // let a borrowed laptop erase somebody in the second tenant.
                 'reauthenticated_at' => $switchedFrom === null ? now() : null,
+                'authenticated_by' => $authenticatedBy,
                 'created_at' => now(),
             ])->save();
 
@@ -223,12 +231,13 @@ final class AuthenticationService
             // was invisible to the organization it was a login to.
             $this->tenant->runFor(
                 (string) $membership->organization_id,
-                function () use ($session, $lifetimeDays, $viaMfa, $switchedFrom, $request, $user): void {
+                function () use ($session, $lifetimeDays, $viaMfa, $switchedFrom, $authenticatedBy, $request, $user): void {
                     if ($switchedFrom === null) {
                         $this->audit->record('auth.login', [
                             'session_id' => $session->getKey(),
                             'session_lifetime_days' => $lifetimeDays,
                             'second_factor' => $viaMfa,
+                            'authenticated_by' => $authenticatedBy,
                         ], $request, actorUserId: (string) $user->getKey());
 
                         return;
@@ -262,8 +271,14 @@ final class AuthenticationService
      *
      * @return list<array{id: string, name: string, slug: string, current: bool}>
      */
-    public function organizationsFor(UserModel $user, ?string $currentOrganizationId): array
-    {
+    public function organizationsFor(
+        UserModel $user,
+        ?string $currentOrganizationId,
+        // A session an organization's IdP vouched for can go nowhere else
+        // (ADR 0052), so the switcher is shown only where it stands — the menu
+        // then has no "Switch to" section, which is the honest interface.
+        bool $currentOnly = false,
+    ): array {
         // Across tenants by definition — the whole point is the OTHER
         // organizations — so it says so, through platform mode. With Row-Level
         // Security on, a query run as the bound tenant would see one membership
@@ -271,13 +286,21 @@ final class AuthenticationService
         /** @var Collection<int, object{id: string, name: string, slug: string}> $rows */
         $rows = $this->tenant->runAsPlatform(
             'list the organizations a person belongs to',
-            fn (): Collection => DB::table('memberships')
-                ->join('organizations', 'organizations.id', '=', 'memberships.organization_id')
-                ->where('memberships.user_id', $user->getKey())
-                ->where('memberships.status', 'active')
-                ->whereNull('memberships.revoked_at')
-                ->orderBy('organizations.name')
-                ->get(['organizations.id', 'organizations.name', 'organizations.slug']),
+            function () use ($user, $currentOnly, $currentOrganizationId): Collection {
+                $query = DB::table('memberships')
+                    ->join('organizations', 'organizations.id', '=', 'memberships.organization_id')
+                    ->where('memberships.user_id', $user->getKey())
+                    ->where('memberships.status', 'active')
+                    ->whereNull('memberships.revoked_at');
+
+                if ($currentOnly) {
+                    $query->where('memberships.organization_id', $currentOrganizationId);
+                }
+
+                return $query
+                    ->orderBy('organizations.name')
+                    ->get(['organizations.id', 'organizations.name', 'organizations.slug']);
+            },
         );
 
         $out = [];
@@ -317,6 +340,13 @@ final class AuthenticationService
         string $organizationId,
         Request $request,
     ): array {
+        // An identity provider vouches for one organization's people in that
+        // organization. Letting its session hop would let Acme's IdP sign
+        // somebody into Globex, which never agreed to trust it (ADR 0052).
+        if ($current->isSingleSignOn()) {
+            throw SingleSignOnRefused::sessionBound('reach another organization');
+        }
+
         if (! Str::isUuid($organizationId)) {
             throw new NoActiveMembership('You do not belong to that organization.');
         }
@@ -330,6 +360,14 @@ final class AuthenticationService
             'switch organization',
             fn (): MembershipModel => $this->resolveMembership($user, $organizationId),
         );
+
+        // A switch is a password session arriving somewhere new, so it answers
+        // to the same rule a password sign-in there would (ADR 0052): an
+        // organization that requires single sign-on is entered through its
+        // IdP, not through a door opened by another organization's password.
+        if (! $this->passwordMayEnter($membership, $request)) {
+            throw SingleSignOnRefused::required();
+        }
 
         $result = $this->issueSession(
             $user,
@@ -425,6 +463,102 @@ final class AuthenticationService
         ], $request);
 
         return $count;
+    }
+
+    /**
+     * This person's active membership in one organization, before any tenant
+     * is bound — for a sign-in that already knows where it is going (SSO).
+     */
+    public function membershipIn(UserModel $user, string $organizationId): MembershipModel
+    {
+        return $this->resolveMembership($user, $organizationId);
+    }
+
+    /**
+     * Where a correct password may take this person (ADR 0052).
+     *
+     * Oldest membership first, as before — but an organization that requires
+     * single sign-on is skipped rather than chosen, so somebody who belongs to
+     * one that does and one that does not lands in the one a password opens.
+     * Only when every candidate refuses is the sign-in refused, and then with
+     * the reason, because the password WAS right: the constant-time, same-
+     * answer rule protects the password check, and that has already passed.
+     */
+    private function membershipForPassword(
+        UserModel $user,
+        ?string $organizationId,
+        string $email,
+        Request $request,
+    ): MembershipModel {
+        $query = MembershipModel::query()
+            ->withoutGlobalScopes() // pre-tenant: this call is what CHOOSES the tenant
+            ->where('user_id', $user->getKey())
+            ->where('status', 'active')
+            ->whereNull('revoked_at');
+
+        if ($organizationId !== null) {
+            $query->where('organization_id', $organizationId);
+        }
+
+        $candidates = $query->orderBy('joined_at')->get();
+
+        if ($candidates->isEmpty()) {
+            throw new NoActiveMembership('You do not have access to any organization.');
+        }
+
+        foreach ($candidates as $membership) {
+            if ($this->passwordMayEnter($membership, $request)) {
+                return $membership;
+            }
+        }
+
+        $this->audit->record('auth.login_failed', [
+            'email' => $email,
+            'reason' => 'sso_required',
+        ], $request, actorUserId: (string) $user->getKey());
+
+        throw SingleSignOnRefused::required();
+    }
+
+    /**
+     * May a password open this membership's organization?
+     *
+     * Yes unless it requires single sign-on — and then still yes for the people
+     * who administer the connection. That is the break-glass: an IdP that is
+     * down, or a certificate pasted wrong, must not lock out the only people
+     * who can fix it. Recorded every time it is used, in that organization's
+     * audit log, because a break-glass nobody can see being broken is a back
+     * door.
+     *
+     * Read in platform mode: a switch asks this about ANOTHER organization
+     * while a tenant is bound, and under Row-Level Security the bound tenant
+     * cannot see the other one's connection or grants (ADR 0051).
+     */
+    private function passwordMayEnter(MembershipModel $membership, Request $request): bool
+    {
+        $organizationId = (string) $membership->organization_id;
+
+        return $this->tenant->runAsPlatform(
+            'decide whether a password may enter an organization',
+            function () use ($membership, $organizationId, $request): bool {
+                if (! $this->sso->enforcedFor($organizationId)) {
+                    return true;
+                }
+
+                if (! $this->permissions->has($membership, 'sso.manage')) {
+                    return false;
+                }
+
+                $this->tenant->runFor(
+                    $organizationId,
+                    fn () => $this->audit->record('auth.sso_bypassed', [
+                        'membership_id' => (string) $membership->getKey(),
+                    ], $request, actorUserId: (string) $membership->user_id),
+                );
+
+                return true;
+            },
+        );
     }
 
     private function resolveMembership(UserModel $user, ?string $organizationId): MembershipModel

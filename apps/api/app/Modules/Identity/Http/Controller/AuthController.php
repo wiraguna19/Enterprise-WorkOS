@@ -181,7 +181,11 @@ final class AuthController extends ApiController
         /** @var SessionModel $session */
         $session = $user->currentAccessToken();
 
-        return $this->ok($this->auth->organizationsFor($user, $session->organization_id));
+        return $this->ok($this->auth->organizationsFor(
+            $user,
+            $session->organization_id,
+            currentOnly: $session->isSingleSignOn(),
+        ));
     }
 
     /**

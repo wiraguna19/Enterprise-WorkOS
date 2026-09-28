@@ -69,6 +69,12 @@
              runs. Tests that care about dispatch instead call Queue::fake(). -->
         <env name="QUEUE_CONNECTION" value="sync"/>
 
+        <!-- Pinned, not inherited from .env. A developer who switches
+             Row-Level Security on to try it (ADR 0051) must not change what the
+             suite means: RowLevelSecurityTest switches it on for itself, and
+             running EVERYTHING with it on is a separate, deliberate job. -->
+        <env name="TENANCY_ROW_LEVEL_SECURITY" value="false" force="true"/>
+
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>

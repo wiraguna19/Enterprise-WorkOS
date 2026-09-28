@@ -1,5 +1,10 @@
 import { cookies } from "next/headers";
-import { MFA_CHALLENGE_COOKIE, SESSION_COOKIE, SESSION_COOKIE_SECURE } from "./session-cookie";
+import {
+  MFA_CHALLENGE_COOKIE,
+  SESSION_COOKIE,
+  SESSION_COOKIE_SECURE,
+  SSO_BINDING_COOKIE,
+} from "./session-cookie";
 
 /**
  * The session token lives in an HttpOnly cookie set by THIS server and is
@@ -62,4 +67,54 @@ export async function getMfaChallenge(): Promise<string | null> {
 export async function clearMfaChallenge() {
   const store = await cookies();
   store.delete(MFA_CHALLENGE_COOKIE);
+}
+
+/**
+ * A single sign-on round trip in progress (ADR 0052): the binding this
+ * browser will have to show, and where it was going.
+ *
+ * Ten minutes, the API's own limit for time spent at the identity provider.
+ */
+export async function setSsoBinding(binding: string, next: string) {
+  const store = await cookies();
+
+  store.set(SSO_BINDING_COOKIE, JSON.stringify({ binding, next }), {
+    httpOnly: true,
+    secure: SESSION_COOKIE_SECURE,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+}
+
+export async function getSsoBinding(): Promise<{ binding: string; next: string } | null> {
+  const store = await cookies();
+  const raw = store.get(SSO_BINDING_COOKIE)?.value;
+
+  if (!raw) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "binding" in parsed &&
+      "next" in parsed &&
+      typeof parsed.binding === "string" &&
+      typeof parsed.next === "string"
+    ) {
+      return { binding: parsed.binding, next: parsed.next };
+    }
+  } catch {
+    // A cookie this app did not write, or one cut short. Either way it binds
+    // nothing, and the sign-in starts again.
+  }
+
+  return null;
+}
+
+export async function clearSsoBinding() {
+  const store = await cookies();
+  store.delete(SSO_BINDING_COOKIE);
 }

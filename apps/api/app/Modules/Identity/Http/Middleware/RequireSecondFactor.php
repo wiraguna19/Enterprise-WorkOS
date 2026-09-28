@@ -84,6 +84,14 @@ final class RequireSecondFactor
             return $next($request);
         }
 
+        // Signed in through the organization's identity provider: the second
+        // factor, if the organization wants one, is the IdP's to demand — and
+        // asking again here would make somebody enrol a TOTP app for a
+        // password they never use (ADR 0052).
+        if ($session->isSingleSignOn()) {
+            return $next($request);
+        }
+
         if (in_array((string) $request->route()?->getName(), self::ALLOWED, strict: true)) {
             return $next($request);
         }
