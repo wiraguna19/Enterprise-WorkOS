@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Domain\Tenancy;
 
+use App\Modules\Platform\Domain\Contract\TenantBoundary;
 use App\Modules\Platform\Domain\Exception\TenantContextMissing;
 use Illuminate\Support\Facades\Log;
 
@@ -28,6 +29,20 @@ final class TenantContext
     /** True while running deliberately outside any tenant (platform maintenance). */
     private bool $platformMode = false;
 
+    /**
+     * Told on every change of tenant (ADR 0051) — the database's Row-Level
+     * Security, when it is on. Optional, so a context built by hand in a unit
+     * test needs no database.
+     */
+    private ?TenantBoundary $boundary = null;
+
+    public function observeWith(TenantBoundary $boundary): void
+    {
+        $this->boundary = $boundary;
+
+        $this->announce();
+    }
+
     public function setFromSession(string $organizationId, string $membershipId, string $userId): void
     {
         if ($this->organizationId !== null && $this->organizationId !== $organizationId) {
@@ -38,6 +53,8 @@ final class TenantContext
         $this->organizationId = $organizationId;
         $this->membershipId = $membershipId;
         $this->userId = $userId;
+
+        $this->announce();
     }
 
     public function organizationId(): string
@@ -104,6 +121,7 @@ final class TenantContext
     {
         $previous = $this->platformMode;
         $this->platformMode = true;
+        $this->announce();
 
         Log::info('tenancy.platform_mode_entered', [
             'reason' => $reason,
@@ -114,6 +132,7 @@ final class TenantContext
             return $callback();
         } finally {
             $this->platformMode = $previous;
+            $this->announce();
         }
     }
 
@@ -132,12 +151,14 @@ final class TenantContext
 
         $this->organizationId = $organizationId;
         $this->membershipId = null;
+        $this->announce();
 
         try {
             return $callback();
         } finally {
             $this->organizationId = $previousOrg;
             $this->membershipId = $previousMembership;
+            $this->announce();
         }
     }
 
@@ -162,12 +183,14 @@ final class TenantContext
 
         $this->organizationId = $organizationId;
         $this->membershipId = $membershipId;
+        $this->announce();
 
         try {
             return $callback();
         } finally {
             $this->organizationId = $previousOrg;
             $this->membershipId = $previousMembership;
+            $this->announce();
         }
     }
 
@@ -178,5 +201,19 @@ final class TenantContext
         $this->membershipId = null;
         $this->userId = null;
         $this->platformMode = false;
+
+        $this->announce();
+    }
+
+    /**
+     * Tell the boundary which organization is in force now.
+     *
+     * Platform mode announces NO organization even when one is bound: crossing
+     * tenants is what platform mode is for, and a database still holding the
+     * bound tenant's policy would quietly defeat it.
+     */
+    private function announce(): void
+    {
+        $this->boundary?->enter($this->platformMode ? null : $this->organizationId);
     }
 }

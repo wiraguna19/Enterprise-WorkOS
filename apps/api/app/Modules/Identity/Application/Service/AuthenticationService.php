@@ -12,6 +12,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -263,13 +264,21 @@ final class AuthenticationService
      */
     public function organizationsFor(UserModel $user, ?string $currentOrganizationId): array
     {
-        $rows = DB::table('memberships')
-            ->join('organizations', 'organizations.id', '=', 'memberships.organization_id')
-            ->where('memberships.user_id', $user->getKey())
-            ->where('memberships.status', 'active')
-            ->whereNull('memberships.revoked_at')
-            ->orderBy('organizations.name')
-            ->get(['organizations.id', 'organizations.name', 'organizations.slug']);
+        // Across tenants by definition — the whole point is the OTHER
+        // organizations — so it says so, through platform mode. With Row-Level
+        // Security on, a query run as the bound tenant would see one membership
+        // and the switcher would quietly offer nowhere to go (ADR 0051).
+        /** @var Collection<int, object{id: string, name: string, slug: string}> $rows */
+        $rows = $this->tenant->runAsPlatform(
+            'list the organizations a person belongs to',
+            fn (): Collection => DB::table('memberships')
+                ->join('organizations', 'organizations.id', '=', 'memberships.organization_id')
+                ->where('memberships.user_id', $user->getKey())
+                ->where('memberships.status', 'active')
+                ->whereNull('memberships.revoked_at')
+                ->orderBy('organizations.name')
+                ->get(['organizations.id', 'organizations.name', 'organizations.slug']),
+        );
 
         $out = [];
 
@@ -312,7 +321,15 @@ final class AuthenticationService
             throw new NoActiveMembership('You do not belong to that organization.');
         }
 
-        $membership = $this->resolveMembership($user, $organizationId);
+        // The target membership belongs to ANOTHER tenant than the one this
+        // session is bound to, so it is read in platform mode — explicitly, and
+        // logged — rather than invisibly failing under Row-Level Security
+        // (ADR 0051). The lookup is still by this user AND that organization.
+        /** @var MembershipModel $membership */
+        $membership = $this->tenant->runAsPlatform(
+            'switch organization',
+            fn (): MembershipModel => $this->resolveMembership($user, $organizationId),
+        );
 
         $result = $this->issueSession(
             $user,
