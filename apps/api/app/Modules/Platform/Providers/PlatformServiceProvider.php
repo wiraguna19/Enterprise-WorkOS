@@ -7,6 +7,7 @@ namespace App\Modules\Platform\Providers;
 use App\Modules\Platform\Domain\Contract\RealtimePublisher;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Infrastructure\Database\PostgresRowLevelSecurity;
+use App\Modules\Platform\Infrastructure\Database\ReportingReplica;
 use App\Modules\Platform\Infrastructure\Realtime\BroadcastPublisher;
 use App\Modules\Platform\Infrastructure\Realtime\NullPublisher;
 use Illuminate\Contracts\Broadcasting\Factory as BroadcastFactory;
@@ -31,6 +32,11 @@ final class PlatformServiceProvider extends ServiceProvider
 
             return $context;
         });
+
+        // A `reporting` connection exists only when a replica host is
+        // configured (ADR 0053); without one, reports read the primary and
+        // nothing about this product changes.
+        ReportingReplica::defineConnection();
 
         // Real-time is off unless a broadcaster is configured. Binding on the
         // config rather than on the environment means a deployment can run with

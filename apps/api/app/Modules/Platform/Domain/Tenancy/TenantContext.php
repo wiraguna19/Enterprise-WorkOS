@@ -194,6 +194,19 @@ final class TenantContext
         }
     }
 
+    /**
+     * Tell the boundary again, unchanged — after the default database
+     * connection has moved (ADR 0053).
+     *
+     * Row-Level Security lives in a database SESSION, and a second connection
+     * — the reporting replica — is a second session that has heard nothing.
+     * The tenant has not changed, so nothing else here does.
+     */
+    public function reassert(): void
+    {
+        $this->announce();
+    }
+
     /** Test-support only: clear the context between test cases. */
     public function reset(): void
     {

@@ -9,6 +9,7 @@ use App\Modules\Insights\Application\Report\ReportRegistry;
 use App\Modules\Insights\Application\Report\WriterRegistry;
 use App\Modules\Insights\Infrastructure\Eloquent\ReportExportModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
+use App\Modules\Platform\Infrastructure\Database\ReportingReplica;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -58,11 +59,13 @@ final class BuildReportExport implements ShouldQueue
         ReportRegistry $reports,
         WriterRegistry $writers,
         FileStorage $storage,
+        ReportingReplica $replica,
     ): void {
         $tenant->runForMembership($this->organizationId, $this->membershipId, function () use (
             $reports,
             $writers,
             $storage,
+            $replica,
         ): void {
             $export = ReportExportModel::query()->find($this->exportId);
 
@@ -75,7 +78,11 @@ final class BuildReportExport implements ShouldQueue
 
             try {
                 $builder = $reports->get($export->report_key);
-                $built = $builder->build($export->parameters);
+                // The build alone reads the replica (ADR 0053). The export row
+                // above and below is read and written on the primary: a replica
+                // refuses writes, and a status read from a lagging copy could
+                // say "pending" about a file that is already ready.
+                $built = $replica->run(fn () => $builder->build($export->parameters));
 
                 // The format the REQUEST asked for, resolved here rather than
                 // injected: one job builds every format, and a writer chosen at
