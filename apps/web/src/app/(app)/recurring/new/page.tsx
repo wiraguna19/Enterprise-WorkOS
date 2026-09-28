@@ -3,6 +3,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { NewRecurrenceForm } from "@/features/recurrence/NewRecurrenceForm";
 import type { Person } from "@/features/people/types";
+import type { WorkVocabulary } from "@/features/work-item/templates";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -26,9 +27,13 @@ export default async function NewRecurrencePage() {
     );
   }
 
-  const [projects, people] = await Promise.all([
+  const [projects, people, vocabulary] = await Promise.all([
     api<Project[]>("/projects?limit=100").then((r) => r.data).catch(() => [] as Project[]),
     api<Person[]>("/people?limit=100").then((r) => r.data).catch(() => [] as Person[]),
+    // Not caught: an empty priority list would read as a deliberate "Default
+    // only", and it would be an outage. The form kept its own copy of these
+    // four words until ADR 0047 served them.
+    api<WorkVocabulary>("/work-items/vocabulary").then((r) => r.data),
   ]);
 
   return (
@@ -48,6 +53,7 @@ export default async function NewRecurrencePage() {
           label: `${project.key} · ${project.name}`,
         }))}
         people={people.map((person) => ({ id: person.id, label: person.name }))}
+        priorities={vocabulary.priorities}
       />
     </div>
   );

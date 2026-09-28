@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
+import { humanize } from "@/features/work-item/templates";
 import { createRecurrence } from "./actions";
 import { describe, MAX_MONTH_DAY, toRrule, WEEKDAYS, type Frequency } from "./schedule";
 
@@ -30,9 +31,12 @@ type Option = { id: string; label: string };
 export function NewRecurrenceForm({
   projects,
   people,
+  priorities,
 }: {
   projects: Option[];
   people: Option[];
+  /** Served by `GET /work-items/vocabulary`, never written out here. */
+  priorities: string[];
 }) {
   const router = useRouter();
 
@@ -240,10 +244,11 @@ export function NewRecurrenceForm({
               className={INPUT}
             >
               <option value="">Default</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
+              {priorities.map((value) => (
+                <option key={value} value={value}>
+                  {humanize(value)}
+                </option>
+              ))}
             </select>
           </Field>
 

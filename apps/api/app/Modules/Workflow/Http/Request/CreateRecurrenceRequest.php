@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Workflow\Http\Request;
 
+use App\Modules\Work\Application\Service\WorkItemService;
+use App\Modules\Work\Domain\Exception\NoWorkflowForType;
+use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use RRule\RRule;
 use Throwable;
@@ -21,11 +25,6 @@ use Throwable;
  */
 final class CreateRecurrenceRequest extends FormRequest
 {
-    /** Types a recurrence may create — the same set work items allow. */
-    private const TYPES = [
-        'task', 'request', 'approval_work', 'incident', 'review', 'campaign', 'operational',
-    ];
-
     /** @return array<string, mixed> */
     public function rules(): array
     {
@@ -36,9 +35,12 @@ final class CreateRecurrenceRequest extends FormRequest
 
             'template' => ['required', 'array'],
             'template.title' => ['required', 'string', 'max:500'],
-            'template.type' => ['sometimes', 'string', 'in:'.implode(',', self::TYPES)],
+            // The model's own lists, not a copy. This request kept a private
+            // TYPES that happened to match; two lists that must agree
+            // eventually will not (ADR 0047).
+            'template.type' => ['sometimes', 'string', Rule::in(WorkItemModel::TYPES)],
             'template.project_id' => ['sometimes', 'nullable', 'uuid'],
-            'template.priority' => ['sometimes', 'string', 'in:low,medium,high,urgent'],
+            'template.priority' => ['sometimes', 'string', Rule::in(WorkItemModel::PRIORITIES)],
             'template.description' => ['sometimes', 'string', 'max:10000'],
             'template.estimate_hours' => ['sometimes', 'numeric', 'min:0', 'max:1000'],
 
@@ -53,6 +55,8 @@ final class CreateRecurrenceRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $this->refuseUnroutableType($validator);
+
             $rrule = $this->string('rrule')->toString();
 
             if ($rrule === '' || $validator->errors()->has('rrule')) {
@@ -76,6 +80,29 @@ final class CreateRecurrenceRequest extends FormRequest
                 $validator->errors()->add('rrule', 'That rule has no future occurrences.');
             }
         });
+    }
+
+    /**
+     * A type the schema allows is not a type the organization can route.
+     *
+     * Refused at the door, because the alternative is worse than a 422: the
+     * rule would be stored, and the first time it fired the materializer would
+     * fail to find a workflow and switch the recurrence off with the reason in
+     * a log line — at 03:00, where the person who set it up is not watching.
+     * The same sentence the create endpoint gives (ADR 0047).
+     */
+    private function refuseUnroutableType(Validator $validator): void
+    {
+        $type = $this->input('template.type');
+
+        if (! is_string($type) || $validator->errors()->has('template.type')) {
+            return;
+        }
+
+        if (! in_array($type, app(WorkItemService::class)->creatableTypes(), strict: true)) {
+            // The exception's sentence, not a second copy of it.
+            $validator->errors()->add('template.type', NoWorkflowForType::for($type)->getMessage());
+        }
     }
 
     public function startsAt(): DateTimeImmutable

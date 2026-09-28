@@ -234,6 +234,22 @@ it('refuses a rule with no future', function (): void {
         ])->assertStatus(422);
 });
 
+it('refuses a type no workflow routes, at the door and not at 03:00', function (): void {
+    // Acme routes `task` and `request` only. Stored, an incident rule would be
+    // switched off by the materializer the first time it fired, with the
+    // reason in a log line nobody reads (ADR 0047).
+    $details = $this->withToken($this->loginAs('ahmad@acme.test'))
+        ->postJson('/api/v1/recurrences', [
+            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
+            'template' => ['title' => 'Weekly incident drill', 'type' => 'incident'],
+        ])->assertStatus(422)
+        ->json('error.details');
+
+    // Read as an array: the key is the dotted field name, which a JSON path
+    // would split into two levels that do not exist.
+    expect($details['template.type'][0] ?? '')->toContain('no active workflow handles it');
+});
+
 it('stops a recurrence without erasing what it made', function (): void {
     $id = makeRecurrence();
 
