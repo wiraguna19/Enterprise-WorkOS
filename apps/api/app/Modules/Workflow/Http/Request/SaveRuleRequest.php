@@ -40,7 +40,12 @@ final class SaveRuleRequest extends FormRequest
 
         return [
             'name' => [$required, 'string', 'max:200'],
-            'description' => ['sometimes', 'string', 'max:1000'],
+            // Nullable, because the form calls it optional and Laravel turns
+            // the "" a blank input sends into null before any rule runs — so
+            // `string` alone refused every rule saved without a description.
+            // 500, because that is the column: the old 1000 let a 700-character
+            // description through the door and into a database error.
+            'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'trigger' => [$required, 'string', 'in:'.implode(',', WorkflowRuleModel::TRIGGERS)],
             'conditions' => ['sometimes', 'array'],
             'actions' => [$required, 'array', 'min:1'],

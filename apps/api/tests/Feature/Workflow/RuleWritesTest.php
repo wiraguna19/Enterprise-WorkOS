@@ -159,3 +159,29 @@ it('cannot reach another organization\'s rule', function (): void {
         ->patchJson("/api/v1/workflow-rules/{$globex->id}", ['is_active' => false])
         ->assertNotFound();
 });
+
+it('saves a rule with no description, the way the form sends one', function (): void {
+    // The form calls the description optional and sends "" when it is blank;
+    // Laravel turns that into null before validation. `string` alone refused
+    // it, so every rule saved without a description came back a 422 — found
+    // the first time somebody built a rule in the browser and left it empty.
+    $id = $this->withToken($this->admin)
+        ->postJson('/api/v1/workflow-rules', ['description' => ''] + $this->valid)
+        ->assertStatus(201)
+        ->json('data.id');
+
+    expect(DB::table('workflow_rules')->where('id', $id)->value('description'))->toBe('');
+
+    // And clearing one on edit stores '' — the column is NOT NULL.
+    $this->withToken($this->admin)
+        ->patchJson("/api/v1/workflow-rules/{$id}", ['description' => ''])
+        ->assertOk();
+
+    expect(DB::table('workflow_rules')->where('id', $id)->value('description'))->toBe('');
+});
+
+it('refuses a description longer than the column, instead of failing in the database', function (): void {
+    $this->withToken($this->admin)
+        ->postJson('/api/v1/workflow-rules', ['description' => str_repeat('a', 501)] + $this->valid)
+        ->assertStatus(422);
+});

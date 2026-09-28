@@ -188,6 +188,12 @@ final class WorkflowController extends ApiController
             }
         }
 
+        // The column is NOT NULL DEFAULT '': a cleared description is the empty
+        // string, never the null that a blank input arrives as.
+        if (array_key_exists('description', $changes) && $changes['description'] === null) {
+            $changes['description'] = '';
+        }
+
         $this->ruleEditor->update($rule, $changes);
 
         return $this->ok($this->presentRule($rule));
