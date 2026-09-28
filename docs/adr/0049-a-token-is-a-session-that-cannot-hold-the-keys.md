@@ -86,5 +86,5 @@ Still owed, named so it is not assumed:
   somebody's access by ending their membership, which ends their tokens too;
   there is no list of all tokens in the organization.
 - **Per-token rate limits.** Tokens share the API's existing throttles.
-- **The Signed in screen does not yet say** that "sign out everywhere else"
-  ends API tokens as well.
+- ~~**The Signed in screen does not yet say**~~ Paid: it says that ending the
+  other sessions ends API tokens as well.

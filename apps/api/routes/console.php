@@ -36,6 +36,14 @@ Schedule::command('workflow:materialize-recurrences')
     ->onOneServer()
     ->withoutOverlapping();
 
+// Webhook deliveries whose retry the queue lost (ADR 0048). Every five
+// minutes: a receiver waiting on an event should not wait an hour because a
+// worker restarted, and the sweep is one indexed read when nothing is lost.
+Schedule::command('workflow:nudge-webhook-deliveries')
+    ->everyFiveMinutes()
+    ->onOneServer()
+    ->withoutOverlapping();
+
 // The project directory's progress bar (docs/02 §5). Cached rather than
 // computed per row: the directory renders every project a person can see, and
 // a live percentage per row is one aggregate query per row.

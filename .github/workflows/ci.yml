@@ -188,3 +188,49 @@ jobs:
         with: { node-version: "22" }
       - run: npm audit --audit-level=high
         working-directory: apps/web
+
+  # The whole suite again, with the database enforcing tenancy (ADR 0051).
+  # Every other job runs with Row-Level Security off, because that is how most
+  # installations run; this one is what finds the next cross-tenant read that
+  # forgot to say so through runAsPlatform() — the application would have
+  # allowed it, the database refuses it, and a test goes red here and nowhere
+  # else. The CI database user is a superuser, which is what lets the app
+  # SET ROLE to workos_tenant.
+  api-tests-rls:
+    name: API — tests with Row-Level Security on
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workos
+          POSTGRES_PASSWORD: workos
+          POSTGRES_DB: workos_test
+        options: >-
+          --health-cmd "pg_isready -U workos"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["5432:5432"]
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, redis, intl, bcmath
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: apps/api
+      - run: cp .env.example .env && php artisan key:generate && php artisan migrate --force
+        working-directory: apps/api
+        env:
+          DB_DATABASE: workos_test
+      - run: vendor/bin/pest --parallel
+        working-directory: apps/api
+        env:
+          DB_DATABASE: workos_test
+          TENANCY_ROW_LEVEL_SECURITY: "true"

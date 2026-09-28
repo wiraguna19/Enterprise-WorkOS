@@ -46,7 +46,7 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
     <Panel
       id="sessions"
       title="Sessions"
-      description="Ending one signs that device out on its next request, not when its token expires."
+      description="Ending one signs that device out on its next request, not when its token expires. Ending the others also ends your API tokens — make new ones afterwards if a script still needs one."
       actions={
         others > 0 ? (
           <Button

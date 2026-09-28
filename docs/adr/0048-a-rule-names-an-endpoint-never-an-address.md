@@ -105,10 +105,10 @@ Still owed, and named so they are not assumed:
   yet subscribe to "every work item created" without a rule. That is the other
   half of "outbound integrations", and it will reuse the delivery machinery
   unchanged.
-- **No sweeper.** A retry is a delayed job; if the queue loses it, the row
-  stays `pending` with a past `next_attempt_at`. A scheduled sweep that
-  re-nudges due rows is a few lines on top of the claim — not written yet.
-  Dev runs no scheduler, so it would not help locally anyway.
+- ~~**No sweeper.**~~ Paid: `workflow:nudge-webhook-deliveries` runs every
+  five minutes and re-dispatches pending rows more than five minutes past due
+  (or never attempted). The job's lease makes a nudge that races a healthy
+  retry harmless. Dev runs no scheduler; run the command by hand there.
 - **Secret rotation has no overlap window.** The new secret signs immediately
   and the old one stops. Zero-downtime rotation needs a second column and a
   rule for when the old one dies.

@@ -12,6 +12,7 @@ use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use App\Modules\Workflow\Http\Policy\WorkflowPolicy;
 use App\Modules\Workflow\Http\Policy\WorkflowRulePolicy;
 use App\Modules\Workflow\Infrastructure\Console\MaterializeRecurrences;
+use App\Modules\Workflow\Infrastructure\Console\NudgeWebhookDeliveries;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
@@ -27,7 +28,7 @@ final class WorkflowServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([MaterializeRecurrences::class]);
+            $this->commands([MaterializeRecurrences::class, NudgeWebhookDeliveries::class]);
         }
 
         /*

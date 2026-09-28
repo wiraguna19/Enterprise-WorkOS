@@ -80,10 +80,11 @@ queried through it, and `EnsureLogPartitions` creates new ones monthly.
 
 Still owed:
 
-- **The whole suite has not been run with it on.** The guard and the targeted
-  tests run in every build; a second CI job with
-  `TENANCY_ROW_LEVEL_SECURITY=true` over the entire suite is what would find
-  the next cross-tenant read that forgot to say so.
+- ~~**The whole suite has not been run with it on.**~~ Paid: CI's
+  "tests with Row-Level Security on" job runs everything with
+  `TENANCY_ROW_LEVEL_SECURITY=true`. `phpunit.xml.dist` pins it off without
+  forcing it, so the shell — CI, or anybody reproducing a failure — can turn
+  it on and `.env` cannot.
 - **docs/02 §8 says the audit log is "write-restricted at the DB grant level".**
   It is protected by an append-only trigger; there is no grant restriction, and
   `workos_tenant` is granted UPDATE and DELETE on it like every other table.
