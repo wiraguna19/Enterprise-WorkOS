@@ -33,7 +33,7 @@ function writeTemplate(string $token, array $overrides = []): string
         ->postJson('/api/v1/work-item-templates', array_merge([
             'name' => 'Bug report '.now()->getTimestampMs(),
             'purpose' => 'Something is broken and somebody has to say how.',
-            'fields' => ['type' => 'incident', 'priority' => 'high', 'due_in_days' => 2],
+            'fields' => ['type' => 'task', 'priority' => 'high', 'due_in_days' => 2],
         ], $overrides))
         ->assertStatus(201)
         ->json('data.id');
@@ -146,7 +146,7 @@ it('refuses a second template with the same name, whatever its case', function (
     $this->withToken($this->admin)
         ->postJson('/api/v1/work-item-templates', [
             'name' => 'incident',
-            'fields' => ['type' => 'incident'],
+            'fields' => ['type' => 'task'],
         ])
         ->assertStatus(409)
         ->assertJsonPath('error.code', 'work_item_template.name_taken');
@@ -169,7 +169,7 @@ it('holds custom field answers only for fields that exist and accept them', func
 
     $id = writeTemplate($this->admin, [
         'name' => 'Sev template',
-        'fields' => ['type' => 'incident', 'custom_fields' => ['severity' => 'S2']],
+        'fields' => ['type' => 'task', 'custom_fields' => ['severity' => 'S2']],
     ]);
 
     $template = collect($this->withToken($this->employee)
@@ -200,19 +200,19 @@ it('holds custom field answers only for fields that exist and accept them', func
 
 it('replaces the prefill on save, so a cleared field stays cleared', function (): void {
     $id = writeTemplate($this->admin, [
-        'fields' => ['type' => 'incident', 'priority' => 'urgent'],
+        'fields' => ['type' => 'task', 'priority' => 'urgent'],
     ]);
 
     $this->withToken($this->admin)
         ->patchJson("/api/v1/work-item-templates/{$id}", [
-            'fields' => ['type' => 'incident'],
+            'fields' => ['type' => 'task'],
         ])
         ->assertOk();
 
     $fields = DB::table('work_item_templates')->where('id', $id)->value('fields');
 
     // toEqual, not toBe: jsonb does not keep key order.
-    expect(json_decode((string) $fields, true))->toEqual(['type' => 'incident']);
+    expect(json_decode((string) $fields, true))->toEqual(['type' => 'task']);
 });
 
 it('refuses a person on EDIT too, rather than dropping the key and answering 200', function (): void {
@@ -229,7 +229,7 @@ it('refuses a person on EDIT too, rather than dropping the key and answering 200
 it('deletes, and the audit log keeps what the template held', function (): void {
     $id = writeTemplate($this->admin, [
         'name' => 'Short-lived',
-        'fields' => ['type' => 'review', 'priority' => 'low'],
+        'fields' => ['type' => 'request', 'priority' => 'low'],
     ]);
 
     $this->withToken($this->admin)
@@ -248,7 +248,7 @@ it('deletes, and the audit log keeps what the template held', function (): void 
     $metadata = json_decode((string) $recorded, true);
 
     expect($metadata['name'])->toBe('Short-lived')
-        ->and($metadata['fields'])->toEqual(['type' => 'review', 'priority' => 'low']);
+        ->and($metadata['fields'])->toEqual(['type' => 'request', 'priority' => 'low']);
 });
 
 it('answers 404 for a template that does not exist', function (): void {
@@ -260,14 +260,39 @@ it('answers 404 for a template that does not exist', function (): void {
         ->assertJsonPath('error.code', 'work_item_template.unknown');
 });
 
-it('serves the vocabulary a form offers, from the model and not from a copy', function (): void {
+it('offers only the types a workflow can route, not every type the schema allows', function (): void {
     // `vocabulary` is registered before `work-items/{reference}`; after it, the
     // word would be read as a reference and answered with a 404.
+    //
+    // Acme's seed has a default workflow for `task` and `request` only. The
+    // form used to offer all seven types, and the other five failed as
+    // "Resource not found." — found the first time somebody created work from
+    // a template in the browser, not by any test.
     $this->withToken($this->viewer)
         ->getJson('/api/v1/work-items/vocabulary')
         ->assertOk()
         ->assertJsonPath('data.priorities', ['low', 'medium', 'high', 'urgent'])
-        ->assertJsonFragment(['types' => [
-            'task', 'request', 'approval_work', 'incident', 'review', 'campaign', 'operational',
-        ]]);
+        ->assertJsonPath('data.types', ['task', 'request']);
+});
+
+it('refuses work of a type no workflow routes BY NAME, not as a missing resource', function (): void {
+    $this->withToken($this->employee)
+        ->postJson('/api/v1/work-items', [
+            'title' => 'The server room is on fire',
+            'type' => 'incident',
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'work_item.no_workflow_for_type')
+        ->assertJsonPath('error.details.type', 'incident');
+});
+
+it('refuses a template whose type no workflow routes', function (): void {
+    // Stored, it would prefill a form that cannot be submitted.
+    $this->withToken($this->admin)
+        ->postJson('/api/v1/work-item-templates', [
+            'name' => 'Incident',
+            'fields' => ['type' => 'incident'],
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'work_item.no_workflow_for_type');
 });

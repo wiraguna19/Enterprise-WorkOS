@@ -6,6 +6,7 @@ namespace App\Modules\Work\Application\Service;
 
 use App\Modules\Governance\Application\Service\AuditLogger;
 use App\Modules\Governance\Application\Service\CustomFieldValues;
+use App\Modules\Work\Domain\Exception\NoWorkflowForType;
 use App\Modules\Work\Domain\Exception\WorkItemTemplateRefused;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemTemplateModel;
 use Illuminate\Database\QueryException;
@@ -71,6 +72,7 @@ final class WorkItemTemplates
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly CustomFieldValues $customFields,
+        private readonly WorkItemService $workItems,
     ) {}
 
     /**
@@ -227,6 +229,15 @@ final class WorkItemTemplates
 
         if ($shaped === []) {
             throw WorkItemTemplateRefused::empty();
+        }
+
+        // A type no workflow routes would prefill a form that cannot be
+        // submitted. Refused here with the same sentence the create endpoint
+        // gives, rather than stored and discovered by the person using it.
+        if (isset($shaped['type'])
+            && ! in_array($shaped['type'], $this->workItems->creatableTypes(), strict: true)
+        ) {
+            throw NoWorkflowForType::for((string) $shaped['type']);
         }
 
         return $shaped;

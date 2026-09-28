@@ -67,14 +67,23 @@ export function prefillFrom(
   liveFields: CustomFieldAnswer[],
   /** Today, as `YYYY-MM-DD`, decided by the caller so the form and the page agree. */
   today: string,
+  /** The types work can be created as today — `GET /work-items/vocabulary`. */
+  creatableTypes: string[],
 ): TemplatePrefill {
   const fields = template.fields;
   const { custom, skipped } = applicableAnswers(fields, liveFields);
 
+  // A type whose workflow was switched off after the template was written is
+  // skipped and named, like a retired field: prefilled, it would make the form
+  // unsubmittable for a reason the person cannot see.
+  const typeApplies = fields.type === undefined || creatableTypes.includes(fields.type);
+
+  if (!typeApplies && fields.type !== undefined) skipped.push(`type ${humanize(fields.type)}`);
+
   return {
     title: fields.title ?? "",
     description: fields.description ?? "",
-    type: fields.type ?? "",
+    type: typeApplies ? (fields.type ?? "") : "",
     priority: fields.priority ?? "",
     estimate: fields.estimate_hours === undefined ? "" : String(fields.estimate_hours),
     dueAt: fields.due_in_days === undefined ? "" : addDays(today, fields.due_in_days),

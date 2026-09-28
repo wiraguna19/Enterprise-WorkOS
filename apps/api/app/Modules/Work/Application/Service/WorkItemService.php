@@ -17,6 +17,7 @@ use App\Modules\Work\Domain\Event\WorkItemCreated;
 use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
 use App\Modules\Work\Domain\Exception\CannotCloseBlockedWorkItem;
 use App\Modules\Work\Domain\Exception\HierarchyTooDeep;
+use App\Modules\Work\Domain\Exception\NoWorkflowForType;
 use App\Modules\Work\Domain\Exception\WorkItemHierarchyCycle;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use App\Modules\Workflow\Application\Service\TransitionService;
@@ -520,11 +521,47 @@ final class WorkItemService
             }
         }
 
-        return WorkflowModel::query()
+        $workflow = WorkflowModel::query()
             ->where('applies_to_type', $type)
             ->where('is_default', true)
             ->where('is_active', true)
-            ->firstOrFail();
+            ->first();
+
+        // Named, not `firstOrFail()`. A missing workflow is not a missing
+        // resource the caller asked for — it is a type this organization
+        // cannot route yet — and "Resource not found." on a form whose every
+        // field is valid sent the person looking for the wrong thing.
+        if (! $workflow instanceof WorkflowModel) {
+            throw NoWorkflowForType::for($type);
+        }
+
+        return $workflow;
+    }
+
+    /**
+     * The types work can actually be created as, here, today.
+     *
+     * `WorkItemModel::TYPES` is what the schema allows; this is what the
+     * organization's workflows can ROUTE — a type with no active default
+     * workflow is refused by {@see resolveWorkflow()}. Forms offer this list,
+     * not the constant, or every type without a workflow is a choice whose
+     * only outcome is a refusal (ADR 0047). In the constant's order, so a
+     * select does not reshuffle when a workflow is added.
+     *
+     * @return list<string>
+     */
+    public function creatableTypes(): array
+    {
+        $routed = WorkflowModel::query()
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->pluck('applies_to_type')
+            ->all();
+
+        return array_values(array_filter(
+            WorkItemModel::TYPES,
+            static fn (string $type): bool => in_array($type, $routed, strict: true),
+        ));
     }
 
     /**

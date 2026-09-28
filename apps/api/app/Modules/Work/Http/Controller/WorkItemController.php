@@ -112,11 +112,17 @@ final class WorkItemController extends ApiController
      *
      * Behind `work_item.view` rather than `create`: these are the words every
      * list of work already prints, not a capability.
+     *
+     * `types` is the types work can be CREATED as here — those with an active
+     * default workflow — not every type the schema allows. The form used to
+     * offer all seven while Acme can route two, and the other five failed as
+     * "Resource not found." A choice whose only outcome is a refusal is the
+     * dead control this product keeps finding.
      */
     public function vocabulary(): ApiResponse
     {
         return ApiResponse::item([
-            'types' => WorkItemModel::TYPES,
+            'types' => $this->workItems->creatableTypes(),
             'priorities' => WorkItemModel::PRIORITIES,
         ]);
     }

@@ -135,7 +135,7 @@ export default async function NewWorkItemPage({
         template={
           chosen === undefined
             ? undefined
-            : { name: chosen.name, prefill: prefillFrom(chosen, customFields, today) }
+            : { name: chosen.name, prefill: prefillFrom(chosen, customFields, today, vocabulary.types) }
         }
       />
     </div>
