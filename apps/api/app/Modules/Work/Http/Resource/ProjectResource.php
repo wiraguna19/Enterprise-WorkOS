@@ -76,6 +76,7 @@ final class ProjectResource extends BaseResource
                 'delete' => 'delete',
                 'archive' => 'archive',
                 'manage_members' => 'manageMembers',
+                'manage_milestones' => 'manageMilestones',
                 'create_work' => 'createWork',
             ]),
         ];

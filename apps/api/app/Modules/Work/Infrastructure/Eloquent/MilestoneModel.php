@@ -25,6 +25,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $completed_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
+ * @property int|null $work_count only when counted (Milestones::of)
+ * @property int|null $open_work_count only when counted (Milestones::of)
  */
 final class MilestoneModel extends TenantModel
 {

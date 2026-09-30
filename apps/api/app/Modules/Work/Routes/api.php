@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Work\Http\Controller\ActivityController;
 use App\Modules\Work\Http\Controller\AssignmentController;
 use App\Modules\Work\Http\Controller\BulkWorkItemController;
+use App\Modules\Work\Http\Controller\MilestoneController;
 use App\Modules\Work\Http\Controller\MyTimeController;
 use App\Modules\Work\Http\Controller\MyWorkController;
 use App\Modules\Work\Http\Controller\ProjectController;
@@ -88,6 +89,19 @@ Route::post('projects/{key}/pin', [ProjectController::class, 'setPinned'])
 
 Route::get('projects/{key}/activity', [ActivityController::class, 'project'])
     ->middleware('permission:project.view');
+
+// Milestones (ADR 0056). Read since Phase 2 by project health and the
+// calendar, written by nothing until now. Same shape as members: guarded on
+// `project.view`, and the policy decides — a project's owner and managers may
+// keep its milestones without `milestone.manage` organization-wide.
+Route::get('projects/{key}/milestones', [MilestoneController::class, 'index'])
+    ->middleware('permission:project.view');
+Route::post('projects/{key}/milestones', [MilestoneController::class, 'store'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+Route::patch('projects/{key}/milestones/{id}', [MilestoneController::class, 'update'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
+Route::delete('projects/{key}/milestones/{id}', [MilestoneController::class, 'destroy'])
+    ->middleware(['permission:project.view', 'throttle:writes']);
 
 Route::get('projects/{key}/members', [ProjectController::class, 'members'])
     ->middleware('permission:project.view');

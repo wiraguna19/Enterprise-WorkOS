@@ -5,6 +5,8 @@ import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
 import { HealthSignals, StatusDot } from "@/features/insights/HealthSignals";
+import { Milestones } from "@/features/project/Milestones";
+import type { Milestone } from "@/features/project/actions";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { Health } from "@/features/insights/types";
 import type { Project } from "@/features/work-item/types";
@@ -29,17 +31,19 @@ export default async function ProjectOverviewPage({
 }: {
   params: Promise<{ key: string }>;
 }) {
-  const [, { key }] = await Promise.all([requireUser(), params]);
+  const [me, { key }] = await Promise.all([requireUser(), params]);
 
   let project: Project;
   let health: Health;
+  let milestones: Milestone[];
 
   try {
     // In parallel: the header and the signals are two reads of the same page,
     // and doing them in sequence would double the time to first paint.
-    [{ data: project }, { data: health }] = await Promise.all([
+    [{ data: project }, { data: health }, { data: milestones }] = await Promise.all([
       api<Project>(`/projects/${key}`),
       api<Health>(`/insights/projects/${key}/health`),
+      api<Milestone[]>(`/projects/${key}/milestones`),
     ]);
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 404) notFound();
@@ -107,6 +111,15 @@ export default async function ProjectOverviewPage({
         >
           <HealthSignals health={health} projectKey={project.key} />
         </Panel>
+
+        <Milestones
+          projectKey={project.key}
+          milestones={milestones}
+          canManage={project.permissions.manage_milestones ?? false}
+          // The reader's own day: "past due" at 07:00 in Makassar is not
+          // decided by the server's UTC midnight.
+          today={new Intl.DateTimeFormat("en-CA", { timeZone: me.user.timezone }).format(new Date())}
+        />
       </PageBody>
     </div>
   );

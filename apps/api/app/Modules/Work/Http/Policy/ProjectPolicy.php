@@ -57,6 +57,18 @@ final class ProjectPolicy
         return $this->isOwnerOrManager($project) || $this->can('project.manage_members');
     }
 
+    /**
+     * Create, change and remove this project's milestones (ADR 0056).
+     *
+     * The project's own owner and managers may, like its members and its
+     * settings; otherwise `milestone.manage`, which the seed gives managers and
+     * which meant nothing until this route existed.
+     */
+    public function manageMilestones(UserModel $user, ProjectModel $project): bool
+    {
+        return $this->isOwnerOrManager($project) || $this->can('milestone.manage');
+    }
+
     public function createWork(UserModel $user, ProjectModel $project): bool
     {
         return $this->can('work_item.create');

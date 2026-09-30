@@ -229,3 +229,76 @@ export async function setProjectPinned(key: string, pinned: boolean): Promise<Pr
 
   return { error: null };
 }
+
+export type Milestone = {
+  id: string;
+  name: string;
+  description: string;
+  due_date: string | null;
+  status: "open" | "at_risk" | "completed" | "missed";
+  completed_at: string | null;
+  work_count: number | null;
+  open_work_count: number | null;
+};
+
+export type MilestoneChange = {
+  name?: string;
+  description?: string | null;
+  due_date?: string | null;
+  status?: Milestone["status"];
+};
+
+/**
+ * A project's milestones (ADR 0056).
+ *
+ * Read by project health and the calendar since Phase 2 and written by nothing,
+ * so every project outside the seed had "no milestones" — and health said
+ * "unknown" for it — however carefully somebody planned it.
+ */
+export async function createMilestone(
+  key: string,
+  input: { name: string; due_date: string | null },
+): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/milestones`, { method: "POST", body: input });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+  revalidatePath("/calendar");
+
+  return { error: null };
+}
+
+/** Only what changed is sent — the project's history names each field. */
+export async function updateMilestone(
+  key: string,
+  id: string,
+  changes: MilestoneChange,
+): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/milestones/${id}`, { method: "PATCH", body: changes });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+  revalidatePath("/calendar");
+
+  return { error: null };
+}
+
+/** The work it grouped stays, ungrouped — the API says how much in the history. */
+export async function deleteMilestone(key: string, id: string): Promise<ProjectResult> {
+  try {
+    await api(`/projects/${key}/milestones/${id}`, { method: "DELETE" });
+  } catch (error) {
+    return { error: describeApiError(error).error };
+  }
+
+  refreshProject(key);
+  revalidatePath("/calendar");
+
+  return { error: null };
+}

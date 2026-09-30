@@ -4,12 +4,12 @@ import { test, signedInPhone } from "./support/auth";
 
 /**
  * docs/11 §4, flow 3 — "Manager: create project → add members → create
- * milestone". The first two thirds; the third does not exist.
+ * milestone". All three, since ADR 0056 gave milestones a way in; until then
+ * this covered two thirds and said so.
  *
- * There is no way to make a milestone in the interface — no form, no Server
- * Action — and this spec does not pretend otherwise, the same way flow 2
- * covers the half of its own sentence that was built. When a milestone form
- * lands, this is where its steps go.
+ * The milestone is dated in the past on purpose: the one thing a milestone
+ * DOES in this product is feed the health signal above it, so the flow ends by
+ * checking that the signal it just fed has noticed.
  *
  * The project is stamped with the clock: data a flow creates has no delete,
  * and a fixed key passes once and collides forever after.
@@ -19,9 +19,10 @@ const SARAH = "sarah@acme.test";
 
 type Person = { id: string; name: string | null; email: string | null };
 type Member = { subject: string; membership_id: string | null; role: string };
+type Milestone = { id: string; name: string; due_date: string | null; status: string };
 
 test.describe("a manager's new project", () => {
-  test("is created from the directory, and somebody is given access to it", async ({
+  test("is created from the directory, somebody is given access, and it gets a milestone", async ({
     browser,
     viewport,
   }) => {
@@ -70,6 +71,37 @@ test.describe("a manager's new project", () => {
 
     // The creator owns it — the project is theirs from the moment it exists.
     expect(members.some((member) => member.role === "owner")).toBe(true);
+
+    // ── A milestone, from the overview ──────────────────────────────────────
+    await page
+      .getByRole("navigation", { name: "Project views" })
+      .getByRole("link", { name: "Overview", exact: true })
+      .click();
+
+    const milestones = page.getByRole("region", { name: "Milestones" });
+    const form = milestones.getByRole("form", { name: "New milestone" });
+    const due = daysAgo(2);
+
+    await form.getByLabel("Milestone").fill("Beta");
+    await form.getByLabel("Due").fill(due);
+    await form.getByRole("button", { name: "Add milestone" }).click();
+
+    // Past due, in words: that is what the health signal counts.
+    await expect(milestones.getByRole("listitem").filter({ hasText: "Beta" })).toContainText("past due");
+
+    const stored = await call<Milestone[]>(session, `/projects/${key}/milestones`);
+
+    expect(stored.map((m) => [m.name, m.due_date, m.status])).toEqual([["Beta", due, "open"]]);
+
+    const health = await call<{ signals: { milestones: { status: string } } }>(
+      session,
+      `/insights/projects/${key}/health`,
+    );
+
+    expect(
+      health.signals.milestones.status,
+      "The milestone exists and project health has not noticed it.",
+    ).toBe("at_risk");
   });
 });
 
@@ -80,4 +112,13 @@ async function personByEmail(session: Session, email: string): Promise<Person> {
   if (!person) throw new Error(`No seeded person with the email ${email}.`);
 
   return person;
+}
+
+/** A plain date N days ago, as an `<input type="date">` speaks it. */
+function daysAgo(days: number): string {
+  const date = new Date();
+
+  date.setDate(date.getDate() - days);
+
+  return date.toISOString().slice(0, 10);
 }

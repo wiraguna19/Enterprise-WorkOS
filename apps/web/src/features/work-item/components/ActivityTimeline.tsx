@@ -138,9 +138,29 @@ function describe(verb: string, changes: Record<string, unknown>): string {
     case "member_role_changed":
       return `changed a role${roleIn(changes)}`;
 
+    // Milestones (ADR 0056). The name travels in `milestone`, so the line
+    // reads without opening anything.
+    case "milestone_added":
+      return `added the milestone ${milestoneIn(changes, "to")}`;
+    case "milestone_updated": {
+      const fields = Object.fromEntries(Object.entries(changes).filter(([field]) => field !== "milestone"));
+
+      return `changed ${listFields(fields)} of ${milestoneIn(changes, "to")}`;
+    }
+    case "milestone_removed":
+      return `removed the milestone ${milestoneIn(changes, "from")}`;
+
     default:
       return verb.replace(/_/g, " ");
   }
+}
+
+/** The milestone's name, quoted, from whichever side of the change holds it. */
+function milestoneIn(changes: Record<string, unknown>, side: "from" | "to"): string {
+  const milestone = changes.milestone as { from?: string | null; to?: string | null } | undefined;
+  const name = milestone?.[side];
+
+  return name ? `“${name}”` : "";
 }
 
 /** " as manager", or nothing when the row does not say. */

@@ -72,7 +72,9 @@ const MEANING_OWED = [
     // Features whose tables shipped in Phase 2 and whose endpoints never did.
     // Listed separately from the ones above because the table existing is what
     // makes the permission look built.
-    'milestone.manage' => 'Milestones are read (project health, calendar) and cannot be created or changed through the API.',
+    // `milestone.manage` was here: milestones were read by project health and
+    // the calendar and could not be made. `/projects/{key}/milestones` pays it
+    // (ADR 0056).
     'tag.manage' => '`tags` exists since Phase 2 with no endpoint and no interface.',
     'saved_view.share' => '`saved_views` exists since Phase 2 with no endpoint and no interface.',
 

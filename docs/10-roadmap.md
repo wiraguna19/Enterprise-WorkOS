@@ -186,8 +186,10 @@ last entry is deliberately last.
 1  Bulk select          DELIVERED (ADR 0055): select rows on /work, assign
                         and set a due date together; docs/11 flow 11 covered.
                         Status, tag, delete and undo left out, reasons there
-2  Milestones UI        create and edit milestones from a project — the
-                        missing half of docs/11 flow 3
+2  Milestones UI        DELIVERED (ADR 0056): create, change and remove
+                        milestones on the project overview; docs/11 flow 3
+                        covered in full. Putting work INTO a milestone from
+                        the forms is still open
 3  Hardening            filter whitelist on every collection endpoint (docs/05
                         §4); axe-core assertions in the E2E flows (docs/11 §4);
                         session revocation in E2E flow 1
