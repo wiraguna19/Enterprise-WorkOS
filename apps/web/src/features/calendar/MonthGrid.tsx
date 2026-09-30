@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { clsx } from "@/lib/clsx";
+import { DayOverflow } from "./DayOverflow";
+import { EventChip } from "./EventChip";
 import type { CalendarEvent } from "./types";
 
 /**
@@ -11,9 +12,19 @@ import type { CalendarEvent } from "./types";
  *
  * Each cell shows at most three events and then a count. A cell that grows to
  * fit its contents makes every other row taller for one busy Tuesday, and a
- * calendar whose rows jump around is one nobody can scan.
+ * calendar whose rows jump around is one nobody can scan. The count opens the
+ * whole day (DayOverflow).
  */
 const MAX_PER_DAY = 3;
+
+/** A cell's date in words, for the day list's heading. The cells are UTC dates. */
+const DAY_LABEL = new Intl.DateTimeFormat("en-GB", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 export function MonthGrid({
   month,
@@ -111,9 +122,11 @@ export function MonthGrid({
                 </ul>
 
                 {dayEvents.length > MAX_PER_DAY && (
-                  <div className="mt-0.5 text-micro text-n-500">
-                    +{dayEvents.length - MAX_PER_DAY} more
-                  </div>
+                  <DayOverflow
+                    dayLabel={DAY_LABEL.format(date)}
+                    hidden={dayEvents.length - MAX_PER_DAY}
+                    events={dayEvents}
+                  />
                 )}
               </div>
             );
@@ -121,48 +134,5 @@ export function MonthGrid({
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * A projected occurrence is drawn as an outline, never filled.
- *
- * "This will appear on Monday" and "this exists and is due Monday" are
- * different facts, and a calendar that draws them identically teaches people to
- * distrust all of it (docs/10, Phase 5). It is also not a link: there is
- * nothing to open, because the work item does not exist yet.
- */
-function EventChip({ event }: { event: CalendarEvent }) {
-  const label = (
-    <span className="block truncate">
-      {event.reference && <span className="font-mono text-micro">{event.reference} </span>}
-      {event.title}
-    </span>
-  );
-
-  if (event.is_projected) {
-    return (
-      <span
-        title={`${event.title} — recurring, not created yet`}
-        className="block rounded-sm border border-dashed border-n-300 px-1 text-micro text-n-500"
-      >
-        {label}
-      </span>
-    );
-  }
-
-  if (event.type === "milestone") {
-    return (
-      <span className="block rounded-sm bg-s-active/10 px-1 text-micro text-n-700">{label}</span>
-    );
-  }
-
-  return (
-    <Link
-      href={`/work/${event.reference}`}
-      className="block rounded-sm bg-a-50 px-1 text-micro text-n-700 hover:bg-a-50 hover:text-a-700"
-    >
-      {label}
-    </Link>
   );
 }

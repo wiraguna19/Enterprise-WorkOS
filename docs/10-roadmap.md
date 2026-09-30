@@ -177,6 +177,40 @@ Scale             read replica routing for reports, search driver swap point,
 
 ---
 
+## After Phase 7 — the queue
+
+There are no Phases 8–10. What remains is worked through in this order; the
+last entry is deliberately last.
+
+```text
+1  Bulk select          select several items, assign and set a due date
+                        together — docs/11 flow 11 waits on it
+2  Milestones UI        create and edit milestones from a project — the
+                        missing half of docs/11 flow 3
+3  Hardening            filter whitelist on every collection endpoint (docs/05
+                        §4); axe-core assertions in the E2E flows (docs/11 §4);
+                        session revocation in E2E flow 1
+4  SSO follow-ups       DNS domain verification, ForceAuthn re-authentication,
+                        JIT / SCIM provisioning, single logout (ADR 0052)
+5  Replica follow-ups   a replica in docker-compose, replication-lag check
+                        (ADR 0053)
+6  Extensibility        webhook subscriptions per event type, service
+                        accounts, project-scoped templates, recurrences that
+                        start from a template
+7  Indonesian           a second interface language. `users.locale` already
+                        exists and is served; nothing reads it. next-intl on
+                        the web, a language choice under account settings,
+                        dates and numbers formatted by locale; one ADR first.
+                        Undecided: the web interface only, or API refusals,
+                        notifications and email as well (roughly double).
+                        Translate a screen completely or not at all — a
+                        half-translated screen is worse than either language.
+                        E2E users are pinned to `en`: the specs find controls
+                        by their English names.
+```
+
+---
+
 ## Sequencing rationale
 
 | Question | Answer |
