@@ -196,8 +196,10 @@ last entry is deliberately last.
                         over 16 screens, both viewports (e2e/accessibility),
                         which darkened three state colours and a calendar
                         label; session revocation in E2E flow 1
-4  SSO follow-ups       DNS domain verification, ForceAuthn re-authentication,
-                        JIT / SCIM provisioning, single logout (ADR 0052)
+4  SSO follow-ups       DEFERRED (2026-09-30, by decision — not forgotten):
+                        DNS domain verification, ForceAuthn re-authentication,
+                        JIT / SCIM provisioning, single logout (ADR 0052).
+                        Password sign-in is what the product runs on today
 5  Replica follow-ups   a replica in docker-compose, replication-lag check
                         (ADR 0053)
 6  Extensibility        webhook subscriptions per event type, service
