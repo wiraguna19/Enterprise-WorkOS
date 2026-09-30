@@ -11,6 +11,7 @@ use App\Modules\Workflow\Application\Service\Webhook\WebhookEndpoints;
 use App\Modules\Workflow\Infrastructure\Eloquent\WebhookDeliveryModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WebhookEndpointModel;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Administering where this organization's events may be sent (ADR 0048).
@@ -32,6 +33,10 @@ final class WebhookEndpointController extends ApiController
     {
         return ApiResponse::collection(
             $this->endpoints->all()->map($this->present(...))->all(),
+            // Served, not copied into the form: the list is the migration's
+            // CHECK and this class's constant, and a third copy in TypeScript
+            // is the one that would drift (ADR 0047's rule).
+            ['subscribable' => WebhookEndpoints::SUBSCRIBABLE],
         );
     }
 
@@ -44,9 +49,14 @@ final class WebhookEndpointController extends ApiController
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:80'],
             'url' => ['required', 'string', 'max:2000'],
+            'events' => ['sometimes', 'array'],
+            'events.*' => ['string', 'distinct', Rule::in(WebhookEndpoints::SUBSCRIBABLE)],
         ]);
 
-        [$endpoint, $secret] = $this->endpoints->register($validated['name'], $validated['url']);
+        /** @var list<string> $events */
+        $events = $validated['events'] ?? [];
+
+        [$endpoint, $secret] = $this->endpoints->register($validated['name'], $validated['url'], $events);
 
         return $this->created($this->present($endpoint) + ['secret' => $secret]);
     }
@@ -56,9 +66,12 @@ final class WebhookEndpointController extends ApiController
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:80'],
             'url' => ['sometimes', 'string', 'max:2000'],
+            // An empty list is a real answer: "rules only, no subscriptions".
+            'events' => ['sometimes', 'array'],
+            'events.*' => ['string', 'distinct', Rule::in(WebhookEndpoints::SUBSCRIBABLE)],
         ]);
 
-        /** @var array{name?: string, url?: string} $changes */
+        /** @var array{name?: string, url?: string, events?: list<string>} $changes */
         $changes = $validated;
 
         return $this->ok($this->present($this->endpoints->update($this->endpoints->find($id), $changes)));
@@ -127,6 +140,7 @@ final class WebhookEndpointController extends ApiController
             'disabled_reason' => $endpoint->disabled_reason,
             // Which rules would break if it went away — the answer the delete
             // refusal gives, available before anybody tries.
+            'events' => $endpoint->events,
             'rules' => $this->endpoints->rulesSendingTo($endpoint),
             'created_at' => $endpoint->created_at->toIso8601String(),
         ];

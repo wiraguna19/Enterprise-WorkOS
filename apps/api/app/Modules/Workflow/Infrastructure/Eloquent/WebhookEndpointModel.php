@@ -21,6 +21,7 @@ use Carbon\CarbonImmutable;
  * @property bool $is_active
  * @property int $failure_count
  * @property string|null $disabled_reason
+ * @property list<string> $events subscribed without a rule (ADR 0048)
  * @property string|null $created_by_membership_id
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
@@ -45,6 +46,7 @@ final class WebhookEndpointModel extends TenantModel
     {
         return [
             'is_active' => 'boolean',
+            'events' => 'array',
             'failure_count' => 'integer',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

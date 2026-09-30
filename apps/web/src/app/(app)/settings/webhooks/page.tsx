@@ -45,7 +45,11 @@ export default async function WebhooksPage({
   // somebody else's organization.
   if (!me.permissions.includes("webhook.manage")) notFound();
 
-  const endpoints = await api<WebhookEndpoint[]>("/webhook-endpoints").then((r) => r.data);
+  const { data: endpoints, meta } = await api<WebhookEndpoint[]>("/webhook-endpoints");
+  // Served by the API (ADR 0048): the events something in the product
+  // actually emits. An older API without it offers no subscriptions rather
+  // than a guessed list.
+  const subscribable = Array.isArray(meta?.subscribable) ? (meta.subscribable as string[]) : [];
   const selected = endpoints.find((endpoint) => endpoint.id === params.endpoint);
 
   const deliveries =
@@ -59,12 +63,16 @@ export default async function WebhooksPage({
     <div className="space-y-5">
       <PageHeader
         title="Webhooks"
-        description="Where automation rules may send this organization's events. Rules choose among these; they cannot add an address."
+        description="Where this organization's events may be sent — every time, by subscription, or when an automation rule says so. Rules choose among these; they cannot add an address."
       />
 
       <PageBody>
         <div className="space-y-4">
-          <WebhookEditor endpoints={endpoints} showingDeliveriesFor={selected?.id} />
+          <WebhookEditor
+            endpoints={endpoints}
+            subscribable={subscribable}
+            showingDeliveriesFor={selected?.id}
+          />
 
           {selected !== undefined && deliveries !== null && (
             <Panel

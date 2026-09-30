@@ -12,6 +12,11 @@ export type WebhookEndpoint = {
   failure_count: number;
   /** Why it switched itself off, when it did. */
   disabled_reason: string | null;
+  /**
+   * Events it receives every time, without a rule (ADR 0048) — from the list
+   * the API serves as `meta.subscribable`.
+   */
+  events: string[];
   /** The rules that send to it — the ones a delete would break. */
   rules: string[];
   created_at: string;
@@ -39,3 +44,14 @@ export const STATUS_WORDS: Record<DeliveryStatus, string> = {
   abandoned: "Every retry failed; it will not be sent again",
   refused: "Never sent — the endpoint was off, or its address is not allowed",
 };
+
+/** What an event is, in the words a person setting up a receiver would use. */
+export const EVENT_WORDS: Record<string, string> = {
+  "work_item.created": "Work created",
+  "work_item.assigned": "Work assigned",
+  "work_item.status_changed": "Status changed",
+};
+
+export function eventWords(event: string): string {
+  return EVENT_WORDS[event] ?? event;
+}

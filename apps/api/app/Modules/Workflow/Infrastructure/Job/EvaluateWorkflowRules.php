@@ -6,9 +6,11 @@ namespace App\Modules\Workflow\Infrastructure\Job;
 
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Workflow\Application\Service\RuleEngine;
+use App\Modules\Workflow\Application\Service\Webhook\WebhookSubscriptions;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Uid\UuidV7;
 
 /**
  * Rule evaluation, on the queue (docs/01 §4).
@@ -42,6 +44,9 @@ final class EvaluateWorkflowRules implements ShouldQueue
      */
     public int $timeout = 120;
 
+    /** This event's own id — see the constructor. */
+    private readonly string $eventId;
+
     /** @param array<string, mixed> $facts */
     public function __construct(
         private readonly string $organizationId,
@@ -53,11 +58,27 @@ final class EvaluateWorkflowRules implements ShouldQueue
         private readonly int $depth = 0,
     ) {
         $this->onQueue('default');
+
+        // Fixed when the event is queued, not when the job runs: a retry is
+        // the same event, and the subscription deliveries it writes are
+        // deduplicated by this id (WebhookSubscriptions).
+        $this->eventId = (string) new UuidV7;
     }
 
-    public function handle(TenantContext $tenant, RuleEngine $engine): void
+    public function handle(TenantContext $tenant, RuleEngine $engine, WebhookSubscriptions $subscriptions): void
     {
-        $tenant->runFor($this->organizationId, function () use ($engine): void {
+        $tenant->runFor($this->organizationId, function () use ($engine, $subscriptions): void {
+            // Subscribers first, and whatever the rules then do: a
+            // subscription is "every time", and a rule that fails must not
+            // take the subscribers' copy down with it.
+            $subscriptions->publish(
+                $this->trigger,
+                $this->subjectType,
+                $this->subjectId,
+                $this->facts,
+                $this->eventId,
+            );
+
             $results = $engine->dispatch(
                 trigger: $this->trigger,
                 subjectType: $this->subjectType,

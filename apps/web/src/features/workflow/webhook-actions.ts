@@ -23,13 +23,14 @@ function refresh(): void {
 export async function registerEndpoint(input: {
   name: string;
   url: string;
+  events: string[];
 }): Promise<EndpointResult & { secret?: string }> {
   let secret: string;
 
   try {
     const { data } = await api<{ secret: string }>("/webhook-endpoints", {
       method: "POST",
-      body: { name: input.name, url: input.url },
+      body: { name: input.name, url: input.url, events: input.events },
     });
 
     secret = data.secret;
@@ -44,12 +45,12 @@ export async function registerEndpoint(input: {
 
 export async function saveEndpoint(
   id: string,
-  input: { name: string; url: string },
+  input: { name: string; url: string; events: string[] },
 ): Promise<EndpointResult> {
   try {
     await api(`/webhook-endpoints/${id}`, {
       method: "PATCH",
-      body: { name: input.name, url: input.url },
+      body: { name: input.name, url: input.url, events: input.events },
     });
   } catch (error) {
     return { error: describeApiError(error).error };

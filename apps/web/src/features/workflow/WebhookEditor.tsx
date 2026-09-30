@@ -15,7 +15,7 @@ import {
   setEndpointActive,
   testEndpoint,
 } from "./webhook-actions";
-import { STATUS_WORDS, type WebhookEndpoint } from "./webhooks";
+import { STATUS_WORDS, eventWords, type WebhookEndpoint } from "./webhooks";
 
 /**
  * Where this organization's events may be sent (ADR 0048).
@@ -35,9 +35,12 @@ import { STATUS_WORDS, type WebhookEndpoint } from "./webhooks";
  */
 export function WebhookEditor({
   endpoints,
+  subscribable,
   showingDeliveriesFor,
 }: {
   endpoints: WebhookEndpoint[];
+  /** The events an endpoint may subscribe to, as the API serves them. */
+  subscribable: string[];
   /** The endpoint whose deliveries the page is listing, if any. */
   showingDeliveriesFor?: string;
 }) {
@@ -111,7 +114,16 @@ export function WebhookEditor({
                     )}
                   </Td>
                   <Td muted>
-                    {endpoint.rules.length === 0 ? "No rules" : endpoint.rules.join(", ")}
+                    {/* Both ways something reaches it, because both are what
+                        a switch-off or a delete would silence. */}
+                    <span className="block">
+                      {endpoint.rules.length === 0 ? "No rules" : `Rules: ${endpoint.rules.join(", ")}`}
+                    </span>
+                    <span className="block">
+                      {endpoint.events.length === 0
+                        ? "No subscriptions"
+                        : `Every: ${endpoint.events.map(eventWords).join(", ")}`}
+                    </span>
                   </Td>
                   <Td align="right">
                     <span className="inline-flex flex-wrap justify-end gap-1">
@@ -220,6 +232,7 @@ export function WebhookEditor({
             description="Changing the address keeps the secret. Rotating it is a separate control, so a receiver that moved does not also lose its key."
             submitLabel="Save"
             initial={endpoint}
+            subscribable={subscribable}
             busy={busy}
             onSubmit={(input) => run(() => saveEndpoint(endpoint.id, input), `${input.name} is saved.`)}
           />
@@ -232,6 +245,7 @@ export function WebhookEditor({
         title="Register an endpoint"
         description="An https address outside this network. Private, loopback and cloud-metadata addresses are refused — here, and again before every send."
         submitLabel="Register"
+        subscribable={subscribable}
         busy={busy}
         onSubmit={(input) =>
           start(async () => {
@@ -344,6 +358,7 @@ function EndpointForm({
   description,
   submitLabel,
   initial,
+  subscribable,
   busy,
   onSubmit,
 }: {
@@ -352,11 +367,13 @@ function EndpointForm({
   description: string;
   submitLabel: string;
   initial?: WebhookEndpoint;
+  subscribable: string[];
   busy: boolean;
-  onSubmit: (input: { name: string; url: string }) => void;
+  onSubmit: (input: { name: string; url: string; events: string[] }) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [url, setUrl] = useState(initial?.url ?? "");
+  const [events, setEvents] = useState<string[]>(initial?.events ?? []);
 
   const nameId = useId();
   const urlId = useId();
@@ -380,7 +397,7 @@ function EndpointForm({
             variant="primary"
             size="sm"
             disabled={busy || blocker !== null}
-            onClick={() => onSubmit({ name: name.trim(), url: url.trim() })}
+            onClick={() => onSubmit({ name: name.trim(), url: url.trim(), events })}
           >
             {busy ? "Saving…" : submitLabel}
           </Button>
@@ -416,6 +433,32 @@ function EndpointForm({
           />
         </Field>
       </div>
+
+      {subscribable.length > 0 && (
+        <fieldset className="mt-4 space-y-1.5">
+          <legend className="text-caption font-medium text-n-700">Send every time</legend>
+          <p className="text-caption text-n-500">
+            Without a rule: each of these is sent to this address whenever it happens. Rules can
+            still send here too, for the cases that need conditions.
+          </p>
+          {subscribable.map((event) => (
+            <label key={event} className="flex items-center gap-2 text-body-sm text-n-900">
+              <input
+                type="checkbox"
+                checked={events.includes(event)}
+                onChange={() =>
+                  setEvents((current) =>
+                    current.includes(event) ? current.filter((e) => e !== event) : [...current, event],
+                  )
+                }
+                className="size-4 accent-a-500"
+              />
+              {eventWords(event)}
+              <code className="font-mono text-micro text-n-500">{event}</code>
+            </label>
+          ))}
+        </fieldset>
+      )}
     </Panel>
   );
 }

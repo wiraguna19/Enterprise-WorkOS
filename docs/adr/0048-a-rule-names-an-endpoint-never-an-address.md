@@ -96,15 +96,29 @@ already takes with its dedupe seed.
   not offered it when no endpoint exists — a choice whose only outcome is a
   refusal.
 - Endpoints live in the Workflow module, beside the only thing that sends to
-  them. When subscriptions arrive (below), that is the moment to decide whether
-  they earn a module of their own.
+  them. Subscriptions arrived (below) and still live there: they are one more
+  way into the same delivery table, not a second system.
 
 Still owed, and named so they are not assumed:
 
-- **Event subscriptions.** An endpoint receives what rules send it; it cannot
-  yet subscribe to "every work item created" without a rule. That is the other
-  half of "outbound integrations", and it will reuse the delivery machinery
-  unchanged.
+- ~~**Event subscriptions.**~~ Paid 2026-09-30. `webhook_endpoints.events`
+  (jsonb, CHECKed against the catalogue) lists what an endpoint receives every
+  time, with no rule. `WebhookSubscriptions::publish()` runs in
+  `EvaluateWorkflowRules`, BEFORE the rules — a rule that fails must not take
+  the subscribers' copy down with it — and enqueues through the same
+  `WebhookDeliveries::enqueue()`: same signature, retries, sweeper, failure
+  count and deliveries list. The payload is a rule's shape with the event
+  named (`work_item.created` where a rule says `workflow.rule_matched`), and
+  the dedupe key is an id fixed when the job was QUEUED, so a retried job does
+  not deliver twice. The catalogue is served (`meta.subscribable`), not copied
+  into the form.
+
+  **Only three events can be subscribed to, because only three are emitted.**
+  `work_item.created`, `.assigned` and `.status_changed` are dispatched by
+  `DispatchRuleEvaluation`. The rule triggers `schedule.due_soon`,
+  `schedule.overdue` and `approval.decided` are ACCEPTED by the rule builder
+  and dispatched by nothing — a rule on them never runs. Found while choosing
+  this list; queued in docs/10 rather than fixed here.
 - ~~**No sweeper.**~~ Paid: `workflow:nudge-webhook-deliveries` runs every
   five minutes and re-dispatches pending rows more than five minutes past due
   (or never attempted). The job's lease makes a nudge that races a healthy

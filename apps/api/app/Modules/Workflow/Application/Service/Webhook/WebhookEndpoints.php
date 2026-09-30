@@ -27,11 +27,34 @@ use Symfony\Component\Uid\UuidV7;
  */
 final class WebhookEndpoints
 {
+    /**
+     * What an endpoint may subscribe to without a rule: the events the
+     * product actually emits (DispatchRuleEvaluation). The rule triggers
+     * `approval.decided` and `schedule.*` are accepted by the rule builder and
+     * dispatched by nothing, so they are not offered here — a subscription
+     * that can never be delivered is a promise, not a feature. The migration's
+     * CHECK holds the same three.
+     */
+    public const SUBSCRIBABLE = ['work_item.created', 'work_item.assigned', 'work_item.status_changed'];
+
     public function __construct(
         private readonly DestinationGuard $guard,
         private readonly AuditLogger $audit,
         private readonly TenantContext $tenant,
     ) {}
+
+    /**
+     * The active endpoints subscribed to an event.
+     *
+     * @return Collection<int, WebhookEndpointModel>
+     */
+    public function subscribedTo(string $event): Collection
+    {
+        return WebhookEndpointModel::query()
+            ->where('is_active', true)
+            ->whereJsonContains('events', $event)
+            ->get();
+    }
 
     /** @return Collection<int, WebhookEndpointModel> */
     public function all(): Collection
@@ -67,9 +90,10 @@ final class WebhookEndpoints
      * so a private address is refused while the person who typed it is still
      * looking at the form, not discovered as a string of refused deliveries.
      *
+     * @param  list<string>  $events  subscriptions, from SUBSCRIBABLE
      * @return array{0: WebhookEndpointModel, 1: string} the endpoint and its secret
      */
-    public function register(string $name, string $url): array
+    public function register(string $name, string $url, array $events = []): array
     {
         $this->guard->resolve($url);
 
@@ -81,12 +105,14 @@ final class WebhookEndpoints
         $endpoint->url = $url;
         $endpoint->secret_encrypted = Crypt::encryptString($secret);
         $endpoint->created_by_membership_id = $this->tenant->membershipId();
+        $endpoint->events = array_values(array_intersect(self::SUBSCRIBABLE, $events));
 
         $this->save($endpoint);
 
         $this->audit->record('webhook.endpoint_registered', [
             'name' => $endpoint->name,
             'host' => $this->hostOf($endpoint->url),
+            'events' => $endpoint->events,
         ], targetType: 'webhook_endpoint', targetId: $endpoint->id);
 
         return [$endpoint, $secret];
@@ -99,11 +125,11 @@ final class WebhookEndpoints
      * the address: the receiver behind the new URL is usually the same service
      * moved, and rotating is its own deliberate act with its own control.
      *
-     * @param  array{name?: string, url?: string}  $changes
+     * @param  array{name?: string, url?: string, events?: list<string>}  $changes
      */
     public function update(WebhookEndpointModel $endpoint, array $changes): WebhookEndpointModel
     {
-        $before = ['name' => $endpoint->name, 'host' => $this->hostOf($endpoint->url)];
+        $before = ['name' => $endpoint->name, 'host' => $this->hostOf($endpoint->url), 'events' => $endpoint->events];
 
         if (array_key_exists('url', $changes) && $changes['url'] !== $endpoint->url) {
             $this->guard->resolve($changes['url']);
@@ -114,11 +140,18 @@ final class WebhookEndpoints
             $endpoint->name = trim($changes['name']);
         }
 
+        if (array_key_exists('events', $changes)) {
+            // In the catalogue's order, once each: the list is a set, and a
+            // stored order that follows the form's would make two equal
+            // subscriptions look different in the audit entry.
+            $endpoint->events = array_values(array_intersect(self::SUBSCRIBABLE, $changes['events']));
+        }
+
         $this->save($endpoint);
 
         $this->audit->record('webhook.endpoint_updated', [
             'before' => $before,
-            'after' => ['name' => $endpoint->name, 'host' => $this->hostOf($endpoint->url)],
+            'after' => ['name' => $endpoint->name, 'host' => $this->hostOf($endpoint->url), 'events' => $endpoint->events],
         ], targetType: 'webhook_endpoint', targetId: $endpoint->id);
 
         return $endpoint;
