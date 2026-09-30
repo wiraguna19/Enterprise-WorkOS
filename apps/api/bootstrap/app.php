@@ -18,7 +18,9 @@ use App\Modules\Notification\Providers\NotificationServiceProvider;
 use App\Modules\Organization\Providers\OrganizationServiceProvider;
 use App\Modules\Platform\Domain\Exception\DomainException;
 use App\Modules\Platform\Http\ApiExceptionRenderer;
+use App\Modules\Platform\Http\Middleware\AnswersQuery;
 use App\Modules\Platform\Http\Middleware\AssignRequestId;
+use App\Modules\Platform\Http\Middleware\RefuseUnansweredQuery;
 use App\Modules\Platform\Providers\PlatformServiceProvider;
 use App\Modules\Search\Providers\SearchServiceProvider;
 use App\Modules\Work\Providers\WorkServiceProvider;
@@ -79,6 +81,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // After the two above, so a token of somebody who has lost their
             // membership, or who owes a second factor, is refused for THAT.
             LimitApiTokens::class,
+            // `filter`, `sort` and `include` are refused wherever a route has
+            // not said it answers them (docs/05 §4): an ignored filter is a
+            // 200 with the wrong list.
+            RefuseUnansweredQuery::class,
         ]);
 
         /*
@@ -130,6 +136,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // `permission:` ANDs its arguments; this one ORs them, for a route
             // two roles reach for two different reasons.
             'permission.any' => RequireAnyPermission::class,
+            // Marks a route that answers `filter`, `sort` or `include`
+            // (`answers:filter,sort`); read by RefuseUnansweredQuery.
+            'answers' => AnswersQuery::class,
         ]);
 
         // This is a stateless JSON API: there is no session cookie to protect

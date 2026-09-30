@@ -12,8 +12,9 @@ import { currentCounter, totp } from "./support/totp";
  * the code prompt, or turning a factor on and off would pass the whole suite.
  *
  * Lisa is used because nobody else signs in as her — this spec spends her five
- * attempts per quarter hour, not anybody else's. It spends three: a wrong
- * password, the password, and the password with a code. **Run it twice inside
+ * attempts per quarter hour, not anybody else's. It spends four: a wrong
+ * password, the password, the password with a code, and a second device for
+ * the revocation step. **Run it twice inside
  * fifteen minutes and the second run is refused at the form — that is docs/06
  * §1, not a failure.** Desktop only, for the same arithmetic: the phone project
  * would spend three more.
@@ -34,6 +35,7 @@ import { currentCounter, totp } from "./support/totp";
 const LISA = "lisa@acme.test";
 const PASSWORD = "password";
 const RINA = "rina@acme.test";
+const API = process.env.E2E_API_URL ?? "http://127.0.0.1:8000/api/v1";
 
 test.describe("signing in", () => {
   test("a wrong password is refused, a right one gets in, and a second factor is asked for once on", async ({
@@ -114,6 +116,31 @@ test.describe("signing in", () => {
         await unlockLisa(admin);
       }
     }
+
+    // ── Session revocation: end another device from this one ───────────────
+    //
+    // AFTER the factor is off, because turning it on or off ends every other
+    // session by itself (ADR 0023) — a second session opened earlier would be
+    // gone before the list could show it, and the test would prove that
+    // instead. This is Lisa's fourth sign-in of five in the quarter hour.
+    const client = `e2e-other-device-${Date.now().toString(36)}`;
+    const other = await signInElsewhere(client);
+
+    expect(await meStatus(other), "The other device's session did not start.").toBe(200);
+
+    await page.goto("/settings/sessions");
+
+    const row = page.getByRole("row").filter({ hasText: client });
+
+    await row.getByRole("button", { name: "End", exact: true }).click();
+    await expect(row).toHaveCount(0);
+
+    // The device is signed out on its NEXT request — not when its token
+    // would have expired, which is the whole promise of the button.
+    expect(await meStatus(other), "An ended session still answers.").toBe(401);
+
+    // And this one is not: ending another device is not signing yourself out.
+    await expect(page).toHaveURL(/\/settings\/sessions$/);
   });
 });
 
@@ -122,6 +149,34 @@ async function signInWithPassword(page: Page): Promise<void> {
   await page.getByLabel("Email").fill(LISA);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: /sign in/i }).click();
+}
+
+/**
+ * A second session for Lisa, as another device would get one — through the
+ * API, under a client name the sessions list will print back.
+ */
+async function signInElsewhere(client: string): Promise<string> {
+  const response = await fetch(`${API}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": client },
+    body: JSON.stringify({ email: LISA, password: PASSWORD }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Lisa could not sign in a second device (${response.status}). A 429 means this spec ran twice inside fifteen minutes.`,
+    );
+  }
+
+  return (await response.json()).data.token as string;
+}
+
+async function meStatus(token: string): Promise<number> {
+  const response = await fetch(`${API}/auth/me`, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+  });
+
+  return response.status;
 }
 
 /**

@@ -224,8 +224,12 @@ GET /work-items
   constraint enforces, a uuid against being a uuid. A malformed query string is
   a 422; a 500 tells the caller the server broke and sends them to the logs for
   their own mistake.
-- **`include` is not enforced anywhere, because no endpoint accepts it yet.**
-  The first one to do so inherits this paragraph as a bill.
+- **An endpoint that answers no `filter`, `sort` or `include` refuses them.**
+  `RefuseUnansweredQuery` runs on every API request and turns any of the three
+  into a 422 unless the route declares it with `answers:filter,sort`. Until it
+  did, `/notifications?filter[unread]=1` returned every notification and a
+  200. `include` is refused everywhere today, because no endpoint answers it
+  yet; the first one to do so declares it and inherits the depth cap below.
 - `filter[cf_<key>]` is matched against the fields the ORGANIZATION declared
   (ADR 0038), so an undeclared key is refused by name like any other unknown
   one. Exact match on the column the field's type decides. The `[lte]`-style

@@ -38,7 +38,7 @@ Route::post('departments/{department}/move', [DepartmentController::class, 'move
     ->middleware('throttle:writes');
 
 Route::get('teams', [TeamController::class, 'index'])
-    ->middleware('permission:team.view');
+    ->middleware(['permission:team.view', 'answers:filter']);
 // The team's own history (ADR 0045). `TeamService` has written these entries
 // since Phase 5 with nothing able to read one — the same gap a project's
 // history had, one module over.
@@ -57,7 +57,7 @@ Route::delete('teams/{team}/members/{membership}', [TeamController::class, 'remo
     ->middleware('throttle:writes');
 
 Route::get('people', [PersonController::class, 'index'])
-    ->middleware('permission:person.view');
+    ->middleware(['permission:person.view', 'answers:filter']);
 Route::get('people/{membership}', [PersonController::class, 'show'])
     ->middleware('permission:person.view');
 

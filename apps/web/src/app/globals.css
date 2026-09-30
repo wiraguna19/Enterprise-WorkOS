@@ -33,10 +33,16 @@
 
   /* ── State — status only ──────────────────────────────────────────────── */
   --color-s-neutral: #71716a;
-  --color-s-info: #2f6feb;
-  --color-s-active: #b45309; /* amber, not yellow: yellow cannot reach AA */
+  /* The three below were darkened when axe first ran (docs/11 §4). Each
+     is used as TEXT on a 10% tint of itself — every badge and status chip —
+     and on that tint they measured 4.03, 4.39 and 4.38:1, under AA's 4.5.
+     Checked on white alone they passed, which is how they survived: the
+     comment beside --color-n-500 verifies against n-0, and a badge is not
+     on n-0. Now, on their own 10% tint: 5.23, 5.36 and 5.34:1. */
+  --color-s-info: #1f5bd1;
+  --color-s-active: #a14507; /* amber, not yellow: yellow cannot reach AA */
   --color-s-review: #7c3aed;
-  --color-s-success: #15803d;
+  --color-s-success: #15703a;
   --color-s-danger: #b91c1c;
 
   /* ── Typography ───────────────────────────────────────────────────────

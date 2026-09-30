@@ -8,7 +8,8 @@ import type { CalendarEvent } from "./types";
  *
  * Weeks start on Monday, because the work week does. Days from the neighbouring
  * months are rendered rather than left blank so the grid keeps its shape, but
- * they are recessive: they are context, not this month.
+ * they are recessive — a shaded cell — because they are context, not this
+ * month.
  *
  * Each cell shows at most three events and then a count. A cell that grows to
  * fit its contents makes every other row taller for one busy Tuesday, and a
@@ -103,11 +104,14 @@ export function MonthGrid({
                 <div
                   className={clsx(
                     "mb-0.5 text-caption",
+                    // Neighbouring months stay recessive through the cell's
+                    // shaded background, not through the number's colour:
+                    // n-300 is a BORDER token (1.79:1, "never text" in
+                    // globals.css), and axe caught it here being used as one.
+                    // A date somebody can read is still a date.
                     key === today
                       ? "font-semibold text-a-700"
-                      : outside
-                        ? "text-n-300"
-                        : "text-n-500",
+                      : "text-n-500",
                   )}
                 >
                   {date.getUTCDate()}

@@ -190,9 +190,12 @@ last entry is deliberately last.
                         milestones on the project overview; docs/11 flow 3
                         covered in full. Putting work INTO a milestone from
                         the forms is still open
-3  Hardening            filter whitelist on every collection endpoint (docs/05
-                        §4); axe-core assertions in the E2E flows (docs/11 §4);
-                        session revocation in E2E flow 1
+3  Hardening            DELIVERED: filter/sort/include refused wherever a
+                        route does not answer them (RefuseUnansweredQuery,
+                        docs/05 §4 — the per-key half was ADR 0039); axe-core
+                        over 16 screens, both viewports (e2e/accessibility),
+                        which darkened three state colours and a calendar
+                        label; session revocation in E2E flow 1
 4  SSO follow-ups       DNS domain verification, ForceAuthn re-authentication,
                         JIT / SCIM provisioning, single logout (ADR 0052)
 5  Replica follow-ups   a replica in docker-compose, replication-lag check

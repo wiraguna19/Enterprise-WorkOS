@@ -48,7 +48,7 @@ Route::get('me/projects', [ProjectController::class, 'pinned'])
     ->middleware('permission:project.view');
 
 Route::get('projects', [ProjectController::class, 'index'])
-    ->middleware('permission:project.view');
+    ->middleware(['permission:project.view', 'answers:filter']);
 Route::post('projects', [ProjectController::class, 'store'])
     ->middleware(['permission:project.create', 'throttle:writes']);
 Route::get('projects/{key}', [ProjectController::class, 'show'])
@@ -137,8 +137,10 @@ Route::delete('work-item-templates/{id}', [WorkItemTemplateController::class, 'd
 // Keyed by human reference (ENG-142) rather than UUID: it is what people paste
 // into chat, and a readable URL is a small thing that makes a product feel
 // considered (docs/08 §2).
+// `answers:` — the one endpoint that filters AND sorts. Every other GET
+// refuses both (RefuseUnansweredQuery, docs/05 §4).
 Route::get('work-items', [WorkItemController::class, 'index'])
-    ->middleware('permission:work_item.view');
+    ->middleware(['permission:work_item.view', 'answers:filter,sort']);
 Route::post('work-items', [WorkItemController::class, 'store'])
     ->middleware(['permission:work_item.create', 'throttle:writes']);
 // One change to many items, answered per item (docs/05 §5, ADR 0055). Only the
