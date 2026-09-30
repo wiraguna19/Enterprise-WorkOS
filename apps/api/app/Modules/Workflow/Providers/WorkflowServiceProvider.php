@@ -13,6 +13,7 @@ use App\Modules\Workflow\Http\Policy\WorkflowPolicy;
 use App\Modules\Workflow\Http\Policy\WorkflowRulePolicy;
 use App\Modules\Workflow\Infrastructure\Console\MaterializeRecurrences;
 use App\Modules\Workflow\Infrastructure\Console\NudgeWebhookDeliveries;
+use App\Modules\Workflow\Infrastructure\Console\ScanDeadlines;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowRuleModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
@@ -28,7 +29,7 @@ final class WorkflowServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([MaterializeRecurrences::class, NudgeWebhookDeliveries::class]);
+            $this->commands([MaterializeRecurrences::class, NudgeWebhookDeliveries::class, ScanDeadlines::class]);
         }
 
         /*
@@ -59,6 +60,10 @@ final class WorkflowServiceProvider extends ServiceProvider
         // A decided approval moves the work it was about, in the deciding
         // reviewer's own request — see the listener for why it is not queued.
         Event::listen(ApprovalDecided::class, [TransitionOnApprovalDecision::class, 'handle']);
+        // And to the rules, as `approval.decided` (ADR 0057). After the
+        // transition above, so a rule reading the item sees where the
+        // decision moved it.
+        Event::listen(ApprovalDecided::class, [DispatchRuleEvaluation::class, 'onApprovalDecided']);
 
         // Registered here rather than in a global provider: the module that
         // owns the model owns its policy, and Gate's answer with no policy is

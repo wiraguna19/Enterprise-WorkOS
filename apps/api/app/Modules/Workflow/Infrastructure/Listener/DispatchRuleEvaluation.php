@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Workflow\Infrastructure\Listener;
 
+use App\Modules\Approval\Domain\Event\ApprovalDecided;
 use App\Modules\Work\Domain\Event\WorkItemAssigned;
 use App\Modules\Work\Domain\Event\WorkItemCreated;
 use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
@@ -69,6 +70,32 @@ final class DispatchRuleEvaluation
             'work_item',
             $event->workItemId,
             $this->facts->for($event->workItemId) + ['assigned_role' => $event->role],
+        );
+    }
+
+    /**
+     * `approval.decided` (ADR 0057). Offered as a trigger since Phase 4 and
+     * dispatched by nothing until now.
+     *
+     * Only decisions about a work item: that is the only subject the rule
+     * engine's facts, conditions and actions describe. The decision and its
+     * resolution are facts of the act, like a transition's comment.
+     */
+    public function onApprovalDecided(ApprovalDecided $event): void
+    {
+        if ($event->subjectType !== 'work_item') {
+            return;
+        }
+
+        EvaluateWorkflowRules::dispatch(
+            $event->organizationId,
+            'approval.decided',
+            'work_item',
+            $event->subjectId,
+            $this->facts->for($event->subjectId) + [
+                'decision' => $event->decision,
+                'resolution' => $event->resolution,
+            ],
         );
     }
 

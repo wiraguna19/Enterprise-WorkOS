@@ -208,12 +208,10 @@ last entry is deliberately last.
                         (ADR 0048); still open: service accounts,
                         project-scoped templates, recurrences that start
                         from a template
-6a Rule triggers that   FOUND 2026-09-30: `schedule.due_soon`,
-   never fire           `schedule.overdue` (offered by the rule builder) and
-                        `approval.decided` (accepted by the model) are
-                        dispatched by nothing, so a rule on them never runs.
-                        Either a scan that dispatches them, or stop offering
-                        them — not both left as they are
+6a Rule triggers that   DELIVERED (ADR 0057): `approval.decided` from a
+   never fired          listener; `schedule.due_soon` / `schedule.overdue`
+                        from a 15-minute scan announcing each deadline once.
+                        Webhooks may subscribe to all three
 7  Indonesian           a second interface language. `users.locale` already
                         exists and is served; nothing reads it. next-intl on
                         the web, a language choice under account settings,

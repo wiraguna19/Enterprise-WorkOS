@@ -43,37 +43,37 @@ final class RuleVocabulary
         'type' => [
             'type' => 'string',
             'values' => ['task', 'request', 'approval_work', 'incident', 'review', 'campaign', 'operational'],
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
         'priority' => [
             'type' => 'string',
             'values' => ['low', 'medium', 'high', 'urgent'],
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
         'state_category' => [
             'type' => 'string',
             'values' => ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'cancelled'],
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
         'estimate_hours' => [
             'type' => 'number',
             'values' => null,
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
         'project_id' => [
             'type' => 'id',
             'values' => null,
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
         'assignee_membership_id' => [
             'type' => 'id',
             'values' => null,
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
         'title' => [
             'type' => 'string',
             'values' => null,
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
 
         // Transition-only facts. A condition naming one of these under any
@@ -104,6 +104,18 @@ final class RuleVocabulary
             'values' => ['assignee', 'reviewer', 'watcher'],
             'triggers' => ['work_item.assigned'],
         ],
+        // The decision's own facts (ADR 0057): what the reviewer said, and —
+        // for a decision that closed the approval — how it ended.
+        'decision' => [
+            'type' => 'string',
+            'values' => ['approved', 'changes_requested', 'rejected'],
+            'triggers' => ['approval.decided'],
+        ],
+        'resolution' => [
+            'type' => 'string',
+            'values' => null,
+            'triggers' => ['approval.decided'],
+        ],
         // Computed for every work-item fact set, not only for the overdue
         // sweep — the listener derives it from `due_at` each time. Declaring it
         // as the scheduler's alone would hide "urgent and already three days
@@ -111,7 +123,7 @@ final class RuleVocabulary
         'days_overdue' => [
             'type' => 'number',
             'values' => null,
-            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'schedule.due_soon', 'schedule.overdue'],
+            'triggers' => ['work_item.status_changed', 'work_item.assigned', 'work_item.created', 'approval.decided', 'schedule.due_soon', 'schedule.overdue'],
         ],
     ];
 

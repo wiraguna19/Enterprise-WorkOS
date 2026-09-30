@@ -116,16 +116,23 @@ it('changes subscriptions on an edit, and an empty list means rules only', funct
 });
 
 it('refuses an event nothing emits, and serves the list of those that are', function (): void {
-    // `approval.decided` is a rule trigger that nothing dispatches: offering
-    // it here would be a subscription that can never be delivered.
+    // `comment.created` is in docs/02 and emitted by nothing: a subscription
+    // to it could never be delivered.
     $this->withToken($this->admin)->postJson('/api/v1/webhook-endpoints', [
         'name' => 'Hopeful',
         'url' => 'https://93.184.216.34/hook',
-        'events' => ['approval.decided'],
+        'events' => ['comment.created'],
     ])->assertUnprocessable();
 
     $this->withToken($this->admin)
         ->getJson('/api/v1/webhook-endpoints')
         ->assertOk()
-        ->assertJsonPath('meta.subscribable', ['work_item.created', 'work_item.assigned', 'work_item.status_changed']);
+        ->assertJsonPath('meta.subscribable', [
+            'work_item.created',
+            'work_item.assigned',
+            'work_item.status_changed',
+            'approval.decided',
+            'schedule.due_soon',
+            'schedule.overdue',
+        ]);
 });

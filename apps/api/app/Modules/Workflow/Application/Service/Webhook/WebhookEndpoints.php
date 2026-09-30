@@ -28,14 +28,20 @@ use Symfony\Component\Uid\UuidV7;
 final class WebhookEndpoints
 {
     /**
-     * What an endpoint may subscribe to without a rule: the events the
-     * product actually emits (DispatchRuleEvaluation). The rule triggers
-     * `approval.decided` and `schedule.*` are accepted by the rule builder and
-     * dispatched by nothing, so they are not offered here — a subscription
-     * that can never be delivered is a promise, not a feature. The migration's
-     * CHECK holds the same three.
+     * What an endpoint may subscribe to without a rule: every event the
+     * product emits to the rule engine. `approval.decided` and `schedule.*`
+     * joined when something began to emit them (ADR 0057) — a subscription
+     * that can never be delivered is a promise, not a feature. The latest
+     * migration's CHECK holds the same six.
      */
-    public const SUBSCRIBABLE = ['work_item.created', 'work_item.assigned', 'work_item.status_changed'];
+    public const SUBSCRIBABLE = [
+        'work_item.created',
+        'work_item.assigned',
+        'work_item.status_changed',
+        'approval.decided',
+        'schedule.due_soon',
+        'schedule.overdue',
+    ];
 
     public function __construct(
         private readonly DestinationGuard $guard,

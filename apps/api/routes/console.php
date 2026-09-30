@@ -36,6 +36,15 @@ Schedule::command('workflow:materialize-recurrences')
     ->onOneServer()
     ->withoutOverlapping();
 
+// Deadlines crossed since the last tick, announced to the rules as
+// `schedule.due_soon` and `schedule.overdue` (ADR 0057). Fifteen minutes is the
+// granularity of "due soon" that matters; each deadline is announced once,
+// whatever overlaps.
+Schedule::command('workflow:scan-deadlines')
+    ->everyFifteenMinutes()
+    ->onOneServer()
+    ->withoutOverlapping();
+
 // Webhook deliveries whose retry the queue lost (ADR 0048). Every five
 // minutes: a receiver waiting on an event should not wait an hour because a
 // worker restarted, and the sweep is one indexed read when nothing is lost.

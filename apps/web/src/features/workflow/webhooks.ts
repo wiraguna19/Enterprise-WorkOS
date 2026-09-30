@@ -50,6 +50,9 @@ export const EVENT_WORDS: Record<string, string> = {
   "work_item.created": "Work created",
   "work_item.assigned": "Work assigned",
   "work_item.status_changed": "Status changed",
+  "approval.decided": "Approval decided",
+  "schedule.due_soon": "Due within a day",
+  "schedule.overdue": "Just went overdue",
 };
 
 export function eventWords(event: string): string {
