@@ -49,6 +49,14 @@ final class CreateRecurrenceRequest extends FormRequest
             // be the same date forever.
             'template.due_in_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
             'template.assignee_id' => ['sometimes', 'nullable', 'uuid'],
+
+            // The organization's own fields (ADR 0038), carried from a work
+            // item template when the recurrence was started from one (ADR
+            // 0047). Only the shape here; which keys exist and what each
+            // accepts is decided by the field definitions when each occurrence
+            // is created, as for any other work item.
+            'template.custom_fields' => ['sometimes', 'array'],
+            'template.custom_fields.*' => ['nullable', 'string', 'max:500'],
         ];
     }
 

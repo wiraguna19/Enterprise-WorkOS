@@ -155,6 +155,10 @@ final class RecurrenceMaterializer
         $this->workItems->create([
             ...$template,
             'recurrence_id' => (string) $recurrence->getKey(),
+            // Made for the person who set the recurrence up, as though they
+            // had created it: the tick runs as nobody, and work with no
+            // creator, no project and no assignee is visible to no one.
+            'created_by_membership_id' => $recurrence->created_by_membership_id,
             // The template may carry `due_in_days` — a deadline relative to the
             // occurrence, because "due three days after it appears" is what a
             // recurring task actually means. An absolute due_at in a template

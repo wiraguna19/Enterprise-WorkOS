@@ -95,8 +95,18 @@ Still owed, and named here so they are not assumed:
 - **Project-scoped templates**, and letting a project's owner write them. The
   permission is organization-wide in this slice; a manager who wants a template
   for their own project asks an admin.
-- **Recurrences cannot pick a template.** They keep their embedded one. The
-  shapes match, so this is a join, not a migration of meaning.
+- ~~**Recurrences cannot pick a template.**~~ Paid 2026-09-30, the same way
+  the create form does it: `/recurring/new?template=ID` prefills the form from
+  a template, and the recurrence keeps its own embedded copy — a starting
+  point, not a link, so editing the template later changes no recurrence, as
+  it changes no work already made. The picker is one component now
+  (`TemplatePicker`), shared by both forms. What the recurrence form has no
+  field for — type, description, estimate, custom-field answers — is carried
+  into the embedded template and NAMED on the form, not dropped; the API's
+  recurrence template gained `custom_fields` for it. Its keys are checked when
+  each occurrence is created, like any work item's: a recurrence naming a
+  field that was later retired fails that occurrence, and the materializer's
+  existing failure handling says so.
 - ~~**Other copies of the vocabulary remain.**~~ Paid:
   `CreateRecurrenceRequest` reads `WorkItemModel`'s constants, and every form
   that offers a priority — the recurrence form, the edit form, both project

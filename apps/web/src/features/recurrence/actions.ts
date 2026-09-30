@@ -17,6 +17,8 @@ export type NewRecurrence = {
     estimate_hours?: number;
     due_in_days?: number;
     assignee_id?: string | null;
+    /** From a work item template (ADR 0047): answers every occurrence carries. */
+    custom_fields?: Record<string, string>;
   };
 };
 
@@ -45,7 +47,12 @@ export async function createRecurrence(input: NewRecurrence): Promise<Recurrence
   const template: Record<string, unknown> = {};
 
   for (const [field, value] of Object.entries(input.template)) {
-    if (value !== undefined && value !== "" && !Number.isNaN(value)) template[field] = value;
+    if (value === undefined || value === "" || Number.isNaN(value)) continue;
+    // An empty map is not an absence to the test above; it would travel as
+    // `custom_fields: {}` on every recurrence made without a template.
+    if (typeof value === "object" && value !== null && Object.keys(value).length === 0) continue;
+
+    template[field] = value;
   }
 
   const body: Record<string, unknown> = { rrule: input.rrule, template };

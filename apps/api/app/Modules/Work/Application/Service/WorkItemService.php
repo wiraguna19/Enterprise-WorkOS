@@ -107,7 +107,15 @@ final class WorkItemService
                 // diverge produces work that is invisible from both.
                 'parent_id' => $parent?->getKey(),
                 'milestone_id' => $attributes['milestone_id'] ?? null,
-                'created_by_membership_id' => $this->actorMembershipId(),
+                // The person acting — or, for work made on someone's behalf by
+                // the system, the person it is made for. The recurrence
+                // materializer runs as nobody, and project-less work is
+                // visible only to its creator and the people on it: without
+                // this, a recurring item with no project and no assignee was
+                // made for no one and visible to no one. Never from a request:
+                // CreateWorkItemRequest has no rule for it, so `validated()`
+                // cannot carry it.
+                'created_by_membership_id' => $attributes['created_by_membership_id'] ?? $this->actorMembershipId(),
                 'workflow_id' => $workflow->getKey(),
                 'workflow_state_id' => $initial->getKey(),
                 'state_category' => $initial->category,

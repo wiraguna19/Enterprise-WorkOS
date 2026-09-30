@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Panel } from "@/components/ui/Panel";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { NewWorkItemForm } from "@/features/work-item/components/NewWorkItemForm";
+import { TemplatePicker } from "@/features/work-item/components/TemplatePicker";
 import {
   prefillFrom,
   type WorkItemTemplate,
@@ -107,9 +106,10 @@ export default async function NewWorkItemPage({
       />
 
       <TemplatePicker
+        basePath="/work/new"
         templates={templates}
         chosenId={chosen?.id}
-        projectKey={fromProject?.key}
+        keep={fromProject === undefined ? {} : { project: fromProject.key }}
         // A `?template=` that names nothing — deleted since the link was made —
         // is said out loud rather than quietly ignored.
         missing={params.template !== undefined && templates !== null && chosen === undefined}
@@ -140,88 +140,5 @@ export default async function NewWorkItemPage({
         }
       />
     </div>
-  );
-}
-
-/**
- * The templates, as links.
- *
- * Links and not a select with a handler: choosing a template GOES somewhere —
- * the same page with `?template=ID` — so it is an anchor, it survives a reload,
- * and it can be pasted to a colleague ("use this one"). The project the page
- * was opened from travels with it.
- */
-function TemplatePicker({
-  templates,
-  chosenId,
-  projectKey,
-  missing,
-}: {
-  templates: WorkItemTemplate[] | null;
-  chosenId?: string;
-  projectKey?: string;
-  missing: boolean;
-}) {
-  if (templates === null) {
-    return (
-      <p role="status" className="text-caption text-n-500">
-        Templates could not be loaded. You can still fill in the form by hand.
-      </p>
-    );
-  }
-
-  // No section at all when there is nothing to choose. The settings screen is
-  // where templates are written, and pointing at it from here would be a link
-  // most people who see it cannot follow.
-  if (templates.length === 0) return null;
-
-  const href = (templateId?: string): string => {
-    const query = new URLSearchParams();
-
-    if (projectKey !== undefined) query.set("project", projectKey);
-    if (templateId !== undefined) query.set("template", templateId);
-
-    const qs = query.toString();
-
-    return qs === "" ? "/work/new" : `/work/new?${qs}`;
-  };
-
-  return (
-    <Panel
-      id="start-from"
-      title="Start from"
-      description={
-        missing
-          ? "That template no longer exists. Pick another, or start blank."
-          : "A template fills in the form below. You can change anything before creating."
-      }
-      bleed
-    >
-      <ul className="divide-y divide-n-100">
-        <li>
-          <Link
-            href={href()}
-            aria-current={chosenId === undefined ? "page" : undefined}
-            className="flex flex-col gap-0.5 px-4 py-2.5 transition-colors duration-[120ms] ease-standard hover:bg-n-50 aria-[current=page]:bg-n-50"
-          >
-            <span className="font-medium text-n-900">Blank</span>
-          </Link>
-        </li>
-        {templates.map((template) => (
-          <li key={template.id}>
-            <Link
-              href={href(template.id)}
-              aria-current={chosenId === template.id ? "page" : undefined}
-              className="flex flex-col gap-0.5 px-4 py-2.5 transition-colors duration-[120ms] ease-standard hover:bg-n-50 aria-[current=page]:bg-n-50"
-            >
-              <span className="font-medium text-n-900">{template.name}</span>
-              {template.purpose && (
-                <span className="max-w-prose text-caption text-n-500">{template.purpose}</span>
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Panel>
   );
 }

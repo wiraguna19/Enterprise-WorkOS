@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
-import { humanize } from "@/features/work-item/templates";
+import { describeFields, humanize, type TemplateFields } from "@/features/work-item/templates";
 import { createRecurrence } from "./actions";
 import { describe, MAX_MONTH_DAY, toRrule, WEEKDAYS, type Frequency } from "./schedule";
 
@@ -32,12 +32,21 @@ export function NewRecurrenceForm({
   projects,
   people,
   priorities,
+  template,
 }: {
   projects: Option[];
   people: Option[];
   /** Served by `GET /work-items/vocabulary`, never written out here. */
   priorities: string[];
+  /**
+   * The work item template this was opened from (ADR 0047). A starting point,
+   * copied in — not a link: editing the template later changes nothing about
+   * a recurrence already set up, exactly as it changes nothing about work
+   * already created from it.
+   */
+  template?: { name: string; fields: TemplateFields };
 }) {
+  const fields = template?.fields;
   const router = useRouter();
 
   const [frequency, setFrequency] = useState<Frequency>("weekly");
@@ -46,11 +55,24 @@ export function NewRecurrenceForm({
   const [monthDay, setMonthDay] = useState(1);
   const [endsAt, setEndsAt] = useState("");
 
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(fields?.title ?? "");
   const [projectId, setProjectId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
-  const [priority, setPriority] = useState("");
-  const [dueInDays, setDueInDays] = useState("");
+  const [priority, setPriority] = useState(fields?.priority ?? "");
+  const [dueInDays, setDueInDays] = useState(
+    fields?.due_in_days === undefined ? "" : String(fields.due_in_days),
+  );
+
+  // What the template fills in that this form has no field for. Carried
+  // through to every occurrence rather than dropped, and NAMED below, so the
+  // person can see what they are setting up.
+  const carried: TemplateFields = {
+    type: fields?.type,
+    description: fields?.description,
+    estimate_hours: fields?.estimate_hours,
+    custom_fields: fields?.custom_fields,
+  };
+  const carriedWords = describeFields(carried);
 
   const [error, setError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
@@ -87,6 +109,11 @@ export function NewRecurrenceForm({
               // Left blank means "no due date", not "due the day it appears".
               // `Number("")` is 0, which would quietly say something else.
               due_in_days: dueInDays === "" ? undefined : Number(dueInDays),
+              type: carried.type,
+              description: carried.description,
+              estimate_hours:
+                carried.estimate_hours === undefined ? undefined : Number(carried.estimate_hours),
+              custom_fields: carried.custom_fields,
             },
           });
 
@@ -187,6 +214,14 @@ export function NewRecurrenceForm({
         <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
           What appears
         </h2>
+
+        {template !== undefined && (
+          <p role="status" className="text-caption text-n-500">
+            Filled in from <span className="font-medium text-n-700">{template.name}</span>.
+            {carriedWords !== "" && ` Every occurrence also gets: ${carriedWords}.`} Change anything
+            before saving.
+          </p>
+        )}
 
         <Field id={titleId} label="Title">
           <input
