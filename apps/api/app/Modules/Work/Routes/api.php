@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Work\Http\Controller\ActivityController;
 use App\Modules\Work\Http\Controller\AssignmentController;
+use App\Modules\Work\Http\Controller\BulkWorkItemController;
 use App\Modules\Work\Http\Controller\MyTimeController;
 use App\Modules\Work\Http\Controller\MyWorkController;
 use App\Modules\Work\Http\Controller\ProjectController;
@@ -126,6 +127,13 @@ Route::get('work-items', [WorkItemController::class, 'index'])
     ->middleware('permission:work_item.view');
 Route::post('work-items', [WorkItemController::class, 'store'])
     ->middleware(['permission:work_item.create', 'throttle:writes']);
+// One change to many items, answered per item (docs/05 §5, ADR 0055). Only the
+// coarse gate here — reading work — because what may be done to EACH item is
+// the policy's answer for that item (assign, update), and a route that also
+// demanded `work_item.update` would refuse someone who may only assign, before
+// any item was asked about.
+Route::post('work-items/bulk', [BulkWorkItemController::class, 'store'])
+    ->middleware(['permission:work_item.view', 'throttle:writes']);
 // BEFORE `work-items/{reference}`, or `fields` is read as a reference and the
 // route resolver answers 404 for a path that exists. Laravel matches in
 // registration order, which makes ordering a correctness concern and not a

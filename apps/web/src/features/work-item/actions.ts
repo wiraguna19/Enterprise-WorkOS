@@ -560,3 +560,57 @@ export async function mentionable(query: string): Promise<Mentionable[]> {
     return [];
   }
 }
+
+/** What one bulk change may carry: an assignee, a due date, or both. */
+export type BulkChange = {
+  assignee_id?: string;
+  /** `null` clears the due date; absent leaves it alone. */
+  due_at?: string | null;
+};
+
+export type BulkOutcome = {
+  reference: string;
+  ok: boolean;
+  changed: boolean;
+  error?: { code: string; message: string };
+};
+
+export type BulkState = ActionState & {
+  succeeded?: number;
+  failed?: number;
+  results?: BulkOutcome[];
+};
+
+/**
+ * One change to many items (ADR 0055).
+ *
+ * The API answers per item — 200 with a result for each, never all-or-nothing
+ * — so a partial failure is NOT an error here: `error` is reserved for a
+ * refusal of the whole request (nothing selected, an assignee who left), and
+ * the per-item refusals come back in `results` for the bar to name.
+ */
+export async function bulkUpdateWorkItems(
+  references: string[],
+  change: BulkChange,
+): Promise<BulkState> {
+  let data: { succeeded: number; failed: number; results: BulkOutcome[] };
+
+  try {
+    const response = await api<{ succeeded: number; failed: number; results: BulkOutcome[] }>(
+      "/work-items/bulk",
+      { method: "POST", body: { references, ...change } },
+    );
+
+    data = response.data;
+  } catch (error) {
+    return failure(error);
+  }
+
+  // Every list an item appears in: the browse page this came from, and the
+  // My Work of whoever the work now belongs to — which is the layout's badge.
+  revalidatePath("/work");
+  revalidatePath("/my-work");
+  revalidatePath("/", "layout");
+
+  return { error: null, ...data };
+}

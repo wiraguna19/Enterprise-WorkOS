@@ -8,7 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { BrowseFilters } from "@/features/work-item/browse/BrowseFilters";
 import { activeCount, apiQuery, type BrowseParams } from "@/features/work-item/browse/query";
-import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
+import { BulkSelectList } from "@/features/work-item/browse/BulkSelectList";
 import type { WorkVocabulary } from "@/features/work-item/templates";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, describeApiError } from "@/lib/api";
@@ -47,7 +47,10 @@ export default async function BrowseWorkPage({
   // typed, pasted, bookmarked and followed from an old message.
   if (!me.permissions.includes("work_item.view")) notFound();
 
-  const [projects, customFields, priorities] = await Promise.all([
+  const canAssign = me.permissions.includes("work_item.assign");
+  const canUpdate = me.permissions.includes("work_item.update");
+
+  const [projects, customFields, priorities, people] = await Promise.all([
     api<Array<{ id: string; key: string; name: string }>>("/projects?limit=200")
       .then((r) => r.data)
       .catch(() => []),
@@ -62,6 +65,13 @@ export default async function BrowseWorkPage({
     api<WorkVocabulary>("/work-items/vocabulary")
       .then((r) => r.data.priorities)
       .catch(() => [] as string[]),
+    // Only for somebody who can assign: the bulk bar's picker, and nothing
+    // else on this page, reads it.
+    canAssign
+      ? api<Array<{ id: string; name: string | null }>>("/people?limit=200")
+          .then((r) => r.data)
+          .catch(() => [] as Array<{ id: string; name: string | null }>)
+      : Promise.resolve([] as Array<{ id: string; name: string | null }>),
   ]);
 
   let items: WorkItem[] = [];
@@ -153,13 +163,18 @@ export default async function BrowseWorkPage({
               )
             }
           >
-            <ul>
-              {items.map((item) => (
-                <li key={item.id}>
-                  <WorkItemRow item={item} timeZone={me.user.timezone} />
-                </li>
-              ))}
-            </ul>
+            <BulkSelectList
+              // Remounted per page of results (filters and cursor), so a
+              // selection never outlives the page it was made on — but NOT
+              // when the same page refreshes after a bulk change, which may
+              // reorder its rows and must keep the refusals on screen.
+              key={apiQuery(params, PER_PAGE)}
+              items={items}
+              timeZone={me.user.timezone}
+              people={people.map((person) => ({ id: person.id, label: person.name ?? "Unnamed" }))}
+              canAssign={canAssign}
+              canUpdate={canUpdate}
+            />
           </Panel>
         )}
       </PageBody>

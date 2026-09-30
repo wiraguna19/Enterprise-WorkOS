@@ -18,11 +18,13 @@ use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
 use App\Modules\Work\Domain\Exception\CannotCloseBlockedWorkItem;
 use App\Modules\Work\Domain\Exception\HierarchyTooDeep;
 use App\Modules\Work\Domain\Exception\NoWorkflowForType;
+use App\Modules\Work\Domain\Exception\WorkItemDatesRefused;
 use App\Modules\Work\Domain\Exception\WorkItemHierarchyCycle;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use App\Modules\Workflow\Application\Service\TransitionService;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowStateModel;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -376,6 +378,8 @@ final class WorkItemService
                 return $locked;
             }
 
+            $this->assertDatesInOrder($locked, $changes);
+
             $locked->forceFill($changes + ['lock_version' => $locked->lock_version + 1])->save();
 
             // One user action, one correlation ID — so the timeline can collapse
@@ -386,6 +390,47 @@ final class WorkItemService
 
             return $locked;
         });
+    }
+
+    /**
+     * The start and the due date as they WILL be, in order — or a named refusal.
+     *
+     * Checked against the merged result, not the request: moving only the due
+     * date is judged against the start already stored, which is the case the
+     * request rules could not see and the CHECK constraint turned into a 500.
+     *
+     * @param  array<string, mixed>  $changes
+     */
+    private function assertDatesInOrder(WorkItemModel $item, array $changes): void
+    {
+        $start = array_key_exists('start_date', $changes) ? $changes['start_date'] : $item->start_date;
+        $due = array_key_exists('due_at', $changes) ? $changes['due_at'] : $item->due_at;
+
+        if ($start === null || $due === null || $start === '' || $due === '') {
+            return;
+        }
+
+        $startDay = self::dayOf($start);
+        $dueDay = self::dayOf($due);
+
+        if ($startDay === null || $dueDay === null) {
+            return;
+        }
+
+        // By calendar day, as the constraint compares (`start_date <= due_at::date`).
+        if ($startDay > $dueDay) {
+            throw WorkItemDatesRefused::dueBeforeStart((string) $item->reference, $startDay, $dueDay);
+        }
+    }
+
+    /** A stored or submitted date, as YYYY-MM-DD; null for anything that is not one. */
+    private static function dayOf(mixed $value): ?string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return CarbonImmutable::instance($value)->toDateString();
+        }
+
+        return is_string($value) ? CarbonImmutable::parse($value)->toDateString() : null;
     }
 
     /**

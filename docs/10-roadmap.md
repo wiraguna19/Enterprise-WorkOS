@@ -183,8 +183,9 @@ There are no Phases 8–10. What remains is worked through in this order; the
 last entry is deliberately last.
 
 ```text
-1  Bulk select          select several items, assign and set a due date
-                        together — docs/11 flow 11 waits on it
+1  Bulk select          DELIVERED (ADR 0055): select rows on /work, assign
+                        and set a due date together; docs/11 flow 11 covered.
+                        Status, tag, delete and undo left out, reasons there
 2  Milestones UI        create and edit milestones from a project — the
                         missing half of docs/11 flow 3
 3  Hardening            filter whitelist on every collection endpoint (docs/05
