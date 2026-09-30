@@ -19,5 +19,9 @@ return [
         'port' => env('DB_REPORTING_PORT'),
         'username' => env('DB_REPORTING_USERNAME'),
         'password' => env('DB_REPORTING_PASSWORD'),
+        // How far behind the primary the replica may be and still answer a
+        // report, in seconds. Further behind, or unreachable, and reports read
+        // the primary (ReplicaLag).
+        'max_lag_seconds' => env('DB_REPORTING_MAX_LAG', 30),
     ],
 ];

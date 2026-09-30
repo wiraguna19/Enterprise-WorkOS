@@ -62,14 +62,26 @@ read-only callback.**
   transaction a second session could not see) and asserts routing by which
   connection's query log a query lands in.
 
-Still owed:
+Paid since (2026-09-30):
 
-- **A replica in the local compose file.** Streaming replication needs a
-  primary configured for it and a base backup; until then the routing can be
-  exercised locally by pointing `DB_REPORTING_HOST` at the primary itself.
-- **Lag awareness.** Nothing reports how far behind the replica is, and nothing
-  falls back to the primary when it is far behind. The readiness endpoint is
-  where that belongs.
+- **A replica in the local compose file**, opt-in with
+  `docker compose --profile replica up -d` (port 5433). It takes a base
+  backup of the primary on first start and streams from then on, with no
+  replication slot — a slot would keep WAL on a laptop for a replica stopped
+  for weeks. The primary mounts its own `pg_hba.conf`, because the image's
+  default allows replication from localhost only and init scripts never run on
+  an existing volume.
+- **Lag awareness, in the switch rather than a readiness endpoint.**
+  `ReplicaLag` asks the replica how far behind it is — 0 when it has replayed
+  everything it received (an idle primary must not make a perfect replica look
+  stale), the age of its last replay otherwise, and UNKNOWN when it is not
+  receiving at all — at most every 15 seconds. Further behind than
+  `DB_REPORTING_MAX_LAG` (30 s), unreachable, or unknown: reports read the
+  primary, and one warning is logged per window. A readiness endpoint would
+  have reported the problem; this routes around it, which is what a person
+  waiting on a dashboard needs.
+
+Still owed:
 - **The rollup jobs** (`work:roll-up-project-progress` and friends) still read
   the primary. They write what they compute, so they would need the same split
   the export job has.

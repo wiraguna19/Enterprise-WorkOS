@@ -56,6 +56,13 @@
 
         <env name="DB_CONNECTION" value="pgsql"/>
         <env name="DB_DATABASE" value="workos_test"/>
+        <!-- No replica under test, whatever .env says (ADR 0053). The tests keep
+             every row they arrange inside an open transaction, which a real
+             replica — another server — can never see: with DB_REPORTING_HOST
+             set in .env, every Insights test read an empty copy. The replica
+             tests build their own, sharing the primary's session. Forced,
+             because a developer running the local replica has it in .env. -->
+        <env name="DB_REPORTING_HOST" value="" force="true"/>
 
         <!-- Redis is a production dependency, not a test one: a suite that needs
              a running Redis fails for reasons that have nothing to do with the

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Platform\Http\Middleware\ReadFromReportingReplica;
+use App\Modules\Platform\Infrastructure\Database\ReplicaLag;
 use App\Modules\Platform\Infrastructure\Database\ReportingReplica;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -137,4 +138,44 @@ it('tells the replica which organization is in force, when Row-Level Security is
     // The boundary lives in a database session, so the replica's session is
     // told too — the organization first, then the role (ADR 0051).
     expect(collect(replicaQueries())->contains(fn (string $sql): bool => str_contains($sql, 'SET ROLE workos_tenant')))->toBeTrue();
+});
+
+// ── Lag (ADR 0053, owed until now) ──────────────────────────────────────────
+
+it('reads the replica while it is close enough behind', function (): void {
+    replicaSharingThePrimary();
+
+    // The shared "replica" is the primary: not in recovery, so 0 behind.
+    expect(app(ReplicaLag::class)->seconds())->toBe(0.0)
+        ->and(defaultInsideMiddleware('GET'))->toBe('reporting');
+});
+
+it('reads the primary when the replica is further behind than allowed', function (): void {
+    replicaSharingThePrimary();
+
+    // Any lag at all is too much: 0 > -1.
+    config(['database.reporting.max_lag_seconds' => -1]);
+
+    expect(defaultInsideMiddleware('GET'))->toBe(DB::getDefaultConnection());
+});
+
+it('reads the primary when the replica cannot be reached, instead of failing the report', function (): void {
+    $primary = DB::getDefaultConnection();
+
+    // Port 1 refuses at once: an unreachable replica, without a timeout.
+    config(['database.connections.reporting' => [
+        ...config("database.connections.{$primary}"),
+        'host' => '127.0.0.1',
+        'port' => 1,
+    ]]);
+    DB::purge('reporting');
+
+    $lag = app(ReplicaLag::class);
+
+    expect($lag->seconds())->toBeNull()
+        ->and($lag->acceptable())->toBeFalse();
+
+    $token = $this->loginAs('rina@acme.test');
+
+    $this->withToken($token)->getJson('/api/v1/insights/flow')->assertOk();
 });

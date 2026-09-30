@@ -20,15 +20,49 @@ services:
       # C collation keeps index behaviour identical across machines; locale
       # differences change sort order and therefore cursor pagination results.
       POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    # The replica below streams from this one. `wal_level=replica` is already
+    # PostgreSQL's default; the mounted pg_hba.conf is what lets a replica in
+    # another container connect for replication.
+    command: postgres -c hba_file=/etc/postgresql/pg_hba.conf
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U workos -d workos"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # A read replica for reports and insights (ADR 0053). Opt-in:
+  #
+  #   docker compose --profile replica up -d
+  #
+  # then DB_REPORTING_HOST=127.0.0.1 and DB_REPORTING_PORT=5433 in apps/api/.env.
+  # Everything written to the primary — migrations and seeds included — arrives
+  # here by replication; nothing is ever run against it directly, and it
+  # refuses writes.
+  postgres-replica:
+    image: postgres:17-alpine
+    profiles: ["replica"]
+    user: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGDATA: /var/lib/postgresql/data
+    entrypoint: ["/bin/sh", "/replica-entrypoint.sh"]
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-replica-data:/var/lib/postgresql/data
+      - ./postgres/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workos -d workos"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7-alpine
@@ -85,5 +119,6 @@ services:
 
 volumes:
   postgres-data:
+  postgres-replica-data:
   redis-data:
   minio-data:

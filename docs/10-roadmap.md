@@ -200,8 +200,10 @@ last entry is deliberately last.
                         DNS domain verification, ForceAuthn re-authentication,
                         JIT / SCIM provisioning, single logout (ADR 0052).
                         Password sign-in is what the product runs on today
-5  Replica follow-ups   a replica in docker-compose, replication-lag check
-                        (ADR 0053)
+5  Replica follow-ups   DELIVERED (ADR 0053, "Paid since"): an opt-in
+                        streaming replica in docker-compose, and a lag check
+                        that sends reports back to the primary when the
+                        replica is behind or unreachable
 6  Extensibility        webhook subscriptions per event type, service
                         accounts, project-scoped templates, recurrences that
                         start from a template

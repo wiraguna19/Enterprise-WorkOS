@@ -51,6 +51,7 @@ final class ReportingReplica
 
     public function __construct(
         private readonly TenantContext $tenant,
+        private readonly ReplicaLag $lag,
     ) {}
 
     /**
@@ -103,6 +104,11 @@ final class ReportingReplica
         $previous = DB::getDefaultConnection();
 
         if (! $this->isConfigured() || $previous === self::CONNECTION) {
+            return $callback();
+        }
+
+        // Too far behind, or not there: the primary answers (ReplicaLag).
+        if (! $this->lag->acceptable()) {
             return $callback();
         }
 
