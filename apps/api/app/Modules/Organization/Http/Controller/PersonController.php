@@ -96,6 +96,13 @@ final class PersonController extends ApiController
             // department for every row. Lazy loading here would be N+1 across
             // three relations and the model layer throws outside production.
             ->with(['user', 'employeeProfile.department'])
+            // People only (ADR 0059). A service account is a membership, and
+            // without this it would be offered in every assignee picker, every
+            // @mention list and the directory — as a colleague who never
+            // answers. Its own screen is Settings → Service accounts.
+            // Raw, like the name search below: the closure's builder is typed
+            // as a bare Model's, and PHPStan cannot see `kind` on it.
+            ->whereHas('user', fn (Builder $u) => $u->whereRaw('kind = ?', ['person']))
             ->when(
                 $request->filled('filter.status'),
                 fn (Builder $q) => $q->where('status', $request->input('filter.status')),

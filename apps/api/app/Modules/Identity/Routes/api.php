@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Identity\Http\Controller\ApiTokenController;
 use App\Modules\Identity\Http\Controller\AuthController;
 use App\Modules\Identity\Http\Controller\InvitationAcceptController;
+use App\Modules\Identity\Http\Controller\ServiceAccountController;
 use App\Modules\Identity\Http\Controller\SingleSignOnController;
 use App\Modules\Identity\Http\Controller\SsoConnectionController;
 use Illuminate\Support\Facades\Route;
@@ -92,6 +93,25 @@ Route::prefix('auth')->group(function (): void {
  * mint another. Listing and revoking need no permission — somebody who lost
  * `api_token.create` must still be able to see and end what they made.
  */
+// Service accounts (ADR 0059): members that are not people, with tokens an
+// administrator issues. Named `service_accounts.*` so LimitApiTokens refuses
+// every one of them to a token — a token that could reach these could issue
+// its own successor or promote the account it belongs to.
+Route::prefix('service-accounts')
+    ->middleware(['auth:sanctum', 'permission:service_account.manage'])
+    ->group(function (): void {
+        Route::get('', [ServiceAccountController::class, 'index'])->name('service_accounts.index');
+        Route::post('', [ServiceAccountController::class, 'store'])
+            ->middleware('throttle:writes')->name('service_accounts.store');
+        Route::delete('{id}', [ServiceAccountController::class, 'destroy'])
+            ->middleware('throttle:writes')->name('service_accounts.destroy');
+        Route::get('{id}/tokens', [ServiceAccountController::class, 'tokens'])->name('service_accounts.tokens');
+        Route::post('{id}/tokens', [ServiceAccountController::class, 'issueToken'])
+            ->middleware('throttle:writes')->name('service_accounts.tokens.store');
+        Route::delete('{id}/tokens/{token}', [ServiceAccountController::class, 'revokeToken'])
+            ->middleware('throttle:writes')->name('service_accounts.tokens.destroy');
+    });
+
 Route::prefix('me/api-tokens')->middleware('auth:sanctum')->group(function (): void {
     Route::get('', [ApiTokenController::class, 'index'])->name('api_tokens.index');
     Route::post('', [ApiTokenController::class, 'store'])

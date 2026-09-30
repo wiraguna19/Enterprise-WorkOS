@@ -36,8 +36,14 @@ final class LimitApiTokens
     /** The one `auth.*` route a token may call: "who am I, and where". */
     private const ALLOWED_AUTH_ROUTES = ['auth.me'];
 
-    /** @var list<string> */
-    private const REFUSED_PREFIXES = ['auth.', 'api_tokens.'];
+    /**
+     * `service_accounts.` joined with them (ADR 0059): those routes issue
+     * tokens and give roles, and a token that could reach them could mint its
+     * own successor or promote the account it belongs to.
+     *
+     * @var list<string>
+     */
+    private const REFUSED_PREFIXES = ['auth.', 'api_tokens.', 'service_accounts.'];
 
     public function handle(Request $request, Closure $next): Response
     {

@@ -74,7 +74,10 @@ final class RequireSecondFactor
         /** @var UserModel|null $user */
         $user = $request->user();
 
-        if ($user === null || $user->hasMfaEnabled()) {
+        // A service account has no second factor to enrol, because it has no
+        // person to hold one (ADR 0059). Its token is the credential, issued by
+        // an administrator who had to pass the organization's requirement.
+        if ($user === null || $user->hasMfaEnabled() || $user->isService()) {
             return $next($request);
         }
 

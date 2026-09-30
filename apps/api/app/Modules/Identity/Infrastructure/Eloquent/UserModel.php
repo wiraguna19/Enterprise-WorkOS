@@ -32,6 +32,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $timezone
  * @property string $locale
  * @property bool $is_platform_admin
+ * @property string $kind 'person', or 'service' for an integration (ADR 0059)
  * @property CarbonImmutable|null $email_verified_at
  * @property CarbonImmutable|null $last_login_at
  * @property string|null $mfa_secret_encrypted
@@ -78,6 +79,15 @@ final class UserModel extends BaseModel implements AuthenticatableContract
     public function getAuthPasswordName(): string
     {
         return 'password_hash';
+    }
+
+    /**
+     * An integration, not a person (ADR 0059): no password, no second factor,
+     * one membership, and in only through a token an administrator issued.
+     */
+    public function isService(): bool
+    {
+        return $this->kind === 'service';
     }
 
     public function hasMfaEnabled(): bool

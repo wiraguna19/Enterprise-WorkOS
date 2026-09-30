@@ -79,9 +79,8 @@ revoking one are audit events.
 
 Still owed, named so it is not assumed:
 
-- **Service accounts** — a token that belongs to no person. It needs an answer
-  to "whose permissions, and who is accountable in the audit log" that this
-  slice does not invent.
+- ~~**Service accounts**~~ — paid by ADR 0059: a member that is not a person,
+  with a role, reached only through tokens an administrator issues.
 - **An administrator's view of everybody's tokens.** Today an admin ends
   somebody's access by ending their membership, which ends their tokens too;
   there is no list of all tokens in the organization.

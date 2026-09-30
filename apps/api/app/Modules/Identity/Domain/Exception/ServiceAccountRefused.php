@@ -1,0 +1,71 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Identity\Domain\Exception;
+
+use App\Modules\Platform\Domain\Exception\DomainException;
+
+/**
+ * What a service account may not be, by name (ADR 0059).
+ */
+final class ServiceAccountRefused extends DomainException
+{
+    private function __construct(
+        string $message,
+        private readonly string $refusalCode,
+        private readonly int $status = 422,
+        array $details = [],
+    ) {
+        parent::__construct($message, $details);
+    }
+
+    public function errorCode(): string
+    {
+        return $this->refusalCode;
+    }
+
+    public function httpStatus(): int
+    {
+        return $this->status;
+    }
+
+    /**
+     * Not an administrator. An integration holding org_admin could manage
+     * roles and people with a credential nobody signs in behind; the roles it
+     * needs are narrower than that, and a custom role can say exactly which.
+     */
+    public static function tooPowerful(string $roleKey): self
+    {
+        return new self(
+            "A service account cannot hold the {$roleKey} role. Give it a role with only what the integration needs.",
+            'service_account.role_too_powerful',
+            422,
+            ['role' => $roleKey],
+        );
+    }
+
+    public static function unknownRole(string $roleKey): self
+    {
+        return new self("There is no role called {$roleKey} here.", 'service_account.unknown_role', 422, ['role' => $roleKey]);
+    }
+
+    public static function notFound(): self
+    {
+        return new self('That service account does not exist.', 'service_account.not_found', 404);
+    }
+
+    public static function deactivated(): self
+    {
+        return new self('That service account has been deactivated. Make a new one.', 'service_account.deactivated', 409);
+    }
+
+    /** Work is held by people (ADR 0059). */
+    public static function cannotHoldWork(): self
+    {
+        return new self(
+            'A service account cannot be given work to do. Assign it to the person who answers for the integration.',
+            'service_account.cannot_hold_work',
+        );
+    }
+}

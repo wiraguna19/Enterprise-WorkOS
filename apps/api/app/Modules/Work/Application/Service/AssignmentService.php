@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Work\Application\Service;
 
 use App\Modules\Governance\Application\Service\ActivityLogger;
+use App\Modules\Identity\Domain\Exception\ServiceAccountRefused;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Platform\Application\Event\RecordsDomainEvents;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
@@ -48,6 +49,13 @@ final class AssignmentService
 
             if (! $membership->isActive()) {
                 throw new AlreadyAssigned('That person is no longer active in this organization.');
+            }
+
+            // Work is held by people (ADR 0059): a service account can create
+            // and change work through its token, and cannot be the one who
+            // answers for it.
+            if ($membership->user?->isService() === true) {
+                throw ServiceAccountRefused::cannotHoldWork();
             }
 
             $existing = WorkItemAssignmentModel::query()

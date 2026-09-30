@@ -49,6 +49,12 @@ const SECTIONS: Array<{
     description: "Let a script or an integration act as you, without your password.",
   },
   {
+    href: "/settings/service-accounts",
+    label: "Service accounts",
+    description: "Integrations that act in their own name, with a role — and outlive whoever set them up.",
+    permission: "service_account.manage",
+  },
+  {
     href: "/settings/sso",
     label: "Single sign-on",
     description: "The identity provider your people sign in through, and whether passwords still work.",
