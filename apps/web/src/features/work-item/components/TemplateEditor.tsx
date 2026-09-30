@@ -37,8 +37,15 @@ export function TemplateEditor({
   templates,
   vocabulary,
   customFields,
+  project,
 }: {
+  /** Only the ones this editor is for: the organization's, or one project's. */
   templates: WorkItemTemplate[];
+  /**
+   * Set when this is one project's editor (ADR 0058): its templates are offered
+   * on that project's forms only, and written by its owner and managers.
+   */
+  project?: { key: string; name: string };
   vocabulary: WorkVocabulary;
   /** Live fields only, blank — the same list the create form gets. */
   customFields: CustomFieldAnswer[];
@@ -71,9 +78,13 @@ export function TemplateEditor({
         id="templates"
         title="Templates"
         description={
-          templates.length === 0
-            ? "None yet. A template you write here is offered on the New work item form."
-            : `${templates.length} offered on the New work item form.`
+          project !== undefined
+            ? templates.length === 0
+              ? `None yet. A template written here is offered when creating work in ${project.name}, beside the organization's.`
+              : `${templates.length} offered when creating work in ${project.name}, beside the organization's.`
+            : templates.length === 0
+              ? "None yet. A template you write here is offered on the New work item form in every project."
+              : `${templates.length} offered on the New work item form in every project. A project's own templates are kept in its settings.`
         }
         bleed
       >
@@ -123,7 +134,7 @@ export function TemplateEditor({
                         <DeleteTemplate
                           name={template.name}
                           disabled={saving}
-                          onConfirm={() => run(() => deleteTemplate(template.id))}
+                          onConfirm={() => run(() => deleteTemplate(template.id, project === undefined ? {} : { projectKey: project.key }))}
                         />
                       </span>
                     </Td>
@@ -147,7 +158,7 @@ export function TemplateEditor({
             vocabulary={vocabulary}
             customFields={customFields}
             saving={saving}
-            onSubmit={(input) => run(() => saveTemplate(template.id, input))}
+            onSubmit={(input) => run(() => saveTemplate(template.id, input, project === undefined ? {} : { projectKey: project.key }))}
           />
         ))}
 
@@ -156,12 +167,12 @@ export function TemplateEditor({
         // empties itself without a reset function for every field.
         key={`new-${templates.length}`}
         id="new-template"
-        title="Write a template"
+        title={project === undefined ? "Write a template" : `Write a template for ${project.name}`}
         submitLabel="Save template"
         vocabulary={vocabulary}
         customFields={customFields}
         saving={saving}
-        onSubmit={(input) => run(() => createTemplate(input))}
+        onSubmit={(input) => run(() => createTemplate(input, project === undefined ? {} : { projectKey: project.key }))}
       />
     </div>
   );

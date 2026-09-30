@@ -110,6 +110,7 @@ export default async function NewWorkItemPage({
         templates={templates}
         chosenId={chosen?.id}
         keep={fromProject === undefined ? {} : { project: fromProject.key }}
+        projectKey={fromProject?.key}
         // A `?template=` that names nothing — deleted since the link was made —
         // is said out loud rather than quietly ignored.
         missing={params.template !== undefined && templates !== null && chosen === undefined}

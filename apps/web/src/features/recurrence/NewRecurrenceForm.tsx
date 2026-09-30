@@ -44,7 +44,7 @@ export function NewRecurrenceForm({
    * a recurrence already set up, exactly as it changes nothing about work
    * already created from it.
    */
-  template?: { name: string; fields: TemplateFields };
+  template?: { name: string; fields: TemplateFields; projectId?: string };
 }) {
   const fields = template?.fields;
   const router = useRouter();
@@ -56,7 +56,8 @@ export function NewRecurrenceForm({
   const [endsAt, setEndsAt] = useState("");
 
   const [title, setTitle] = useState(fields?.title ?? "");
-  const [projectId, setProjectId] = useState("");
+  // A project's template (ADR 0058) sets up recurring work IN that project.
+  const [projectId, setProjectId] = useState(template?.projectId ?? "");
   const [assigneeId, setAssigneeId] = useState("");
   const [priority, setPriority] = useState(fields?.priority ?? "");
   const [dueInDays, setDueInDays] = useState(

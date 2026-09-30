@@ -76,16 +76,26 @@ final class WorkItemTemplates
     ) {}
 
     /**
-     * Every template, alphabetically.
+     * The organization-wide templates, and those of the projects given — the
+     * ones the reader can see (ADR 0058). A template of a private project
+     * somebody is not on names that project's work; it is not theirs to read.
      *
-     * By name and not by age: the picker is read by somebody looking for a
+     * Organization-wide first, then by project, then alphabetically: by name
+     * and not by age, because the picker is read by somebody looking for a
      * word, and a list in creation order makes them read all of it.
      *
+     * @param  list<string>  $visibleProjectIds
      * @return Collection<int, WorkItemTemplateModel>
      */
-    public function all(): Collection
+    public function all(array $visibleProjectIds): Collection
     {
         return WorkItemTemplateModel::query()
+            ->with('project:id,key,name')
+            ->where(fn ($q) => $q
+                ->whereNull('project_id')
+                ->orWhereIn('project_id', $visibleProjectIds))
+            ->orderByRaw('project_id IS NOT NULL')
+            ->orderBy('project_id')
             ->orderByRaw('lower(name)')
             ->get();
     }
@@ -102,10 +112,11 @@ final class WorkItemTemplates
     }
 
     /** @param array<string, mixed> $fields */
-    public function create(string $name, ?string $purpose, array $fields): WorkItemTemplateModel
+    public function create(string $name, ?string $purpose, array $fields, ?string $projectId = null): WorkItemTemplateModel
     {
         $template = new WorkItemTemplateModel;
         $template->id = (string) new UuidV7;
+        $template->project_id = $projectId;
         $template->name = trim($name);
         $template->purpose = $this->blankToNull($purpose);
         $template->fields = $this->shaped($fields);
@@ -114,6 +125,7 @@ final class WorkItemTemplates
 
         $this->audit->record('work_item_template.created', [
             'name' => $template->name,
+            'project_id' => $template->project_id,
             'fields' => array_keys($template->fields),
         ], targetType: 'work_item_template', targetId: $template->id);
 

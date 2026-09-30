@@ -92,9 +92,8 @@ screens read it. The create page's copy is gone.
 
 Still owed, and named here so they are not assumed:
 
-- **Project-scoped templates**, and letting a project's owner write them. The
-  permission is organization-wide in this slice; a manager who wants a template
-  for their own project asks an admin.
+- ~~**Project-scoped templates**, and letting a project's owner write them.~~
+  Paid by ADR 0058.
 - ~~**Recurrences cannot pick a template.**~~ Paid 2026-09-30, the same way
   the create form does it: `/recurring/new?template=ID` prefills the form from
   a template, and the recurrence keeps its own embedded copy — a starting

@@ -14,6 +14,8 @@ export type WorkItemTemplate = {
   /** What it is for, in a sentence. Not the new item's description. */
   purpose: string | null;
   fields: TemplateFields;
+  /** The project it belongs to, or null for an organization-wide one (ADR 0058). */
+  project: { id: string; key: string; name: string } | null;
   updated_at: string;
 };
 

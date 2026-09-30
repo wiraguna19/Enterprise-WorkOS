@@ -41,7 +41,13 @@ export default async function TemplatesPage() {
       />
 
       <PageBody>
-        <TemplateEditor templates={templates} vocabulary={vocabulary} customFields={customFields} />
+        <TemplateEditor
+          // The organization's own. A project's templates are kept in that
+          // project's settings, by the people who run it (ADR 0058).
+          templates={templates.filter((template) => template.project === null)}
+          vocabulary={vocabulary}
+          customFields={customFields}
+        />
       </PageBody>
     </div>
   );

@@ -71,7 +71,11 @@ export default async function NewRecurrencePage({
         // Remounted when the template changes, so the form starts from the
         // new one rather than keeping what the last one filled in.
         key={chosen?.id ?? "blank"}
-        template={chosen === undefined ? undefined : { name: chosen.name, fields: chosen.fields }}
+        template={
+          chosen === undefined
+            ? undefined
+            : { name: chosen.name, fields: chosen.fields, projectId: chosen.project?.id }
+        }
         projects={projects.map((project) => ({
           id: project.id,
           label: `${project.key} · ${project.name}`,

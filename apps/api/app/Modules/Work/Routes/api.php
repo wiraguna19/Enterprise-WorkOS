@@ -124,14 +124,18 @@ Route::delete('projects/{key}/members/{member}', [ProjectController::class, 'rem
 // lockout for everybody but an admin (ADR 0038); this does not repeat it.
 Route::get('work-item-templates', [WorkItemTemplateController::class, 'index'])
     ->middleware('permission:work_item.create');
+// Writes are guarded on `project.view` and the CONTROLLER decides (ADR 0058):
+// organization-wide templates need `work_item_template.manage`, a project's
+// need that or ProjectPolicy::update. A route demanding the template
+// permission would refuse a project's own manager before the question.
 Route::post('work-item-templates', [WorkItemTemplateController::class, 'store'])
-    ->middleware(['permission:work_item_template.manage', 'throttle:writes']);
+    ->middleware(['permission:project.view', 'throttle:writes']);
 Route::patch('work-item-templates/{id}', [WorkItemTemplateController::class, 'update'])
-    ->middleware(['permission:work_item_template.manage', 'throttle:writes']);
+    ->middleware(['permission:project.view', 'throttle:writes']);
 // A DELETE that deletes. Nothing refers to a template, so there is nothing a
 // retirement would be keeping it for — and the audit entry keeps what it held.
 Route::delete('work-item-templates/{id}', [WorkItemTemplateController::class, 'destroy'])
-    ->middleware(['permission:work_item_template.manage', 'throttle:writes']);
+    ->middleware(['permission:project.view', 'throttle:writes']);
 
 // ── Work items ──────────────────────────────────────────────────────────────
 // Keyed by human reference (ENG-142) rather than UUID: it is what people paste

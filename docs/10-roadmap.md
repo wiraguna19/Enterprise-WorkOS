@@ -206,8 +206,8 @@ last entry is deliberately last.
                         replica is behind or unreachable
 6  Extensibility        webhook subscriptions per event type DELIVERED
                         (ADR 0048); recurrences that start from a template
-                        DELIVERED (ADR 0047); still open: service accounts,
-                        project-scoped templates
+                        DELIVERED (ADR 0047); project-scoped templates
+                        DELIVERED (ADR 0058); still open: service accounts
 6a Rule triggers that   DELIVERED (ADR 0057): `approval.decided` from a
    never fired          listener; `schedule.due_soon` / `schedule.overdue`
                         from a 15-minute scan announcing each deadline once.

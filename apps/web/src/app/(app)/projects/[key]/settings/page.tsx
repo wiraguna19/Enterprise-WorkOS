@@ -11,7 +11,9 @@ import {
 import type { ProjectMember } from "@/features/project/actions";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { Project } from "@/features/work-item/types";
-import type { WorkVocabulary } from "@/features/work-item/templates";
+import type { CustomFieldAnswer } from "@/features/custom-fields/types";
+import { TemplateEditor } from "@/features/work-item/components/TemplateEditor";
+import type { WorkItemTemplate, WorkVocabulary } from "@/features/work-item/templates";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -57,7 +59,7 @@ export default async function ProjectSettingsPage({
 
   // The pickers are only fetched for somebody who can actually add: a reader
   // who may see the member list has no business pulling the whole directory.
-  const [members, activity, people, teams, priorities] = await Promise.all([
+  const [members, activity, people, teams, vocabulary, templates, customFields] = await Promise.all([
     api<ProjectMember[]>(`/projects/${key}/members`)
       .then((r) => r.data)
       .catch(() => [] as ProjectMember[]),
@@ -76,11 +78,22 @@ export default async function ProjectSettingsPage({
           .then((r) => r.data)
           .catch(() => [])
       : Promise.resolve([]),
-    // The priority scale, served rather than copied (ADR 0047).
-    api<WorkVocabulary>("/work-items/vocabulary")
-      .then((r) => r.data.priorities)
-      .catch(() => [] as string[]),
+    // The priority scale, served rather than copied (ADR 0047) — and the
+    // types, for this project's template editor.
+    // Not caught: an empty vocabulary would offer "Default" as though it were
+    // a choice, and it would be an outage (the create form's rule).
+    api<WorkVocabulary>("/work-items/vocabulary").then((r) => r.data),
+    // This project's own templates (ADR 0058). The page itself is only for
+    // somebody who may change the project, which is exactly who may write them.
+    api<WorkItemTemplate[]>("/work-item-templates")
+      .then((r) => r.data.filter((template) => template.project?.key === project.key))
+      .catch(() => [] as WorkItemTemplate[]),
+    api<CustomFieldAnswer[]>("/work-items/fields")
+      .then((r) => r.data)
+      .catch(() => [] as CustomFieldAnswer[]),
   ]);
+
+  const priorities = vocabulary.priorities;
 
   return (
     <div className="space-y-5">
@@ -93,6 +106,13 @@ export default async function ProjectSettingsPage({
 
       <PageBody>
         <EditProjectForm project={project} priorities={priorities} />
+
+        <TemplateEditor
+          templates={templates}
+          vocabulary={vocabulary}
+          customFields={customFields}
+          project={{ key: project.key, name: project.name }}
+        />
 
         <ProjectMembers
           projectKey={project.key}

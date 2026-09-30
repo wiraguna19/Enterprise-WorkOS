@@ -18,6 +18,7 @@ export function TemplatePicker({
   templates,
   chosenId,
   keep = {},
+  projectKey,
   missing,
 }: {
   /** The page the links lead back to, e.g. `/work/new`. */
@@ -26,6 +27,11 @@ export function TemplatePicker({
   chosenId?: string;
   /** Query parameters to carry into every link. */
   keep?: Record<string, string>;
+  /**
+   * When the form is already about one project: offer the organization's
+   * templates and THAT project's, not every project's (ADR 0058).
+   */
+  projectKey?: string;
   missing: boolean;
 }) {
   if (templates === null) {
@@ -39,12 +45,20 @@ export function TemplatePicker({
   // No section at all when there is nothing to choose. The settings screen is
   // where templates are written, and pointing at it from here would be a link
   // most people who see it cannot follow.
-  if (templates.length === 0) return null;
+  const offered = templates.filter(
+    (template) => template.project === null || projectKey === undefined || template.project.key === projectKey,
+  );
 
-  const href = (templateId?: string): string => {
+  if (offered.length === 0) return null;
+
+  const href = (template?: WorkItemTemplate): string => {
     const query = new URLSearchParams(keep);
 
-    if (templateId !== undefined) query.set("template", templateId);
+    if (template !== undefined) query.set("template", template.id);
+    // A project's template opens the form ON that project: it was written for
+    // its work, and a create form that then asked "which project?" would be
+    // asking a question the template already answered.
+    if (template?.project) query.set("project", template.project.key);
 
     const qs = query.toString();
 
@@ -72,14 +86,19 @@ export function TemplatePicker({
             <span className="font-medium text-n-900">Blank</span>
           </Link>
         </li>
-        {templates.map((template) => (
+        {offered.map((template) => (
           <li key={template.id}>
             <Link
-              href={href(template.id)}
+              href={href(template)}
               aria-current={chosenId === template.id ? "page" : undefined}
               className="flex flex-col gap-0.5 px-4 py-2.5 transition-colors duration-[120ms] ease-standard hover:bg-n-50 aria-[current=page]:bg-n-50"
             >
-              <span className="font-medium text-n-900">{template.name}</span>
+              <span className="font-medium text-n-900">
+                {template.project && (
+                  <span className="mr-1.5 font-mono text-caption text-n-500">{template.project.key}</span>
+                )}
+                {template.name}
+              </span>
               {template.purpose && (
                 <span className="max-w-prose text-caption text-n-500">{template.purpose}</span>
               )}
