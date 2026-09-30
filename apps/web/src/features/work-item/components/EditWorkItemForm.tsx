@@ -10,7 +10,8 @@ import {
   initialValues,
 } from "@/features/custom-fields/CustomFieldInputs";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
-import { deleteWorkItem, updateWorkItem, type WorkItemEdit } from "../actions";
+import { deleteWorkItem, updateWorkItem, type MilestoneOption, type WorkItemEdit } from "../actions";
+import { MilestoneSelect } from "./MilestoneSelect";
 
 /**
  * Editing a work item (docs/08 §4, docs/03 §8).
@@ -44,6 +45,7 @@ export function EditWorkItemForm({
   lockVersion,
   canDelete,
   timeZone,
+  milestones,
 }: {
   reference: string;
   /** Served by `GET /work-items/vocabulary` (ADR 0047), never written out here. */
@@ -55,12 +57,19 @@ export function EditWorkItemForm({
     start_date: string | null;
     due_at: string | null;
     estimate_hours: string | null;
+    milestone_id: string | null;
   };
   /** The organization's own fields, with this item's answers (ADR 0038). */
   customFields: CustomFieldAnswer[];
   lockVersion: number;
   canDelete: boolean;
   timeZone: string;
+  /**
+   * The project's milestones, or null when the item has no project — and then
+   * there is nothing to choose from, so the field says why instead of
+   * offering an empty list.
+   */
+  milestones: MilestoneOption[] | null;
 }) {
   const router = useRouter();
 
@@ -70,6 +79,7 @@ export function EditWorkItemForm({
   const [startDate, setStartDate] = useState(dateInput(initial.start_date, timeZone));
   const [dueAt, setDueAt] = useState(dateInput(initial.due_at, timeZone));
   const [estimate, setEstimate] = useState(initial.estimate_hours ?? "");
+  const [milestoneId, setMilestoneId] = useState(initial.milestone_id ?? "");
 
   // Captured once, so "what changed" is measured against what the page was
   // given rather than against a value that moved with the form.
@@ -86,6 +96,7 @@ export function EditWorkItemForm({
   const startId = useId();
   const dueId = useId();
   const estimateId = useId();
+  const milestoneFieldId = useId();
 
   const save = () =>
     startTransition(async () => {
@@ -108,6 +119,10 @@ export function EditWorkItemForm({
 
       if (estimate !== (initial.estimate_hours ?? "")) {
         changes.estimate_hours = estimate === "" ? null : estimate;
+      }
+
+      if (milestoneId !== (initial.milestone_id ?? "")) {
+        changes.milestone_id = milestoneId === "" ? null : milestoneId;
       }
 
       const customChanges = changedValues(customFields, customBefore, custom);
@@ -205,6 +220,20 @@ export function EditWorkItemForm({
           value={estimate}
           onChange={(event) => setEstimate(event.target.value)}
           className={`${INPUT} max-w-32`}
+        />
+      </Field>
+
+      <Field
+        id={milestoneFieldId}
+        label="Milestone"
+        hint={milestones === null ? "Work with no project has no milestones to belong to." : undefined}
+      >
+        <MilestoneSelect
+          id={milestoneFieldId}
+          value={milestoneId}
+          onChange={setMilestoneId}
+          milestones={milestones ?? []}
+          disabled={milestones === null}
         />
       </Field>
 

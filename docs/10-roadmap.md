@@ -188,8 +188,8 @@ last entry is deliberately last.
                         Status, tag, delete and undo left out, reasons there
 2  Milestones UI        DELIVERED (ADR 0056): create, change and remove
                         milestones on the project overview; docs/11 flow 3
-                        covered in full. Putting work INTO a milestone from
-                        the forms is still open
+                        covered in full, including putting work into a
+                        milestone from the create and edit forms
 3  Hardening            DELIVERED: filter/sort/include refused wherever a
                         route does not answer them (RefuseUnansweredQuery,
                         docs/05 §4 — the per-key half was ADR 0039); axe-core

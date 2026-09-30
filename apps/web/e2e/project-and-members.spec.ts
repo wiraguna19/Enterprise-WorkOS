@@ -102,6 +102,23 @@ test.describe("a manager's new project", () => {
       health.signals.milestones.status,
       "The milestone exists and project health has not noticed it.",
     ).toBe("at_risk");
+
+    // ── And work goes into it, from the create form ─────────────────────────
+    //
+    // The overview's own "New work item" carries the project, so the
+    // milestone picker is filled for it before anything is chosen.
+    await page.getByRole("link", { name: "New work item", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/work/new\\?project=${key}$`));
+
+    await page.getByLabel("Title").fill(`E2E work for Beta ${key}`);
+    await page.getByLabel("Milestone").selectOption({ label: `Beta · ${due}` });
+    await page.getByRole("button", { name: "Create work item" }).click();
+    await expect(page).toHaveURL(/\/work\/[A-Z0-9]+-\d+$/);
+
+    const reference = page.url().split("/").pop() ?? "";
+    const created = await call<{ milestone_id: string | null }>(session, `/work-items/${reference}`);
+
+    expect(created.milestone_id, "The form showed Beta and the item is not in it.").toBe(stored[0].id);
   });
 });
 

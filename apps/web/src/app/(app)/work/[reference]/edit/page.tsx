@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EditWorkItemForm } from "@/features/work-item/components/EditWorkItemForm";
+import type { MilestoneOption } from "@/features/work-item/actions";
 import type { WorkVocabulary } from "@/features/work-item/templates";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
@@ -51,9 +52,17 @@ export default async function EditWorkItemPage({
 
   // The priority scale is served, not written out here (ADR 0047). A failed
   // read leaves the form with the item's own value only — never a guess.
-  const priorities = await api<WorkVocabulary>("/work-items/vocabulary")
-    .then((r) => r.data.priorities)
-    .catch(() => [] as string[]);
+  const [priorities, milestones] = await Promise.all([
+    api<WorkVocabulary>("/work-items/vocabulary")
+      .then((r) => r.data.priorities)
+      .catch(() => [] as string[]),
+    // The item's own project's milestones — the only ones it may belong to.
+    item.project === null
+      ? Promise.resolve(null)
+      : api<MilestoneOption[]>(`/projects/${item.project.key}/milestones`)
+          .then((r) => r.data)
+          .catch(() => [] as MilestoneOption[]),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -74,11 +83,13 @@ export default async function EditWorkItemPage({
           // A number in the API, a string in an input. Converted once, here,
           // rather than in the form's every comparison.
           estimate_hours: item.estimate_hours === null ? null : String(item.estimate_hours),
+          milestone_id: item.milestone_id ?? null,
         }}
         customFields={item.custom_fields ?? []}
         lockVersion={item.lock_version}
         canDelete={item.permissions.delete ?? false}
         timeZone={me.user.timezone}
+        milestones={milestones}
       />
     </div>
   );

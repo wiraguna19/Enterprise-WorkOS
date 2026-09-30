@@ -204,3 +204,86 @@ it('answers 404 for a milestone of another project, and for an id that is not on
         ->patchJson("/api/v1/projects/{$mine}/milestones/banana", ['name' => 'Typo'])
         ->assertNotFound();
 });
+
+// ── Work in a milestone ─────────────────────────────────────────────────────
+
+it('puts work into a milestone of its own project, and takes it out again', function (): void {
+    $key = milestoneProject();
+    $projectId = $this->withToken($this->ahmad)->getJson("/api/v1/projects/{$key}")->json('data.id');
+    $milestone = $this->withToken($this->ahmad)
+        ->postJson("/api/v1/projects/{$key}/milestones", ['name' => 'Into it'])
+        ->json('data.id');
+
+    $reference = $this->withToken($this->ahmad)->postJson('/api/v1/work-items', [
+        'title' => 'Not grouped yet',
+        'type' => 'task',
+        'project_id' => $projectId,
+    ])->json('data.reference');
+
+    $this->withToken($this->ahmad)
+        ->patchJson("/api/v1/work-items/{$reference}", ['milestone_id' => $milestone])
+        ->assertOk()
+        ->assertJsonPath('data.milestone_id', $milestone);
+
+    $this->withToken($this->ahmad)
+        ->patchJson("/api/v1/work-items/{$reference}", ['milestone_id' => null])
+        ->assertOk()
+        ->assertJsonPath('data.milestone_id', null);
+});
+
+it('refuses a milestone of another project, by name, on create and on edit', function (): void {
+    $here = milestoneProject();
+    $there = milestoneProject();
+    $hereId = $this->withToken($this->ahmad)->getJson("/api/v1/projects/{$here}")->json('data.id');
+    $elsewhere = $this->withToken($this->ahmad)
+        ->postJson("/api/v1/projects/{$there}/milestones", ['name' => 'Not here'])
+        ->json('data.id');
+
+    $this->withToken($this->ahmad)->postJson('/api/v1/work-items', [
+        'title' => 'Crossed wires',
+        'type' => 'task',
+        'project_id' => $hereId,
+        'milestone_id' => $elsewhere,
+    ])->assertUnprocessable()->assertJsonPath('error.code', 'work_item.milestone_not_in_project');
+
+    $reference = $this->withToken($this->ahmad)->postJson('/api/v1/work-items', [
+        'title' => 'Straight wires',
+        'type' => 'task',
+        'project_id' => $hereId,
+    ])->json('data.reference');
+
+    $this->withToken($this->ahmad)
+        ->patchJson("/api/v1/work-items/{$reference}", ['milestone_id' => $elsewhere])
+        ->assertUnprocessable()
+        ->assertJsonPath('error.code', 'work_item.milestone_not_in_project');
+});
+
+it('answers an id that names no milestone with a sentence, not a 500', function (): void {
+    // Before this, an edit checked only that the id was a uuid, and the
+    // foreign key refused it at the database.
+    $key = milestoneProject();
+    $projectId = $this->withToken($this->ahmad)->getJson("/api/v1/projects/{$key}")->json('data.id');
+    $reference = $this->withToken($this->ahmad)->postJson('/api/v1/work-items', [
+        'title' => 'Pointed at nothing',
+        'type' => 'task',
+        'project_id' => $projectId,
+    ])->json('data.reference');
+
+    $this->withToken($this->ahmad)
+        ->patchJson("/api/v1/work-items/{$reference}", ['milestone_id' => '01900000-0000-7000-8000-00000000dead'])
+        ->assertUnprocessable()
+        ->assertJsonPath('error.code', 'work_item.milestone_not_in_project');
+});
+
+it('refuses a milestone for work that has no project', function (): void {
+    $key = milestoneProject();
+    $milestone = $this->withToken($this->ahmad)
+        ->postJson("/api/v1/projects/{$key}/milestones", ['name' => 'Orphaned'])
+        ->json('data.id');
+
+    $this->withToken($this->ahmad)->postJson('/api/v1/work-items', [
+        'title' => 'No project',
+        'type' => 'task',
+        'milestone_id' => $milestone,
+    ])->assertUnprocessable()->assertJsonPath('error.code', 'work_item.milestone_not_in_project');
+});

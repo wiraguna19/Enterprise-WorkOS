@@ -121,6 +121,7 @@ export default async function NewWorkItemPage({
         key={chosen?.id ?? "blank"}
         projects={projects.map((project) => ({
           id: project.id,
+          key: project.key,
           label: `${project.key} · ${project.name}`,
         }))}
         people={people.map((person) => ({

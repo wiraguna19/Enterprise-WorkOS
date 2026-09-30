@@ -17,9 +17,11 @@ use App\Modules\Work\Domain\Event\WorkItemCreated;
 use App\Modules\Work\Domain\Event\WorkItemStatusChanged;
 use App\Modules\Work\Domain\Exception\CannotCloseBlockedWorkItem;
 use App\Modules\Work\Domain\Exception\HierarchyTooDeep;
+use App\Modules\Work\Domain\Exception\MilestoneElsewhere;
 use App\Modules\Work\Domain\Exception\NoWorkflowForType;
 use App\Modules\Work\Domain\Exception\WorkItemDatesRefused;
 use App\Modules\Work\Domain\Exception\WorkItemHierarchyCycle;
+use App\Modules\Work\Infrastructure\Eloquent\MilestoneModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use App\Modules\Workflow\Application\Service\TransitionService;
 use App\Modules\Workflow\Infrastructure\Eloquent\WorkflowModel;
@@ -83,6 +85,11 @@ final class WorkItemService
             if ($parent !== null) {
                 $this->assertHierarchyIsSane($parent);
             }
+
+            $this->assertMilestoneInProject(
+                isset($attributes['milestone_id']) ? (string) $attributes['milestone_id'] : null,
+                isset($attributes['project_id']) ? (string) $attributes['project_id'] : null,
+            );
 
             $item = new WorkItemModel;
             $id = WorkItemModel::newId();
@@ -380,6 +387,13 @@ final class WorkItemService
 
             $this->assertDatesInOrder($locked, $changes);
 
+            if (array_key_exists('milestone_id', $changes)) {
+                $this->assertMilestoneInProject(
+                    $changes['milestone_id'] === null ? null : (string) $changes['milestone_id'],
+                    $locked->project_id,
+                );
+            }
+
             $locked->forceFill($changes + ['lock_version' => $locked->lock_version + 1])->save();
 
             // One user action, one correlation ID — so the timeline can collapse
@@ -420,6 +434,32 @@ final class WorkItemService
         // By calendar day, as the constraint compares (`start_date <= due_at::date`).
         if ($startDay > $dueDay) {
             throw WorkItemDatesRefused::dueBeforeStart((string) $item->reference, $startDay, $dueDay);
+        }
+    }
+
+    /**
+     * A milestone of the item's OWN project, or none (MilestoneElsewhere).
+     *
+     * Tenant-scoped like every model read here, so another organization's
+     * milestone id is simply not found — the same answer as a made-up one.
+     */
+    private function assertMilestoneInProject(?string $milestoneId, ?string $projectId): void
+    {
+        if ($milestoneId === null || $milestoneId === '') {
+            return;
+        }
+
+        if ($projectId === null) {
+            throw MilestoneElsewhere::forItemWithoutProject();
+        }
+
+        $belongs = MilestoneModel::query()
+            ->whereKey($milestoneId)
+            ->where('project_id', $projectId)
+            ->exists();
+
+        if (! $belongs) {
+            throw MilestoneElsewhere::notInProject();
         }
     }
 

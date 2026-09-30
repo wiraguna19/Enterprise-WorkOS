@@ -54,11 +54,23 @@ without touching `updated_at`, which ADR 0054 archives by). The same pattern
 exists on `fk_work_items_project`; nothing deletes a project today, so it is
 recorded here rather than changed.
 
+## Work in a milestone (added the same day)
+
+The create and edit forms offer the item's project's milestones. The create
+form asks for them when the project changes and clears the choice when it
+does; the edit form reads them for the item's own project, and says why the
+field is empty for work with no project.
+
+**The rule is enforced in the service, and it was not before:** a milestone
+of the item's OWN project, or none (`work_item.milestone_not_in_project`).
+Creation checked only that the milestone was the organization's, so an ENG
+item could be filed under a FIN milestone — counted there, invisible from
+there. An edit checked only that the id was a uuid, so one that named nothing
+reached the foreign key and came back a 500. Neither could be sent while
+milestones had no interface; the picker is what made them worth closing.
+
 ## Not done
 
-- **Putting work into a milestone from the interface.** The create API accepts
-  `milestone_id`; neither the create form nor the edit form offers it yet, so a
-  milestone's work count is only ever filled by the API.
 - **Ordering by hand.** `position` exists and is kept; undated milestones sort
   by it. There is no drag.
 - **The timeline view** (`docs/08` §2) that would draw milestones and

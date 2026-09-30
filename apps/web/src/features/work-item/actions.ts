@@ -170,6 +170,8 @@ export type NewWorkItem = {
   estimate_hours?: string;
   assignee_id?: string | null;
   reviewer_id?: string | null;
+  /** One of the chosen project's milestones (ADR 0056). */
+  milestone_id?: string;
   /**
    * The organization's own fields, keyed by key — only the answered ones.
    *
@@ -255,6 +257,8 @@ export type WorkItemEdit = {
   start_date?: string | null;
   due_at?: string | null;
   estimate_hours?: string | null;
+  /** `null` takes the item out of its milestone. */
+  milestone_id?: string | null;
   /**
    * The organization's own fields, keyed by key, only the ones that changed.
    * `null` clears one — and the API refuses that for a required field rather
@@ -613,4 +617,30 @@ export async function bulkUpdateWorkItems(
   revalidatePath("/", "layout");
 
   return { error: null, ...data };
+}
+
+export type MilestoneOption = {
+  id: string;
+  name: string;
+  due_date: string | null;
+  status: string;
+};
+
+/**
+ * A project's milestones, for the create form's picker (ADR 0056).
+ *
+ * Asked when the project changes rather than loaded for every project up
+ * front: the form can be opened with two hundred projects in its select, and
+ * the question only ever concerns the one chosen. An empty list on failure —
+ * the field then offers "None", which is a real answer, and the API still
+ * decides whatever is sent.
+ */
+export async function milestonesOf(projectKey: string): Promise<MilestoneOption[]> {
+  try {
+    const { data } = await api<MilestoneOption[]>(`/projects/${projectKey}/milestones`);
+
+    return data;
+  } catch {
+    return [];
+  }
 }

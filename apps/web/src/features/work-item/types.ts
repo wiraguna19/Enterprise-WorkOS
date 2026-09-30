@@ -41,6 +41,8 @@ export type WorkItem = {
   estimate_hours: number | null;
   position: number;
   project: { id: string; key: string; name: string } | null;
+  /** One of the project's own milestones, or none (ADR 0056). */
+  milestone_id: string | null;
   parent_id: string | null;
   assignees?: Array<{
     assignment_id: string;

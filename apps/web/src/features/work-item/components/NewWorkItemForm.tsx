@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
@@ -10,10 +10,14 @@ import {
   initialValues,
 } from "@/features/custom-fields/CustomFieldInputs";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
-import { createWorkItem } from "../actions";
+import { createWorkItem, milestonesOf, type MilestoneOption } from "../actions";
+import { MilestoneSelect } from "./MilestoneSelect";
 import { humanize, type TemplatePrefill } from "../templates";
 
 type Option = { id: string; label: string };
+
+/** A project, with the key its milestones are asked for by. */
+type ProjectOption = Option & { key: string };
 
 /**
  * Creating work (docs/08 §4).
@@ -54,7 +58,7 @@ export function NewWorkItemForm({
   customFields,
   template,
 }: {
-  projects: Option[];
+  projects: ProjectOption[];
   people: Option[];
   /** Pre-answered when the form was opened from a project. */
   defaultProjectId?: string;
@@ -85,6 +89,35 @@ export function NewWorkItemForm({
   const [estimate, setEstimate] = useState(prefill?.estimate ?? "");
   const [assigneeId, setAssigneeId] = useState("");
   const [reviewerId, setReviewerId] = useState("");
+  const [milestoneId, setMilestoneId] = useState("");
+  const [milestones, setMilestones] = useState<MilestoneOption[]>([]);
+
+  // The chosen project's milestones, asked for when the project changes —
+  // including the first render, when the form was opened from a project.
+  // Clearing the old choice happens in the select's handler, not here: a
+  // milestone belongs to one project, and the moment the project changes is
+  // the moment the old one stops being a legal answer.
+  const projectKeyOf = projects.find((project) => project.id === projectId)?.key;
+
+  useEffect(() => {
+    if (projectKeyOf === undefined) return;
+
+    let current = true;
+
+    void milestonesOf(projectKeyOf).then((list) => {
+      if (current) setMilestones(list);
+    });
+
+    return () => {
+      current = false;
+    };
+  }, [projectKeyOf]);
+
+  const chooseProject = (id: string) => {
+    setProjectId(id);
+    setMilestoneId("");
+    setMilestones([]);
+  };
   const [custom, setCustom] = useState<Record<string, string>>(() => ({
     ...initialValues(customFields),
     ...prefill?.custom,
@@ -104,6 +137,7 @@ export function NewWorkItemForm({
   const estimateId = useId();
   const assigneeId_ = useId();
   const reviewerId_ = useId();
+  const milestoneFieldId = useId();
 
   const submit = () =>
     startTransition(async () => {
@@ -121,6 +155,7 @@ export function NewWorkItemForm({
           estimate_hours: estimate,
           assignee_id: assigneeId,
           reviewer_id: reviewerId,
+          milestone_id: milestoneId,
           // Only the answered ones. A blank required field has to arrive as an
           // absence, so the API's refusal names it rather than complaining
           // about the shape of an empty string.
@@ -236,7 +271,7 @@ export function NewWorkItemForm({
           <select
             id={projectId_}
             value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
+            onChange={(event) => chooseProject(event.target.value)}
             className={INPUT}
           >
             <option value="">No project</option>
@@ -246,6 +281,20 @@ export function NewWorkItemForm({
               </option>
             ))}
           </select>
+        </Field>
+
+        <Field
+          id={milestoneFieldId}
+          label="Milestone"
+          hint={projectId === "" ? "Choose a project first — a milestone belongs to one." : undefined}
+        >
+          <MilestoneSelect
+            id={milestoneFieldId}
+            value={milestoneId}
+            onChange={setMilestoneId}
+            milestones={milestones}
+            disabled={projectId === ""}
+          />
         </Field>
 
         <Field id={typeId} label="Type">
