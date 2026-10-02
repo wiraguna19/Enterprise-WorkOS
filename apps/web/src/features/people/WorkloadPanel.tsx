@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import type { Workload } from "./types";
 
 /**
@@ -15,7 +17,16 @@ import type { Workload } from "./types";
  * in no week at all, and a capacity that has not been reduced for leave because
  * nothing in the system records leave yet.
  */
-export function WorkloadPanel({ workload }: { workload: Workload }) {
+export function WorkloadPanel({
+  workload,
+  locale = "en",
+}: {
+  workload: Workload;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
+}) {
+  const t = translator(locale);
+
   return (
     <div className="space-y-1.5">
       <WorkloadBar
@@ -23,6 +34,7 @@ export function WorkloadPanel({ workload }: { workload: Workload }) {
         capacityHours={workload.capacity_hours}
         itemCount={workload.item_count}
         unestimatedCount={workload.unestimated_count}
+        locale={locale}
       />
 
       {/* Phase 6's first house rule: a number must be able to show its work.
@@ -36,23 +48,19 @@ export function WorkloadPanel({ workload }: { workload: Workload }) {
         href={`/people/${workload.membership_id}/workload?week=${workload.week_start}`}
         className="inline-block text-caption text-a-700 hover:underline"
       >
-        See the {workload.item_count} {workload.item_count === 1 ? "item" : "items"} behind this
+        {t.plural("workload.behind", workload.item_count)}
       </Link>
 
       <p className="text-caption text-n-500">
-        Week of {workload.week_start}. Unestimated work is counted at{" "}
-        {workload.default_estimate_hours} h.
+        {t("workload.week", { week: workload.week_start, hours: workload.default_estimate_hours })}
         {workload.undated_count > 0 && (
           <>
             {" "}
-            <span className="text-s-active">
-              {workload.undated_count} committed{" "}
-              {workload.undated_count === 1 ? "item has" : "items have"} no dates
-            </span>{" "}
-            and {workload.undated_count === 1 ? "is" : "are"} not in this total.
+            <span className="text-s-active">{t.plural("workload.undated", workload.undated_count)}</span>{" "}
+            {t.plural("workload.undatedTail", workload.undated_count)}
           </>
         )}{" "}
-        {workload.time_off_hours === null && "Capacity is not adjusted for leave."}
+        {workload.time_off_hours === null && t("workload.noLeave")}
       </p>
     </div>
   );

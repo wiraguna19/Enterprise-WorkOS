@@ -11,6 +11,9 @@ import { TeamCapacity } from "@/features/insights/TeamCapacity";
 import type { AtRiskItem } from "@/features/insights/types";
 import type { Workload } from "@/features/people/types";
 import type { Approval, WorkItem } from "@/features/work-item/types";
+import { asLocale, INTL_TAG } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator, type Translator } from "@/i18n/translate";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -48,6 +51,10 @@ type Attention = { unaccepted: WorkItem[]; overdue: WorkItem[] };
 export default async function HomePage() {
   const me = await requireUser();
   const firstName = me.user.name.split(" ")[0];
+  // Translated (ADR 0060): every word on this screen, and every shared
+  // component on it is handed the locale.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   // Each read falls back to empty rather than failing the page: Home is the
   // first screen after sign-in, and one unavailable section is not a reason to
@@ -120,16 +127,16 @@ export default async function HomePage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title={`${greeting(me.user.timezone)}, ${firstName}`}
-        description={summary(counts, me.user.timezone)}
+        title={t(greeting(me.user.timezone), { name: firstName })}
+        description={summary(counts, me.user.timezone, t)}
       />
 
       <PageBody
         aside={
           <>
             {workload && (
-              <Panel id="your-week" title="Your week">
-                <WorkloadPanel workload={workload} />
+              <Panel id="your-week" title={t("home.yourWeek")}>
+                <WorkloadPanel workload={workload} locale={locale} />
               </Panel>
             )}
 
@@ -139,19 +146,19 @@ export default async function HomePage() {
               // one list is how they start disagreeing about what is pending.
               <Panel
                 id="waiting-review"
-                title="Waiting on your review"
+                title={t("home.waitingReview")}
                 actions={<Badge tone="warning">{reviews.length}</Badge>}
               >
                 <ButtonLink href="/inbox" variant="secondary" size="sm">
-                  Open the inbox
+                  {t("home.openInbox")}
                 </ButtonLink>
               </Panel>
             )}
 
             {capacity.rows.length > 0 && (
-              <Panel id="capacity" title="Your reports this week" bleed>
+              <Panel id="capacity" title={t("home.reports")} bleed>
                 <div className="px-4 py-3">
-                  <TeamCapacity rows={capacity.rows} withheld={capacity.withheld} />
+                  <TeamCapacity rows={capacity.rows} withheld={capacity.withheld} locale={locale} />
                 </div>
               </Panel>
             )}
@@ -160,18 +167,12 @@ export default async function HomePage() {
       >
         {nothingToShow ? (
         <EmptyState
-          title={
-            (counts.open ?? 0) > 0 ? "Nothing needs you today" : "No work assigned to you yet"
-          }
-          description={
-            (counts.open ?? 0) > 0
-              ? "Nothing is overdue, unaccepted, or due today. Your open work is in My Work when you want it."
-              : "When someone assigns you work, it appears here — exceptions first, then what is due today, then the week ahead."
-          }
+          title={t((counts.open ?? 0) > 0 ? "home.empty.quiet.title" : "home.empty.new.title")}
+          description={t((counts.open ?? 0) > 0 ? "home.empty.quiet.body" : "home.empty.new.body")}
           action={
             me.permissions.includes("team.create") ? (
               <ButtonLink href="/teams" variant="primary">
-                Browse teams
+                {t("home.browseTeams")}
               </ButtonLink>
             ) : undefined
           }
@@ -179,39 +180,49 @@ export default async function HomePage() {
         ) : (
           <>
             <Section
-            title="Overdue"
+            id="overdue"
+            title={t("home.section.overdue")}
             items={attention.overdue}
             timeZone={me.user.timezone}
             href="/my-work?view=overdue"
+            t={t}
           />
 
           <Section
-            title="Assigned, not yet accepted"
+            id="assigned-not-yet-accepted"
+            title={t("home.section.unaccepted")}
             items={unaccepted}
             timeZone={me.user.timezone}
             href="/my-work?view=assigned"
+            t={t}
           />
 
           <Section
-            title="Due today"
+            id="due-today"
+            title={t("home.section.dueToday")}
             items={dueToday}
             timeZone={me.user.timezone}
             href="/my-work?view=today"
+            t={t}
           />
 
           <Section
-            title="This week"
+            id="this-week"
+            title={t("home.section.thisWeek")}
             items={upcoming}
             timeZone={me.user.timezone}
             href="/my-work?view=upcoming"
+            t={t}
           />
 
           <Section
-            title="Waiting on others"
+            id="waiting-on-others"
+            title={t("home.section.waiting")}
             items={waiting}
             timeZone={me.user.timezone}
             href="/my-work?view=waiting_on_others"
-            note="Submitted for review, or blocked by work somebody else holds. Nothing here moves because of you."
+            note={t("home.section.waitingNote")}
+            t={t}
           />
         </>
       )}
@@ -219,13 +230,13 @@ export default async function HomePage() {
         {atRisk.length > 0 && (
           <Panel
             id="at-risk"
-            title="Where the risk is"
-            description="Work that will miss, and why — ordered by how soon it bites."
+            title={t("home.risk.title")}
+            description={t("home.risk.description")}
             actions={<Badge tone="warning">{atRisk.length}</Badge>}
             bleed
           >
             <div className="px-4 py-3">
-              <AtRiskList items={atRisk} timeZone={me.user.timezone} />
+              <AtRiskList items={atRisk} timeZone={me.user.timezone} locale={locale} />
             </div>
           </Panel>
         )}
@@ -235,18 +246,26 @@ export default async function HomePage() {
 }
 
 function Section({
+  id,
   title,
   items,
   timeZone,
   href,
   note,
+  t,
 }: {
+  /**
+   * The panel's id, given rather than derived from the title: the title is
+   * now in the reader's language, and an id must not change with it.
+   */
+  id: string;
   title: string;
   items: WorkItem[];
   timeZone: string;
   href: string;
   /** One line saying what this section means, where the title does not say it. */
   note?: string;
+  t: Translator;
 }) {
   // An empty section is not rendered at all. A heading over nothing is a hole
   // in the page that the reader has to work out is not an error.
@@ -254,19 +273,19 @@ function Section({
 
   return (
     <Panel
-      id={`home-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+      id={`home-${id}`}
       title={title}
       description={note}
       actions={
         <ButtonLink href={href} variant="ghost" size="sm">
-          See all
+          {t("home.seeAll")}
         </ButtonLink>
       }
       bleed
     >
       <div className="divide-y divide-n-100">
         {items.slice(0, 5).map((item) => (
-          <WorkItemRow key={item.id} item={item} timeZone={timeZone} />
+          <WorkItemRow key={item.id} item={item} timeZone={timeZone} locale={t.locale} />
         ))}
       </div>
     </Panel>
@@ -279,8 +298,8 @@ function Section({
  * Overdue leads when there is any, because it is the only one of these numbers
  * that describes something already going wrong.
  */
-function summary(counts: Record<string, number>, timeZone: string): string {
-  const date = new Intl.DateTimeFormat("en-GB", {
+function summary(counts: Record<string, number>, timeZone: string, t: Translator): string {
+  const date = new Intl.DateTimeFormat(INTL_TAG[t.locale], {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -289,9 +308,9 @@ function summary(counts: Record<string, number>, timeZone: string): string {
 
   const parts: string[] = [];
 
-  if ((counts.overdue ?? 0) > 0) parts.push(`${counts.overdue} overdue`);
-  if ((counts.due_today ?? 0) > 0) parts.push(`${counts.due_today} due today`);
-  if (parts.length === 0 && (counts.open ?? 0) > 0) parts.push(`${counts.open} open`);
+  if ((counts.overdue ?? 0) > 0) parts.push(t("count.overdue", { count: counts.overdue }));
+  if ((counts.due_today ?? 0) > 0) parts.push(t("count.dueToday", { count: counts.due_today }));
+  if (parts.length === 0 && (counts.open ?? 0) > 0) parts.push(t("count.open", { count: counts.open }));
 
   return parts.length === 0 ? date : `${date} · ${parts.join(" · ")}`;
 }
@@ -303,15 +322,15 @@ function summary(counts: Record<string, number>, timeZone: string): string {
  * morning" at 9pm is the product telling someone it does not know where they
  * are (docs/07 §1).
  */
-function greeting(timeZone: string): string {
+function greeting(timeZone: string): MessageKey {
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone }).format(
       new Date(),
     ),
   );
 
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
+  if (hour < 12) return "home.greeting.morning";
+  if (hour < 18) return "home.greeting.afternoon";
 
-  return "Good evening";
+  return "home.greeting.evening";
 }

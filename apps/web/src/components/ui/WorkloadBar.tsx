@@ -1,3 +1,5 @@
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { clsx } from "@/lib/clsx";
 
 /**
@@ -15,12 +17,16 @@ export function WorkloadBar({
   capacityHours,
   itemCount,
   unestimatedCount = 0,
+  locale = "en",
 }: {
   committedHours: number;
   capacityHours: number;
   itemCount: number;
   unestimatedCount?: number;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
   const utilization = capacityHours > 0 ? committedHours / capacityHours : 0;
   const filled = Math.min(utilization, 1) * 100;
   const over = utilization > 1;
@@ -39,20 +45,20 @@ export function WorkloadBar({
         aria-valuenow={Math.round(utilization * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`${Math.round(utilization * 100)} percent committed`}
+        aria-label={t("workload.percent", { percent: Math.round(utilization * 100) })}
       >
         <div className={clsx("h-full rounded-full", tone)} style={{ width: `${filled}%` }} />
       </div>
 
       <span className="text-body-sm text-n-700">
-        {committedHours}/{capacityHours} h
-        {over && <span className="ml-1 font-medium text-s-danger">over</span>}
+        {t("workload.hours", { committed: committedHours, capacity: capacityHours })}
+        {over && <span className="ml-1 font-medium text-s-danger">{t("workload.over")}</span>}
       </span>
 
       <span className="text-caption text-n-500">
-        {itemCount} {itemCount === 1 ? "item" : "items"}
+        {t.plural("workload.items", itemCount)}
         {unestimatedCount > 0 && (
-          <span className="ml-1 text-s-active">· {unestimatedCount} unestimated</span>
+          <span className="ml-1 text-s-active">· {t("workload.unestimated", { count: unestimatedCount })}</span>
         )}
       </span>
     </div>

@@ -49,6 +49,14 @@ rewrite.**
   the same reason the time zone is not (`docs/07` §1).
 - **A screen is translated completely, or it is left English.** Screens move
   over one at a time. The list of translated screens is kept in `docs/10`.
+- **Shared components take the language as a prop, defaulting to English.**
+  A row, a due date or a workload bar appears on a dozen screens and renders
+  on the server on some of them and on the client on others, so it cannot use
+  a hook. It takes an optional `locale` and calls `translator(locale)`. A
+  translated screen passes its locale. A screen not yet translated passes
+  nothing and stays wholly English, which is the rule above kept by a default
+  value. Client components that exist only on translated screens use
+  `useT()`.
 - **Seeded users stay `en`.** The end-to-end specs find controls by their
   English names.
 

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import type { Workload } from "@/features/people/types";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 type Row = Workload & { name: string | null };
 
@@ -17,7 +19,18 @@ type Row = Workload & { name: string | null };
  * capacity is unadjusted for leave travels with the block — the same rule the
  * personal workload panel follows.
  */
-export function TeamCapacity({ rows, withheld }: { rows: Row[]; withheld: number }) {
+export function TeamCapacity({
+  rows,
+  withheld,
+  locale = "en",
+}: {
+  rows: Row[];
+  withheld: number;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
+}) {
+  const t = translator(locale);
+
   return (
     <div className="space-y-3">
       {rows.map((row) => (
@@ -27,11 +40,11 @@ export function TeamCapacity({ rows, withheld }: { rows: Row[]; withheld: number
               href={`/people/${row.membership_id}`}
               className="text-body-sm font-medium text-n-900 hover:text-a-700"
             >
-              {row.name ?? "Unnamed"}
+              {row.name ?? t("capacity.unnamed")}
             </Link>
             {row.undated_count > 0 && (
               <span className="text-caption text-s-active">
-                {row.undated_count} undated
+                {t("capacity.undated", { count: row.undated_count })}
               </span>
             )}
           </div>
@@ -44,22 +57,24 @@ export function TeamCapacity({ rows, withheld }: { rows: Row[]; withheld: number
           <Link
             href={`/people/${row.membership_id}/workload?week=${row.week_start}`}
             className="block rounded-sm hover:bg-n-25"
-            aria-label={`The ${row.item_count} items behind ${row.name ?? "this person"}'s week`}
+            aria-label={t.plural("capacity.barLabel", row.item_count, {
+              name: row.name ?? t("capacity.thisPerson"),
+            })}
           >
             <WorkloadBar
               committedHours={row.committed_hours}
               capacityHours={row.capacity_hours}
               itemCount={row.item_count}
               unestimatedCount={row.unestimated_count}
+              locale={locale}
             />
           </Link>
         </div>
       ))}
 
       <p className="text-caption text-n-500">
-        Capacity is not adjusted for leave — nothing in the system records it yet. Unestimated
-        work is counted at the organization&rsquo;s default estimate.
-        {withheld > 0 && ` ${withheld} of your reports are not shown: you cannot see their workload.`}
+        {t("capacity.note")}
+        {withheld > 0 && ` ${t("capacity.withheld", { count: withheld })}`}
       </p>
     </div>
   );

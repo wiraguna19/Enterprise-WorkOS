@@ -16,7 +16,7 @@ import { test, signedInPhone } from "./support/auth";
 const BUDI = "budi@acme.test";
 
 test.describe("interface language", () => {
-  test("choosing Indonesian translates the shell and the settings index", async ({
+  test("choosing Indonesian translates the shell, Settings, Home and My Work", async ({
     browser,
     viewport,
   }) => {
@@ -44,6 +44,15 @@ test.describe("interface language", () => {
       await expect(page.getByRole("heading", { name: "Pengaturan", level: 1 })).toBeVisible();
       await expect(page.getByRole("link", { name: "Bahasa", exact: true })).toBeVisible();
       await expect(page.locator("html")).toHaveAttribute("lang", "id");
+
+      // Home and My Work, the next two screens moved over.
+      await page.goto("/");
+      await expect(page.getByRole("heading", { level: 1 })).toContainText("Selamat");
+
+      await page.goto("/my-work");
+      await expect(page.getByRole("heading", { name: "Pekerjaan Saya", level: 1 })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Tampilan pekerjaan" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Hari ini", exact: true })).toBeVisible();
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

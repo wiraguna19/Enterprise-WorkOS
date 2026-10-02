@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { clsx } from "@/lib/clsx";
 import { AvatarStack } from "@/components/ui/Avatar";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -21,12 +23,20 @@ export function WorkItemRow({
   timeZone,
   showProject = true,
   selected = false,
+  locale = "en",
 }: {
   item: WorkItem;
   timeZone: string;
   showProject?: boolean;
   selected?: boolean;
+  /**
+   * English unless the screen around it has been translated (ADR 0060). This
+   * row appears on a dozen screens; a default keeps the untranslated ones
+   * wholly English rather than half.
+   */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
   const unaccepted = item.assignees?.some((a) => a.role === "assignee" && !a.accepted);
 
   return (
@@ -37,7 +47,7 @@ export function WorkItemRow({
         selected ? "bg-a-50" : "hover:bg-n-25",
       )}
     >
-      <PriorityIcon priority={item.priority} />
+      <PriorityIcon priority={item.priority} locale={locale} />
 
       <span className="w-16 shrink-0 font-mono text-caption text-n-500">{item.reference}</span>
 
@@ -53,7 +63,7 @@ export function WorkItemRow({
           )}
           {item.subtask_count ? (
             <>
-              <span>{item.subtask_count} subtasks</span>
+              <span>{t.plural("row.subtasks", item.subtask_count)}</span>
               <span aria-hidden>·</span>
             </>
           ) : null}
@@ -62,7 +72,7 @@ export function WorkItemRow({
           ) : (
             // Unestimated work is flagged, not silently treated as zero: a
             // workload bar built on it would be a lie (docs/02 §11).
-            <span className="text-s-active">no estimate</span>
+            <span className="text-s-active">{t("row.noEstimate")}</span>
           )}
         </span>
       </span>
@@ -71,7 +81,7 @@ export function WorkItemRow({
         // "Assigned but not acknowledged" is a distinct state from "in
         // progress", and it is the earliest warning a manager gets.
         <span className="hidden shrink-0 rounded-xs bg-s-active/10 px-1.5 py-0.5 text-micro font-medium text-s-active sm:inline">
-          not accepted
+          {t("row.notAccepted")}
         </span>
       )}
 
@@ -83,19 +93,19 @@ export function WorkItemRow({
         />
       )}
 
-      <DueDate value={item.due_at} overdue={item.is_overdue} timeZone={timeZone} />
+      <DueDate value={item.due_at} overdue={item.is_overdue} timeZone={timeZone} locale={locale} />
 
       <span className="hidden w-16 shrink-0 justify-end sm:flex">
         {item.assignees && item.assignees.length > 0 ? (
           <AvatarStack
             people={item.assignees
               .filter((a) => a.role === "assignee")
-              .map((a) => ({ id: a.membership_id, name: a.name ?? "Unknown" }))}
+              .map((a) => ({ id: a.membership_id, name: a.name ?? t("row.unknown") }))}
           />
         ) : (
           // Unassigned work is a gap a manager must be able to see, so it is
           // labelled rather than left blank.
-          <span className="text-micro text-s-active">unassigned</span>
+          <span className="text-micro text-s-active">{t("row.unassigned")}</span>
         )}
       </span>
     </Link>

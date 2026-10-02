@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDate } from "@/lib/format";
 import { clsx } from "@/lib/clsx";
 import type { AtRiskItem, RiskReason } from "./types";
@@ -13,7 +15,18 @@ import type { AtRiskItem, RiskReason } from "./types";
  * Nothing here is a card with a number on it. The count in the heading is the
  * only figure on the block, and it exists to say how long the list is.
  */
-export function AtRiskList({ items, timeZone }: { items: AtRiskItem[]; timeZone: string }) {
+export function AtRiskList({
+  items,
+  timeZone,
+  locale = "en",
+}: {
+  items: AtRiskItem[];
+  timeZone: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
+}) {
+  const t = translator(locale);
+
   return (
     <div className="border-t border-n-100">
       {items.map((item) => (
@@ -27,12 +40,12 @@ export function AtRiskList({ items, timeZone }: { items: AtRiskItem[]; timeZone:
           <span className="min-w-0 flex-1 truncate font-medium text-n-900">{item.title}</span>
 
           <span className="shrink-0 text-caption text-n-500">
-            {item.assignee ?? "unassigned"}
+            {item.assignee ?? t("risk.unassigned")}
           </span>
 
           <span className="flex shrink-0 flex-wrap gap-1.5">
             {item.reasons.map((reason) => (
-              <Reason key={reason} reason={reason} item={item} timeZone={timeZone} />
+              <Reason key={reason} reason={reason} item={item} timeZone={timeZone} locale={locale} />
             ))}
           </span>
         </Link>
@@ -51,17 +64,22 @@ function Reason({
   reason,
   item,
   timeZone,
+  locale,
 }: {
   reason: RiskReason;
   item: AtRiskItem;
   timeZone: string;
+  locale: Locale;
 }) {
+  const t = translator(locale);
   const text: Record<RiskReason, string> = {
-    overdue: item.due_at ? `overdue since ${formatDate(item.due_at, timeZone)}` : "overdue",
-    blocking: `blocks ${item.blocking_count} ${item.blocking_count === 1 ? "item" : "items"}`,
-    unassigned: "unassigned",
-    stalled: `no movement in ${item.days_since_move} d`,
-    blocked: "blocked",
+    overdue: item.due_at
+      ? t("risk.overdueSince", { date: formatDate(item.due_at, timeZone, locale) })
+      : t("risk.overdue"),
+    blocking: t.plural("risk.blocking", item.blocking_count),
+    unassigned: t("risk.unassigned"),
+    stalled: t("risk.stalled", { count: item.days_since_move }),
+    blocked: t("risk.blocked"),
   };
 
   return (

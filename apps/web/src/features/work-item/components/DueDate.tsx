@@ -1,3 +1,6 @@
+import type { Locale } from "@/i18n/config";
+import { INTL_TAG } from "@/i18n/config";
+import { translator, type Translator } from "@/i18n/translate";
 import { clsx } from "@/lib/clsx";
 
 /**
@@ -16,25 +19,30 @@ export function DueDate({
   value,
   overdue,
   timeZone,
+  locale = "en",
 }: {
   value: string | null;
   overdue: boolean;
   timeZone: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   if (!value) return <span className="text-caption text-n-500">—</span>;
 
   const date = new Date(value);
   const now = new Date();
 
   const sameYear = date.getFullYear() === now.getFullYear();
-  const absolute = new Intl.DateTimeFormat("en-GB", {
+  const absolute = new Intl.DateTimeFormat(INTL_TAG[locale], {
     day: "numeric",
     month: "short",
     ...(sameYear ? {} : { year: "numeric" }),
     timeZone,
   }).format(date);
 
-  const time = new Intl.DateTimeFormat("en-GB", {
+  const time = new Intl.DateTimeFormat(INTL_TAG[locale], {
     hour: "2-digit",
     minute: "2-digit",
     timeZone,
@@ -51,9 +59,9 @@ export function DueDate({
   );
 
   const label =
-    dayDelta === 0 ? "today"
-    : dayDelta === 1 ? "tomorrow"
-    : dayDelta === -1 ? "yesterday"
+    dayDelta === 0 ? t("due.today")
+    : dayDelta === 1 ? t("due.tomorrow")
+    : dayDelta === -1 ? t("due.yesterday")
     : absolute;
 
   return (
@@ -62,10 +70,10 @@ export function DueDate({
         "whitespace-nowrap text-caption tabular-nums",
         overdue ? "font-semibold text-s-danger" : "text-n-500",
       )}
-      title={`Due ${absolute} at ${time}`}
+      title={t("due.title", { date: absolute, time })}
     >
       {label}
-      {overdue && <span className="ml-1">· {lateness(date, now)}</span>}
+      {overdue && <span className="ml-1">· {lateness(date, now, t)}</span>}
     </span>
   );
 }
@@ -77,16 +85,16 @@ export function DueDate({
  * word — because "47d late" and "312d late" prompt the same reaction and the
  * precision is false comfort.
  */
-function lateness(due: Date, now: Date): string {
+function lateness(due: Date, now: Date, t: Translator): string {
   const minutes = Math.floor((now.getTime() - due.getTime()) / 60_000);
 
-  if (minutes < 60) return `${Math.max(minutes, 1)}m late`;
+  if (minutes < 60) return t("due.lateMinutes", { count: Math.max(minutes, 1) });
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h late`;
+  if (hours < 24) return t("due.lateHours", { count: hours });
 
   const days = Math.floor(hours / 24);
-  if (days < 31) return `${days}d late`;
+  if (days < 31) return t("due.lateDays", { count: days });
 
-  return "long overdue";
+  return t("due.longOverdue");
 }

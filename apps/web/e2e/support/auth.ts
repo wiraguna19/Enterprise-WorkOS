@@ -68,7 +68,30 @@ export type Phone = {
   session: Session;
 };
 
+/**
+ * …and speaking English, whatever the account was left in.
+ *
+ * Every seeded account is meant to stay `en` (ADR 0060): the specs find
+ * controls by their English names. "Meant to" lasted one afternoon — Ahmad
+ * was switched to Indonesian by hand while trying the language screen, and the
+ * dashboard spec failed looking for "Overdue" on a page that said
+ * "Terlambat". A rule the suite depends on is a rule the suite arranges, so
+ * each phone puts its account back before the spec sees it. One request, and
+ * the one spec that changes the language sets it itself.
+ */
 export async function signedInPhone(
+  browser: Browser,
+  email: string,
+  viewport: { width: number; height: number } | null,
+): Promise<Phone> {
+  const phone = await openPhone(browser, email, viewport);
+
+  await call(phone.session, "/auth/me", { method: "PATCH", body: { locale: "en" } });
+
+  return phone;
+}
+
+async function openPhone(
   browser: Browser,
   email: string,
   viewport: { width: number; height: number } | null,
@@ -135,6 +158,9 @@ async function stillValid(session: Session): Promise<boolean> {
  * would skip the only part of authentication this suite can observe.
  */
 async function signInThroughTheForm(page: Page, email: string): Promise<void> {
+  // A saved state can carry the language cookie from an account left in
+  // Indonesian, and this form is found by its English labels (ADR 0060).
+  await page.context().clearCookies({ name: "wos_locale" });
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("password");
