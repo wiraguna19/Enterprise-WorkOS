@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Controller;
 
 use App\Modules\Identity\Application\Service\AuthenticationService;
+use App\Modules\Identity\Application\Service\InterfaceLanguage;
 use App\Modules\Identity\Application\Service\MultiFactor;
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Application\Service\RecentAuthentication;
@@ -317,6 +318,30 @@ final class AuthController extends ApiController
                 'expires_at' => $session->expires_at,
             ],
         ]);
+    }
+
+    /**
+     * The person's own interface language (ADR 0060).
+     *
+     * `users.locale` has existed since the first migration and nothing could
+     * change it. One field, because it is the only preference here that
+     * nothing else edits; the time zone, when it gets a screen, joins it.
+     *
+     * Named `auth.me.update`, so an API token is refused it by the `auth.*`
+     * rule (ADR 0049): a script has no interface to translate.
+     */
+    public function updateMe(Request $request, InterfaceLanguage $language): ApiResponse
+    {
+        $validated = $request->validate([
+            'locale' => ['required', 'string', 'in:'.implode(',', InterfaceLanguage::LOCALES)],
+        ]);
+
+        /** @var UserModel $user the route is behind auth:sanctum */
+        $user = $request->user();
+
+        $language->set($user, (string) $validated['locale']);
+
+        return $this->me($request);
     }
 
     /**

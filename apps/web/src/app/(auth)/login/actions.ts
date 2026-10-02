@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 import { api, ApiRequestError } from "@/lib/api";
 import { safeNextPath } from "@/lib/next-path";
 import {
@@ -65,7 +67,7 @@ export async function login(
       return { error: error.error.message, requestId: error.error.request_id };
     }
 
-    return { error: "We could not reach the server. Please try again." };
+    return { error: translator(await requestLocale())("common.unreachable") };
   }
 
   redirect(next);
@@ -87,7 +89,7 @@ export async function verifyMfa(
   const challenge = await getMfaChallenge();
 
   if (challenge === null) {
-    return { error: "This sign-in has expired. Please start again." };
+    return { error: translator(await requestLocale())("login.expired") };
   }
 
   try {
@@ -110,7 +112,7 @@ export async function verifyMfa(
       };
     }
 
-    return { error: "We could not reach the server. Please try again.", mfaRequired: true };
+    return { error: translator(await requestLocale())("common.unreachable"), mfaRequired: true };
   }
 
   redirect(next);

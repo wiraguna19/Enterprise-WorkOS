@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { asLocale } from "@/i18n/config";
+import { I18nProvider } from "@/i18n/I18nProvider";
 import { api } from "@/lib/api";
 import { isSignedOut, requireUser } from "@/lib/auth";
 
@@ -63,7 +65,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     throw error;
   });
 
+  // The person's language, from `users.locale` (ADR 0060). Above the shell
+  // so every client component under it can ask for it.
   return (
+    <I18nProvider locale={asLocale(me.user.locale)}>
     <AppShell
       user={me.user}
       membershipId={me.membership.id}
@@ -76,5 +81,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {children}
     </AppShell>
+    </I18nProvider>
   );
 }

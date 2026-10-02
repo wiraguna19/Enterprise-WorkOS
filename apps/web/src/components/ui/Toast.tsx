@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
 import type { ReactNode } from "react";
 
@@ -46,8 +47,8 @@ type Toast = { id: number; tone: Tone; message: string };
 /** A mark, not a colour alone (docs/09 §5): a person who cannot tell the two
  *  hues apart still gets the difference. */
 const MARK = {
-  done: { glyph: "✓", className: "text-a-700", label: "Done" },
-  removed: { glyph: "−", className: "text-s-danger", label: "Removed" },
+  done: { glyph: "✓", className: "text-a-700", label: "toast.done" },
+  removed: { glyph: "−", className: "text-s-danger", label: "toast.removed" },
 } as const;
 
 const ToastContext = createContext<((toast: { tone?: Tone; message: string }) => void) | null>(
@@ -90,6 +91,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastRow({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const t = useT();
+
   useEffect(() => {
     const timer = setTimeout(onDismiss, LIFETIME_MS);
 
@@ -102,7 +105,7 @@ function ToastRow({ toast, onDismiss }: { toast: Toast; onDismiss: () => void })
     >
       <span className={clsx("mt-px shrink-0 text-body-sm leading-5", MARK[toast.tone].className)}>
         {MARK[toast.tone].glyph}
-        <span className="sr-only">{MARK[toast.tone].label}:</span>
+        <span className="sr-only">{t(MARK[toast.tone].label)}:</span>
       </span>
 
       <p className="min-w-0 flex-1 text-body-sm">{toast.message}</p>
@@ -115,7 +118,7 @@ function ToastRow({ toast, onDismiss }: { toast: Toast; onDismiss: () => void })
         {/* A close control, because five seconds is a guess about somebody
             else's reading speed. */}
         <span className="block text-micro leading-none">✕</span>
-        <span className="sr-only">Dismiss</span>
+        <span className="sr-only">{t("toast.dismiss")}</span>
       </button>
     </div>
   );

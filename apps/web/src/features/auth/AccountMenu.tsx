@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
+import { useT } from "@/i18n/I18nProvider";
 import { logout } from "@/app/(auth)/login/logout";
 import {
   listOrganizations,
@@ -34,6 +35,7 @@ export function AccountMenu({
   membershipId: string;
   organizationName: string;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [leaving, startTransition] = useTransition();
   // Its own transition: loading the list must not grey out "Sign out".
@@ -67,7 +69,7 @@ export function AccountMenu({
         type="button"
         onClick={toggle}
         className="rounded-sm p-0.5 hover:bg-n-50"
-        aria-label="Account"
+        aria-label={t("account.menu")}
         aria-expanded={open}
         aria-haspopup="menu"
       >
@@ -96,13 +98,13 @@ export function AccountMenu({
               onClick={() => setOpen(false)}
               className="block px-3 py-2 text-body-sm text-n-700 hover:bg-n-50"
             >
-              Your profile
+              {t("account.profile")}
             </Link>
 
             {others.length > 0 && (
               <div className="border-t border-n-100 py-1">
                 <div className="px-3 pb-1 pt-1 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-                  Switch to
+                  {t("account.switchTo")}
                 </div>
 
                 {others.map((organization) => (
@@ -140,7 +142,7 @@ export function AccountMenu({
               onClick={() => startTransition(() => logout())}
               className="block w-full border-t border-n-100 px-3 py-2 text-left text-body-sm text-n-700 hover:bg-n-50 disabled:text-n-300"
             >
-              {leaving ? "One moment…" : "Sign out"}
+              {leaving ? t("account.oneMoment") : t("account.signOut")}
             </button>
           </div>
         </>

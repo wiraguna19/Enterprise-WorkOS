@@ -8,6 +8,9 @@ import { clsx } from "@/lib/clsx";
 import { AccountMenu } from "@/features/auth/AccountMenu";
 import { CommandPalette } from "@/features/search/CommandPalette";
 import { RealtimeProvider } from "@/features/realtime/RealtimeProvider";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
+import type { Translator } from "@/i18n/translate";
 
 /**
  * The application shell (docs/08 §1).
@@ -41,33 +44,44 @@ type NavItem = {
  */
 type CounterTone = "late" | "unread";
 
-const PRIMARY: NavItem[] = [
-  { href: "/", label: "Home" },
-  { href: "/my-work", label: "My Work", count: 0, counter: "late" },
-  { href: "/inbox", label: "Inbox", count: 0, counter: "unread" },
+/**
+ * A fixed entry names its words by dictionary key (ADR 0060); the label is
+ * looked up at render, in the reader's language. Project and team entries
+ * carry their own names, which are nobody's to translate.
+ */
+type FixedItem = Omit<NavItem, "label"> & { labelKey: MessageKey };
+
+function labelled(items: FixedItem[], t: Translator): NavItem[] {
+  return items.map(({ labelKey, ...item }) => ({ ...item, label: t(labelKey) }));
+}
+
+const PRIMARY: FixedItem[] = [
+  { href: "/", labelKey: "nav.home" },
+  { href: "/my-work", labelKey: "nav.myWork", count: 0, counter: "late" },
+  { href: "/inbox", labelKey: "nav.inbox", count: 0, counter: "unread" },
 ];
 
-const SECONDARY: NavItem[] = [
+const SECONDARY: FixedItem[] = [
   // The browse screen. Until it existed, four places listed work items and each
   // asked a FIXED question — a board column, one person's work, one team's,
   // one report — so nobody could ask a question of their own.
-  { href: "/work", label: "Work", permission: "work_item.view" },
-  { href: "/projects", label: "Projects", permission: "project.view" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/time", label: "Timesheet" },
+  { href: "/work", labelKey: "nav.work", permission: "work_item.view" },
+  { href: "/projects", labelKey: "nav.projects", permission: "project.view" },
+  { href: "/calendar", labelKey: "nav.calendar" },
+  { href: "/time", labelKey: "nav.timesheet" },
   // Standing instructions to create work. Gated on the permission the route
   // itself requires, so it does not appear for somebody who would only find a
   // refusal behind it.
-  { href: "/recurring", label: "Recurring", permission: "work_item.create" },
-  { href: "/reports", label: "Flow", permission: "report.view" },
+  { href: "/recurring", labelKey: "nav.recurring", permission: "work_item.create" },
+  { href: "/reports", labelKey: "nav.flow", permission: "report.view" },
 ];
 
-const ADMIN: NavItem[] = [
-  { href: "/people", label: "People", permission: "person.view" },
-  { href: "/teams", label: "Teams", permission: "team.view" },
+const ADMIN: FixedItem[] = [
+  { href: "/people", labelKey: "nav.people", permission: "person.view" },
+  { href: "/teams", labelKey: "nav.teams", permission: "team.view" },
   // Gated on `department.view` like every other entry here, so it does not
   // appear for somebody who would only find a 403 behind it.
-  { href: "/departments", label: "Departments", permission: "department.view" },
+  { href: "/departments", labelKey: "nav.departments", permission: "department.view" },
   // Pointed straight at the one settings screen that existed, because an index
   // of one adds a click and says nothing. The workflow catalogue and the
   // automation rules made it three, so the index exists now — which was always
@@ -81,7 +95,7 @@ const ADMIN: NavItem[] = [
   // organization-reading permission is a gate that refuses the wrong thing. The
   // index filters itself entry by entry, which is where the question belongs:
   // each entry is gated on the permission its own page requires.
-  { href: "/settings", label: "Settings" },
+  { href: "/settings", labelKey: "nav.settings" },
 ];
 
 export function AppShell({
@@ -126,6 +140,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const t = useT();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // The drawer overlays the page on a phone, so leaving it open after a
@@ -167,7 +182,7 @@ export function AppShell({
             <Link
               href="/inbox"
               className="relative rounded-sm p-1.5 text-n-500 hover:bg-n-50"
-              aria-label="Notifications"
+              aria-label={t("nav.notifications")}
             >
               <span aria-hidden>◔</span>
             </Link>
@@ -202,10 +217,10 @@ export function AppShell({
             "fixed inset-y-12 left-0 z-10 w-56 shrink-0 overflow-y-auto border-r border-n-100 bg-n-0 px-2 py-3 md:sticky md:top-12 md:h-[calc(100dvh-3rem)] md:block",
             sidebarOpen ? "block" : "hidden",
           )}
-          aria-label="Main"
+          aria-label={t("nav.main")}
         >
           <ul className="space-y-0.5">
-            {PRIMARY.map((item) => (
+            {labelled(PRIMARY, t).map((item) => (
               <NavLink
                 key={item.href}
                 item={{
@@ -226,7 +241,7 @@ export function AppShell({
             // Only when there is something in it. An empty "PROJECTS" heading
             // over nothing reads as a section that failed to load, and this
             // product's rule is that an absence must not look like a fault.
-            <SidebarSection label="Projects">
+            <SidebarSection label={t("nav.projects")}>
               {pinnedProjects.map((project) => (
                 <NavLink
                   key={project.id}
@@ -234,11 +249,11 @@ export function AppShell({
                   pathname={pathname}
                 />
               ))}
-              <NavLink item={{ href: "/projects", label: "Browse all…" }} pathname={pathname} />
+              <NavLink item={{ href: "/projects", label: t("nav.browseAll") }} pathname={pathname} />
             </SidebarSection>
           )}
 
-          <SidebarSection label="Teams">
+          <SidebarSection label={t("nav.teams")}>
             {teams.slice(0, 6).map((team) => (
               <NavLink
                 key={team.id}
@@ -247,12 +262,12 @@ export function AppShell({
               />
             ))}
             {teams.length > 6 && (
-              <NavLink item={{ href: "/teams", label: "Browse all…" }} pathname={pathname} />
+              <NavLink item={{ href: "/teams", label: t("nav.browseAll") }} pathname={pathname} />
             )}
           </SidebarSection>
 
           <SidebarSection>
-            {SECONDARY.filter((item) => can(item.permission)).map((item) => (
+            {labelled(SECONDARY, t).filter((item) => can(item.permission)).map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
           </SidebarSection>
@@ -260,7 +275,7 @@ export function AppShell({
           {ADMIN.some((item) => can(item.permission)) && (
             <div className="mt-3 border-t border-n-100 pt-3">
               <ul className="space-y-0.5">
-                {ADMIN.filter((item) => can(item.permission)).map((item) => (
+                {labelled(ADMIN, t).filter((item) => can(item.permission)).map((item) => (
                   <NavLink key={item.href} item={item} pathname={pathname} />
                 ))}
               </ul>
@@ -317,14 +332,16 @@ function BottomNav({
   counts: { myWork: number; inbox: number };
   onMore: () => void;
 }) {
+  const t = useT();
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-20 flex border-t border-n-100 bg-n-0 pb-[env(safe-area-inset-bottom)] md:hidden"
-      aria-label="Primary"
+      aria-label={t("nav.primary")}
     >
       <BottomLink
         href="/my-work"
-        label="My Work"
+        label={t("nav.myWork")}
         icon="▤"
         count={counts.myWork}
         tone="late"
@@ -332,7 +349,7 @@ function BottomNav({
       />
       <BottomLink
         href="/inbox"
-        label="Inbox"
+        label={t("nav.inbox")}
         icon="▣"
         count={counts.inbox}
         tone="unread"
@@ -347,19 +364,19 @@ function BottomNav({
         <span aria-hidden className="text-body">
           ⌕
         </span>
-        <span className="text-micro">Search</span>
+        <span className="text-micro">{t("nav.search")}</span>
       </button>
 
       <button
         type="button"
         onClick={onMore}
         className="flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-n-500"
-        aria-label="More navigation"
+        aria-label={t("nav.moreNavigation")}
       >
         <span aria-hidden className="text-body">
           ☰
         </span>
-        <span className="text-micro">More</span>
+        <span className="text-micro">{t("nav.more")}</span>
       </button>
     </nav>
   );
@@ -380,6 +397,7 @@ function BottomLink({
   tone: CounterTone;
   pathname: string;
 }) {
+  const t = useT();
   const active = pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -406,7 +424,7 @@ function BottomLink({
           )}
         >
           {count > 99 ? "99+" : count}
-          <span className="sr-only"> {tone === "late" ? "due or overdue" : "unread"}</span>
+          <span className="sr-only"> {t(tone === "late" ? "nav.dueOrOverdue" : "nav.unread")}</span>
         </span>
       )}
     </Link>
@@ -476,7 +494,8 @@ function NavCount({
   tone: CounterTone;
   label: string;
 }) {
-  const unit = tone === "late" ? "due or overdue" : "unread";
+  const t = useT();
+  const unit = t(tone === "late" ? "nav.dueOrOverdue" : "nav.unread");
 
   return (
     <span
@@ -486,7 +505,7 @@ function NavCount({
           ? "border-s-danger/30 bg-s-danger/10 text-s-danger"
           : "border-a-500/30 bg-a-50 text-a-700",
       )}
-      aria-label={`${label}: ${count} ${unit}`}
+      aria-label={t("nav.countLabel", { label, count, unit })}
     >
       {count > 99 ? "99+" : count}
     </span>

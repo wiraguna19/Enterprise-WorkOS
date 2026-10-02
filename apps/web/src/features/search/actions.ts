@@ -1,5 +1,7 @@
 "use server";
 
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 import { api, ApiRequestError } from "@/lib/api";
 
 export type SearchHit = {
@@ -42,6 +44,10 @@ export async function search(query: string): Promise<SearchOutcome> {
 
     return { results: data, error: null };
   } catch (error) {
+    // The browser's copy of the person's language: a server action has no
+    // `/auth/me` in hand, and the app layout keeps the cookie in step (ADR 0060).
+    const t = translator(await requestLocale());
+
     if (error instanceof ApiRequestError) {
       // 429 has a meaning worth showing plainly: the palette fires on
       // keystrokes, and "slow down" is not the same as "nothing found".
@@ -49,11 +55,11 @@ export async function search(query: string): Promise<SearchOutcome> {
         results: [],
         error:
           error.status === 429
-            ? "Too many searches just now. Try again in a moment."
+            ? t("palette.tooMany")
             : error.error.message,
       };
     }
 
-    return { results: [], error: "We could not reach the server. Please try again." };
+    return { results: [], error: t("common.unreachable") };
   }
 }

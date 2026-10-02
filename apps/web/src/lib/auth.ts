@@ -16,6 +16,8 @@ export type CurrentUser = {
     name: string;
     email: string;
     timezone: string;
+    /** The interface language (ADR 0060): `en` or `id`. */
+    locale: string;
     /** Whether a second factor is on (ADR 0030). The API has reported this
      *  since Phase 1 and nothing read it, because nothing could turn it on. */
     mfa_enabled: boolean;

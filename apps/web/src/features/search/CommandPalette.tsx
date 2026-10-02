@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
 import { search, type SearchHit } from "./actions";
 
@@ -24,20 +25,20 @@ import { search, type SearchHit } from "./actions";
  *    land after the results for "engine" and quietly replace them.
  */
 
-const TYPE_LABEL: Record<SearchHit["type"], string> = {
-  work_item: "Work",
-  project: "Projects",
-  person: "People",
-};
-
 const ORDER: Array<SearchHit["type"]> = ["work_item", "project", "person"];
 
-const MATCH_NOTE: Record<string, string> = {
-  comment: "in a comment",
-  description: "in the description",
-};
+/** Why a row is here, for the two reasons that are not its title (ADR 0060 keys). */
+const MATCH_NOTE = {
+  comment: "palette.match.comment",
+  description: "palette.match.description",
+} as const;
+
+function matchNote(matchedOn: string): keyof typeof MATCH_NOTE | null {
+  return matchedOn in MATCH_NOTE ? (matchedOn as keyof typeof MATCH_NOTE) : null;
+}
 
 export function CommandPalette() {
+  const t = useT();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -214,7 +215,7 @@ export function CommandPalette() {
           onMouseDown={(event) => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          aria-label="Search"
+          aria-label={t("palette.search")}
         >
           <div className="flex items-center gap-2 border-b border-n-100 px-3">
             <span aria-hidden className="text-n-500">
@@ -225,16 +226,16 @@ export function CommandPalette() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={onFieldKeyDown}
-              placeholder="Search work, projects, people…"
+              placeholder={t("palette.placeholder")}
               className="h-11 flex-1 bg-transparent text-body outline-none placeholder:text-n-500"
-              aria-label="Search"
+              aria-label={t("palette.search")}
               aria-controls="palette-results"
               autoComplete="off"
               spellCheck={false}
             />
             {pending && (
               <span className="text-micro text-n-500" aria-live="polite">
-                searching…
+                {t("palette.searching")}
               </span>
             )}
           </div>
@@ -249,25 +250,26 @@ export function CommandPalette() {
 
             {!error && terms.length >= 2 && visible.length === 0 && !pending && (
               <li className="px-3 py-6 text-center text-body-sm text-n-500">
-                Nothing matches “{terms}”.
+                {t("palette.nothing", { terms })}
               </li>
             )}
 
             {terms.length < 2 && (
               <li className="px-3 py-6 text-center text-body-sm text-n-500">
-                Search by title, reference, or something said in a comment.
+                {t("palette.hint")}
               </li>
             )}
 
             {grouped.map((group) => (
               <li key={group.type}>
                 <div className="px-3 pb-1 pt-2 text-micro font-medium uppercase tracking-wide text-n-500">
-                  {TYPE_LABEL[group.type]}
+                  {t(`palette.group.${group.type}`)}
                 </div>
 
                 <ul>
                   {group.hits.map((hit) => {
                     const index = visible.indexOf(hit);
+                    const note = matchNote(hit.matched_on);
 
                     return (
                       <li key={`${hit.type}:${hit.id}`}>
@@ -294,13 +296,13 @@ export function CommandPalette() {
                           {/* Why this row is here. "Matched in a comment" is
                               the difference between a confusing result and an
                               obvious one. */}
-                          {MATCH_NOTE[hit.matched_on] && (
+                          {note !== null && (
                             <span className="shrink-0 text-micro text-n-500">
-                              {MATCH_NOTE[hit.matched_on]}
+                              {t(MATCH_NOTE[note])}
                             </span>
                           )}
 
-                          {hit.subtitle && !MATCH_NOTE[hit.matched_on] && (
+                          {hit.subtitle && note === null && (
                             <span className="shrink-0 truncate text-caption text-n-500">
                               {hit.subtitle}
                             </span>
@@ -315,9 +317,9 @@ export function CommandPalette() {
           </ul>
 
           <div className="flex items-center gap-3 border-t border-n-100 px-3 py-1.5 text-micro text-n-500">
-            <span>↑↓ to move</span>
-            <span>↵ to open</span>
-            <span>esc to close</span>
+            <span>{t("palette.keys.move")}</span>
+            <span>{t("palette.keys.open")}</span>
+            <span>{t("palette.keys.close")}</span>
           </div>
         </div>
       </div>
@@ -334,6 +336,8 @@ export function CommandPalette() {
  * the hand (docs/08 §6).
  */
 function PaletteTriggers({ onOpen }: { onOpen: () => void }) {
+  const t = useT();
+
   return (
     <>
       <button
@@ -342,7 +346,7 @@ function PaletteTriggers({ onOpen }: { onOpen: () => void }) {
         className="hidden h-7 flex-1 items-center gap-2 rounded-sm border border-n-200 px-2.5 text-left text-body-sm text-n-500 hover:bg-n-50 sm:flex md:max-w-md"
       >
         <span aria-hidden>⌕</span>
-        <span className="truncate">Search work, projects, people…</span>
+        <span className="truncate">{t("palette.placeholder")}</span>
         <kbd className="ml-auto hidden shrink-0 rounded-xs border border-n-200 px-1 font-sans text-micro text-n-500 md:inline">
           ⌘K
         </kbd>

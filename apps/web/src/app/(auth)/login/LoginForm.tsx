@@ -4,11 +4,13 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { login, verifyMfa, type LoginState } from "./actions";
 
 const INITIAL: LoginState = { error: null };
 
 export function LoginForm({ next }: { next: string }) {
+  const t = useT();
   const [state, formAction] = useActionState(login, INITIAL);
 
   // The code prompt replaces the password form rather than appearing beneath
@@ -35,9 +37,9 @@ export function LoginForm({ next }: { next: string }) {
           action — a hidden field is an input like any other (ADR 0032). */}
       <input type="hidden" name="next" value={next} />
 
-      <Field label="Email" name="email" type="email" autoComplete="username" required />
+      <Field label={t("login.email")} name="email" type="email" autoComplete="username" required />
       <Field
-        label="Password"
+        label={t("login.password")}
         name="password"
         type="password"
         autoComplete="current-password"
@@ -48,7 +50,7 @@ export function LoginForm({ next }: { next: string }) {
 
       <p className="flex justify-between gap-4 pt-2 text-caption text-n-500">
         <a href="/forgot-password" className="text-a-500 hover:text-a-700 hover:underline">
-          Forgot your password?
+          {t("login.forgot")}
         </a>
         {/* A link, not a second button on this form: single sign-on asks for
             an address and nothing else, and a password typed on the way
@@ -58,7 +60,7 @@ export function LoginForm({ next }: { next: string }) {
           href={next === "/" ? "/login/sso" : `/login/sso?next=${encodeURIComponent(next)}`}
           className="text-a-500 hover:text-a-700 hover:underline"
         >
-          Sign in with single sign-on
+          {t("login.sso")}
         </a>
       </p>
     </form>
@@ -66,6 +68,7 @@ export function LoginForm({ next }: { next: string }) {
 }
 
 function CodeForm({ next }: { next: string }) {
+  const t = useT();
   const [state, formAction] = useActionState(verifyMfa, INITIAL);
 
   return (
@@ -75,11 +78,8 @@ function CodeForm({ next }: { next: string }) {
           would make two-factor the reason somebody lands on the wrong page. */}
       <input type="hidden" name="next" value={next} />
       <div>
-        <h2 className="text-h2 font-semibold text-n-900">Enter your code</h2>
-        <p className="mt-1 text-body-sm text-n-500">
-          Six digits from your authenticator app. If you have lost the device, use one of the
-          recovery codes you saved.
-        </p>
+        <h2 className="text-h2 font-semibold text-n-900">{t("login.code.title")}</h2>
+        <p className="mt-1 text-body-sm text-n-500">{t("login.code.body")}</p>
       </div>
 
       {state.error && (
@@ -96,7 +96,7 @@ function CodeForm({ next }: { next: string }) {
           decoration: this is a field people fill in while holding a second
           device. */}
       <Field
-        label="Code"
+        label={t("login.code.label")}
         name="code"
         type="text"
         inputMode="numeric"
@@ -105,11 +105,11 @@ function CodeForm({ next }: { next: string }) {
         required
       />
 
-      <Submit label="Verify" pendingLabel="Checking…" />
+      <Submit label={t("login.code.submit")} pendingLabel={t("login.code.submitting")} />
 
       <p className="pt-2 text-caption text-n-500">
         <a href="/login" className="text-a-500 hover:text-a-700 hover:underline">
-          Start again
+          {t("login.code.restart")}
         </a>
       </p>
     </form>
@@ -117,18 +117,19 @@ function CodeForm({ next }: { next: string }) {
 }
 
 function Submit({
-  label = "Sign in",
-  pendingLabel = "Signing in…",
+  label,
+  pendingLabel,
 }: {
   label?: string;
   pendingLabel?: string;
 }) {
+  const t = useT();
   // Disabled while pending so a double submit cannot create two sessions.
   const { pending } = useFormStatus();
 
   return (
     <Button type="submit" variant="primary" size="lg" className="w-full" disabled={pending}>
-      {pending ? pendingLabel : label}
+      {pending ? (pendingLabel ?? t("login.submitting")) : (label ?? t("login.submit"))}
     </Button>
   );
 }

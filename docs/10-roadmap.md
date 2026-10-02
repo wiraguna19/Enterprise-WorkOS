@@ -213,16 +213,23 @@ last entry is deliberately last.
    never fired          listener; `schedule.due_soon` / `schedule.overdue`
                         from a 15-minute scan announcing each deadline once.
                         Webhooks may subscribe to all three
-7  Indonesian           a second interface language. `users.locale` already
-                        exists and is served; nothing reads it. next-intl on
-                        the web, a language choice under account settings,
-                        dates and numbers formatted by locale; one ADR first.
-                        Undecided: the web interface only, or API refusals,
-                        notifications and email as well (roughly double).
+7  Indonesian           IN PROGRESS (ADR 0060). Decided 2026-10-02: the web
+                        interface first; API refusals, notifications and
+                        email later. Typed dictionaries in `src/i18n` instead
+                        of next-intl, so a missing translation fails `tsc`.
+                        `PATCH /auth/me` saves `users.locale`; Settings →
+                        Language chooses it; dates take the locale.
                         Translate a screen completely or not at all — a
                         half-translated screen is worse than either language.
                         E2E users are pinned to `en`: the specs find controls
-                        by their English names.
+                        by their English names (Budi switches and is put back
+                        in e2e/interface-language).
+                        Translated: the shell (sidebar, bottom bar, account
+                        menu, command palette, toasts), Settings index,
+                        Settings → Language, sign-in.
+                        Next, one screen at a time: Home, My Work, Inbox,
+                        the work item, the board and project screens,
+                        then the rest of Settings.
 ```
 
 ---

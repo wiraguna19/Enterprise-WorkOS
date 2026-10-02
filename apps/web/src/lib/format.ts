@@ -1,13 +1,17 @@
 /**
  * Formatting is centralised because inconsistent dates across a dense
  * interface read as carelessness, and because timezone handling must be
- * explicit rather than ambient (docs/07 §1).
+ * explicit rather than ambient (docs/07 §1). The language is too (ADR 0060):
+ * a screen that has been translated passes it, and one that has not stays in
+ * the English it was written in.
  */
 
-export function formatDate(value: string | null, timeZone?: string): string {
+import { INTL_TAG, type Locale } from "@/i18n/config";
+
+export function formatDate(value: string | null, timeZone?: string, locale: Locale = "en"): string {
   if (!value) return "—";
 
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(INTL_TAG[locale], {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -15,10 +19,14 @@ export function formatDate(value: string | null, timeZone?: string): string {
   }).format(new Date(value));
 }
 
-export function formatDateTime(value: string | null, timeZone?: string): string {
+export function formatDateTime(
+  value: string | null,
+  timeZone?: string,
+  locale: Locale = "en",
+): string {
   if (!value) return "—";
 
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(INTL_TAG[locale], {
     day: "numeric",
     month: "short",
     hour: "2-digit",

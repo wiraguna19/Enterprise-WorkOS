@@ -2,7 +2,30 @@ import Link from "next/link";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
+
+/**
+ * The words live in the dictionaries (ADR 0060); `key` names the pair
+ * `settings.<key>.label` / `settings.<key>.description`.
+ */
+type SectionKey =
+  | "organization"
+  | "notifications"
+  | "language"
+  | "twoFactor"
+  | "sessions"
+  | "apiTokens"
+  | "serviceAccounts"
+  | "sso"
+  | "roles"
+  | "fields"
+  | "templates"
+  | "webhooks"
+  | "audit"
+  | "workflows"
+  | "rules";
 
 /**
  * The settings index (docs/08 §7).
@@ -18,94 +41,29 @@ import { requireUser } from "@/lib/auth";
  */
 const SECTIONS: Array<{
   href: string;
-  label: string;
-  description: string;
+  key: SectionKey;
   permission?: string;
 }> = [
-  {
-    href: "/settings/organization",
-    label: "Organization",
-    description: "The place you work, and how long it keeps you signed in.",
-    permission: "organization.view",
-  },
-  {
-    href: "/settings/notifications",
-    label: "Notifications",
-    description: "Which interruptions reach you, and where.",
-  },
-  {
-    href: "/settings/two-factor",
-    label: "Two-factor authentication",
-    description: "A code from your phone, on top of your password.",
-  },
-  {
-    href: "/settings/sessions",
-    label: "Signed in",
-    description: "Every device that can act as you, and how to end one.",
-  },
-  {
-    href: "/settings/api-tokens",
-    label: "API tokens",
-    description: "Let a script or an integration act as you, without your password.",
-  },
-  {
-    href: "/settings/service-accounts",
-    label: "Service accounts",
-    description: "Integrations that act in their own name, with a role — and outlive whoever set them up.",
-    permission: "service_account.manage",
-  },
-  {
-    href: "/settings/sso",
-    label: "Single sign-on",
-    description: "The identity provider your people sign in through, and whether passwords still work.",
-    permission: "sso.manage",
-  },
-  {
-    href: "/settings/roles",
-    label: "Roles",
-    description: "What each role may do, and the ones you write yourself.",
-    permission: "role.view",
-  },
-  {
-    href: "/settings/fields",
-    label: "Custom fields",
-    description: "What this organization asks about a work item, beyond the built-in fields.",
-    permission: "custom_field.manage",
-  },
-  {
-    href: "/settings/templates",
-    label: "Templates",
-    description: "Starting points for new work — a type, a priority, a checklist, a deadline.",
-    permission: "work_item_template.manage",
-  },
-  {
-    href: "/settings/webhooks",
-    label: "Webhooks",
-    description: "Where automation rules may send this organization's events, and whether they arrived.",
-    permission: "webhook.manage",
-  },
-  {
-    href: "/settings/audit",
-    label: "Audit log",
-    description: "Who did what, and when — sign-ins, invitations, role changes.",
-    permission: "audit_log.view",
-  },
-  {
-    href: "/settings/workflows",
-    label: "Workflows",
-    description: "The statuses work moves through, and which moves are legal.",
-    permission: "workflow.view",
-  },
-  {
-    href: "/settings/rules",
-    label: "Automation rules",
-    description: "What the system does on its own — and what it has actually done.",
-    permission: "workflow.view",
-  },
+  { href: "/settings/organization", key: "organization", permission: "organization.view" },
+  { href: "/settings/notifications", key: "notifications" },
+  { href: "/settings/language", key: "language" },
+  { href: "/settings/two-factor", key: "twoFactor" },
+  { href: "/settings/sessions", key: "sessions" },
+  { href: "/settings/api-tokens", key: "apiTokens" },
+  { href: "/settings/service-accounts", key: "serviceAccounts", permission: "service_account.manage" },
+  { href: "/settings/sso", key: "sso", permission: "sso.manage" },
+  { href: "/settings/roles", key: "roles", permission: "role.view" },
+  { href: "/settings/fields", key: "fields", permission: "custom_field.manage" },
+  { href: "/settings/templates", key: "templates", permission: "work_item_template.manage" },
+  { href: "/settings/webhooks", key: "webhooks", permission: "webhook.manage" },
+  { href: "/settings/audit", key: "audit", permission: "audit_log.view" },
+  { href: "/settings/workflows", key: "workflows", permission: "workflow.view" },
+  { href: "/settings/rules", key: "rules", permission: "workflow.view" },
 ];
 
 export default async function SettingsPage() {
   const me = await requireUser();
+  const t = translator(asLocale(me.user.locale));
 
   const sections = SECTIONS.filter(
     (section) => !section.permission || me.permissions.includes(section.permission),
@@ -113,10 +71,10 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Settings" description={`${sections.length} areas`} />
+      <PageHeader title={t("settings.title")} description={t.plural("settings.areas", sections.length)} />
 
       <PageBody>
-        <Panel id="areas" title="Areas" description="Only the ones you may open are listed." bleed>
+        <Panel id="areas" title={t("settings.panel.title")} description={t("settings.panel.description")} bleed>
           <ul className="divide-y divide-n-100">
         {sections.map((section) => {
           // "/settings/rules" → "settings-rules". The leading slash would make
@@ -140,10 +98,10 @@ export default async function SettingsPage() {
                 className="flex flex-col gap-0.5 px-4 py-3 transition-colors duration-[120ms] ease-standard hover:bg-n-50"
               >
                 <span id={`${id}-label`} className="font-medium text-n-900">
-                  {section.label}
+                  {t(`settings.${section.key}.label`)}
                 </span>
                 <span id={`${id}-description`} className="max-w-prose text-caption text-n-500">
-                  {section.description}
+                  {t(`settings.${section.key}.description`)}
                 </span>
               </Link>
             </li>

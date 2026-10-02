@@ -46,6 +46,10 @@ Route::prefix('auth')->group(function (): void {
             ->middleware('throttle:writes')
             ->name('auth.organization.switch');
         Route::get('me', [AuthController::class, 'me'])->name('auth.me');
+        // The person's own interface language (ADR 0060).
+        Route::patch('me', [AuthController::class, 'updateMe'])
+            ->middleware('throttle:writes')
+            ->name('auth.me.update');
 
         // What else is signed in as me, and stopping it (ADR 0023). No
         // `permission:` gate on purpose: these are an account looking at

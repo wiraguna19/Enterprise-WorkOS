@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { requestLocale } from "@/i18n/server";
 
 /**
  * Inter is self-hosted (@fontsource-variable) rather than loaded from Google
@@ -15,9 +16,13 @@ export const metadata: Metadata = {
   description: "Enterprise work management platform",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * `lang` from the browser's copy of the person's language (ADR 0060). Signed
+ * in, the app layout corrects it from `users.locale` if the two disagree.
+ */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={await requestLocale()} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );
