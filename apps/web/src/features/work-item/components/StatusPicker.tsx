@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
 import { transitionTo } from "../actions";
 import type { Transition } from "../types";
@@ -33,6 +34,7 @@ export function StatusPicker({
   current: { label: string; category: string } | null;
   transitions: Transition[];
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<Transition | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function StatusPicker({
         disabled={moving}
         onClick={() => setOpen((v) => !v)}
       >
-        {moving ? "Moving…" : (current?.label ?? "Status")}
+        {moving ? t("action.moving") : (current?.label ?? t("status.status"))}
         <span aria-hidden className="text-n-500">
           ▾
         </span>
@@ -77,7 +79,7 @@ export function StatusPicker({
         <div
           id={menuId}
           role="menu"
-          aria-label={`Move ${reference}`}
+          aria-label={t("status.menu", { reference })}
           className="absolute right-0 z-20 mt-1 w-72 rounded-sm border border-n-200 bg-n-0 py-1 shadow-sm"
         >
           {transitions.map((transition) => (
@@ -110,7 +112,7 @@ export function StatusPicker({
               <span className="flex w-full items-center justify-between gap-2 text-body">
                 {transition.label}
                 {transition.requires_comment && transition.available && (
-                  <span className="text-micro text-n-500">needs a reason</span>
+                  <span className="text-micro text-n-500">{t("status.needsReason")}</span>
                 )}
               </span>
 
@@ -161,6 +163,7 @@ function CommentPrompt({
   onCancel: () => void;
   onSubmit: (comment: string) => void;
 }) {
+  const t = useT();
   const [comment, setComment] = useState("");
   const fieldId = useId();
 
@@ -190,7 +193,7 @@ function CommentPrompt({
         // container there are two buttons with one name.
         role="dialog"
         aria-modal="true"
-        aria-label={`Move ${reference} to ${transition.to_state.label}`}
+        aria-label={t("status.dialog", { reference, state: transition.to_state.label })}
         className="w-full max-w-md space-y-2 rounded-lg border border-n-300 bg-n-0 p-4 shadow-sm"
         onSubmit={(event) => {
           event.preventDefault();
@@ -198,7 +201,7 @@ function CommentPrompt({
         }}
       >
         <label htmlFor={fieldId} className="block text-caption font-medium text-n-700">
-          Why are you moving this to {transition.to_state.label}?
+          {t("status.why", { state: transition.to_state.label })}
         </label>
 
         <textarea
@@ -209,12 +212,12 @@ function CommentPrompt({
           value={comment}
           onChange={(event) => setComment(event.target.value)}
           className={INPUT}
-          placeholder="The person picking this up next reads this first."
+          placeholder={t("status.placeholder")}
         />
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" variant="primary" size="sm" disabled={comment.trim() === ""}>
             {transition.label}

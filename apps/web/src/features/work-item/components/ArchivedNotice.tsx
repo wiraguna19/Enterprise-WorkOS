@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { formatDate } from "@/lib/format";
 import { restoreWorkItem } from "../actions";
 
@@ -24,6 +25,8 @@ export function ArchivedNotice({
   canRestore: boolean;
   timeZone: string;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
 
@@ -33,8 +36,7 @@ export function ArchivedNotice({
       className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-n-200 bg-n-50 px-3 py-2 text-body-sm text-n-700"
     >
       <p className="max-w-prose">
-        Archived {formatDate(archivedAt, timeZone)}. Closed work leaves boards and lists after a
-        while here; it still counts in every report and opens from its reference.
+        {t("archived.notice", { date: formatDate(archivedAt, timeZone, locale) })}
         {error && <span className="ml-1 text-s-danger">{error}</span>}
       </p>
 
@@ -48,7 +50,7 @@ export function ArchivedNotice({
             })
           }
         >
-          {busy ? "Restoring…" : "Bring back to the board"}
+          {busy ? t("archived.restoring") : t("archived.restore")}
         </Button>
       )}
     </div>

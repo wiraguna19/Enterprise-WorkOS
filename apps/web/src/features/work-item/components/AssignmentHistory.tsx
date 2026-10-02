@@ -1,4 +1,7 @@
 import { Avatar } from "@/components/ui/Avatar";
+import { INTL_TAG, type Locale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator } from "@/i18n/translate";
 
 type Entry = {
   id: string;
@@ -22,10 +25,20 @@ type Entry = {
 export function AssignmentHistory({
   entries,
   timeZone,
+  locale = "en",
 }: {
   entries: Entry[];
   timeZone: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+  const format = (value: string) => formatDay(value, timeZone, locale);
+  // The two roles the interface names; anything else the API sends is shown
+  // as it arrives rather than guessed at.
+  const role = (name: string) =>
+    name === "assignee" || name === "reviewer" ? t(`assign.role.${name}` as MessageKey) : name;
+
   return (
     <ol className="space-y-0">
       {entries.map((entry, index) => (
@@ -37,16 +50,16 @@ export function AssignmentHistory({
 
           <div className="min-w-0 flex-1 pb-1">
             <p className="text-body text-n-700">
-              <span className="font-medium text-n-900">{entry.person ?? "Someone"}</span>
+              <span className="font-medium text-n-900">{entry.person ?? t("common.someone")}</span>
               {entry.role !== "assignee" && (
-                <span className="text-n-500"> as {entry.role}</span>
+                <span className="text-n-500"> {t("history.asRole", { role: role(entry.role) })}</span>
               )}
               {entry.active ? (
                 <span className="ml-1.5 rounded-xs bg-a-50 px-1.5 py-0.5 text-micro font-medium text-a-700">
-                  current
+                  {t("history.current")}
                 </span>
               ) : (
-                <span className="text-n-500"> — handed over</span>
+                <span className="text-n-500"> {t("history.handedOver")}</span>
               )}
             </p>
 
@@ -57,13 +70,13 @@ export function AssignmentHistory({
             )}
 
             <p className="mt-0.5 text-caption text-n-500 tabular-nums">
-              {format(entry.assigned_at, timeZone)}
+              {format(entry.assigned_at)}
               {entry.accepted_at
-                ? ` · accepted ${format(entry.accepted_at, timeZone)}`
+                ? ` · ${t("history.accepted", { date: format(entry.accepted_at) })}`
                 : entry.active && entry.role === "assignee"
-                  ? " · not yet accepted"
+                  ? ` · ${t("history.notYetAccepted")}`
                   : ""}
-              {entry.unassigned_at && ` · until ${format(entry.unassigned_at, timeZone)}`}
+              {entry.unassigned_at && ` · ${t("history.until", { date: format(entry.unassigned_at) })}`}
             </p>
           </div>
         </li>
@@ -72,8 +85,8 @@ export function AssignmentHistory({
   );
 }
 
-function format(value: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
+function formatDay(value: string, timeZone: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(INTL_TAG[locale], {
     day: "numeric",
     month: "short",
     timeZone,

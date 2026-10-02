@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { attachUploadedFile, attachmentUrl, reserveUpload } from "../actions";
+import { INTL_TAG } from "@/i18n/config";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 
 export type Attachment = {
   id: string;
@@ -54,6 +56,7 @@ export function AttachmentPanel({
   canAttach: boolean;
   timeZone: string;
 }) {
+  const t = useT();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -121,10 +124,7 @@ export function AttachmentPanel({
 
     if (attempt >= 10) {
       setStatus(null);
-      setError(
-        "The file is uploaded but still being checked. A background worker scans "
-          + "uploads, and none may be running.",
-      );
+      setError(t("att.notChecked"));
 
       return;
     }
@@ -142,7 +142,7 @@ export function AttachmentPanel({
   const upload = (file: File) =>
     startTransition(async () => {
       setError(null);
-      setStatus(`Reserving a place for ${file.name}…`);
+      setStatus(t("att.reserving", { name: file.name }));
 
       // A file the browser cannot type is sent as an empty string, and the API
       // answers 422 with the list of what it accepts. Better its refusal than
@@ -156,7 +156,7 @@ export function AttachmentPanel({
         return;
       }
 
-      setStatus(`Uploading ${file.name}…`);
+      setStatus(t("att.uploading", { name: file.name }));
 
       const put = await fetch(reservation.uploadUrl, {
         method: "PUT",
@@ -166,15 +166,12 @@ export function AttachmentPanel({
 
       if (put === null || !put.ok) {
         setStatus(null);
-        setError(
-          "The file did not reach storage. Nothing has been attached, so this can be "
-            + "retried — the reserved place expires on its own.",
-        );
+        setError(t("att.notStored"));
 
         return;
       }
 
-      setStatus("Attaching…");
+      setStatus(t("att.attaching"));
 
       const attached = await attachUploadedFile(reference, reservation.fileId);
 
@@ -183,7 +180,7 @@ export function AttachmentPanel({
 
       if (attached.error === null) {
         // Attached, not yet readable: the scan decides that, on the queue.
-        setStatus("Uploaded. Waiting for the file to be checked…");
+        setStatus(t("att.waitingScan"));
         awaitScan(file.name);
       }
 
@@ -197,7 +194,7 @@ export function AttachmentPanel({
   return (
     <div className="space-y-3">
       {attachments.length === 0 ? (
-        <p className="text-body text-n-500">Nothing attached yet.</p>
+        <p className="text-body text-n-500">{t("att.none")}</p>
       ) : (
         <ul className="divide-y divide-n-100 border-y border-n-100">
           {attachments.map((attachment) => (
@@ -211,7 +208,7 @@ export function AttachmentPanel({
           <input
             ref={input}
             type="file"
-            aria-label="Attach a file"
+            aria-label={t("att.input")}
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -231,7 +228,7 @@ export function AttachmentPanel({
         </div>
       ) : (
         <p className="text-caption text-n-500">
-          You can read these, but not add to them.
+          {t("att.readOnly")}
         </p>
       )}
     </div>
@@ -246,6 +243,8 @@ function AttachmentRow({
   timeZone: string;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
+  const locale = useLocale();
   const [opening, startTransition] = useTransition();
 
   const open = () =>
@@ -277,7 +276,7 @@ function AttachmentRow({
           <span className="text-body text-n-500">
             {attachment.file.name}
             <span className="ml-1.5 text-caption text-s-active">
-              {attachment.file.scan_status === "pending" ? "· being checked" : "· not available"}
+              {attachment.file.scan_status === "pending" ? t("att.checking") : t("att.unavailable")}
             </span>
           </span>
         )}
@@ -292,8 +291,8 @@ function AttachmentRow({
       </span>
 
       <span className="shrink-0 text-caption text-n-500">
-        {attachment.attached_by ?? "Someone"} ·{" "}
-        {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone })
+        {attachment.attached_by ?? t("common.someone")} ·{" "}
+        {new Intl.DateTimeFormat(INTL_TAG[locale], { day: "numeric", month: "short", timeZone })
           .format(new Date(attachment.attached_at))}
       </span>
     </li>

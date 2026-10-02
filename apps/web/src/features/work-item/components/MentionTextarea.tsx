@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, useTransition } from "react";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
 import { mentionable, type Mentionable } from "../actions";
 
@@ -42,6 +43,7 @@ export function MentionTextarea({
   disabled?: boolean;
   className?: string;
 }) {
+  const t = useT();
   const field = useRef<HTMLTextAreaElement>(null);
   const [people, setPeople] = useState<Mentionable[]>([]);
   const [active, setActive] = useState(0);
@@ -194,7 +196,7 @@ export function MentionTextarea({
         <ul
           id={listId}
           role="listbox"
-          aria-label="People you can mention"
+          aria-label={t("mention.list")}
           className="absolute bottom-full z-10 mb-1 max-h-56 w-72 overflow-y-auto rounded-sm border border-n-200 bg-n-0 py-1 shadow-lg"
         >
           {people.map((person, index) => (

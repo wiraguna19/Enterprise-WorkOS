@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { useT } from "@/i18n/I18nProvider";
+import type { Translator } from "@/i18n/translate";
 import { acceptAssignment, transitionTo } from "../actions";
 import type { Transition, WorkItem } from "../types";
 import { StatusPicker } from "./StatusPicker";
@@ -38,6 +40,7 @@ export function PrimaryAction({
   item: WorkItem;
   transitions: Transition[];
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [pending, startAction] = useTransition();
 
@@ -68,11 +71,11 @@ export function PrimaryAction({
       <p className={error ? "text-caption text-s-danger" : "text-caption text-n-500"} role={error ? "alert" : undefined}>
         {error ??
           (unaccepted
-            ? "This work is assigned to you but not yet acknowledged."
+            ? t("action.unaccepted")
             : primary?.requires_comment
-              ? `${primary.label} needs a reason — use the status menu.`
+              ? t("action.needsReason", { label: primary.label })
               : primary
-                ? hintFor(primary)
+                ? hintFor(primary, t)
                 : (blocked?.blocked_reason ?? ""))}
       </p>
 
@@ -98,7 +101,7 @@ export function PrimaryAction({
             disabled={pending}
             onClick={() => run(() => acceptAssignment(item.reference))}
           >
-            {pending ? "Accepting…" : "Accept"}
+            {pending ? t("action.accepting") : t("action.accept")}
           </Button>
         ) : (
           <Button
@@ -110,7 +113,7 @@ export function PrimaryAction({
             disabled={primary === null || pending || primary.requires_comment}
             onClick={() => primary && run(() => transitionTo(item.reference, primary.to_state.id))}
           >
-            {pending ? "Moving…" : ((primary ?? blocked)?.label ?? "No action available")}
+            {pending ? t("action.moving") : ((primary ?? blocked)?.label ?? t("action.none"))}
           </Button>
         )}
       </div>
@@ -124,19 +127,21 @@ export function PrimaryAction({
  * The category is safe to switch on where the label is not: categories are a
  * closed set the platform defines, labels are text an administrator owns.
  */
-function hintFor(transition: Transition): string {
+function hintFor(transition: Transition, t: Translator): string {
+  const state = transition.to_state.label;
+
   switch (transition.to_state.category) {
     case "in_progress":
-      return "Moves this to " + transition.to_state.label + " and starts the clock.";
+      return t("hint.in_progress", { state });
     case "in_review":
-      return "Sends this to the reviewer and opens an approval.";
+      return t("hint.in_review");
     case "done":
-      return "Closes this work item and stamps it complete.";
+      return t("hint.done");
     case "cancelled":
-      return "Closes this without completing it. The history is kept.";
+      return t("hint.cancelled");
     case "blocked":
-      return "Records that this cannot proceed, and why.";
+      return t("hint.blocked");
     default:
-      return "Moves this to " + transition.to_state.label + ".";
+      return t("hint.default", { state });
   }
 }

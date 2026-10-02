@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { logTime } from "./actions";
 
 /**
@@ -17,6 +18,7 @@ import { logTime } from "./actions";
  * because the case this exists for is catching up on Monday for last Thursday.
  */
 export function LogTimeForm({ reference }: { reference: string }) {
+  const t = useT();
   const [hours, setHours] = useState("");
   const [loggedOn, setLoggedOn] = useState(() => new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
@@ -50,7 +52,7 @@ export function LogTimeForm({ reference }: { reference: string }) {
         submit();
       }}
     >
-      <Field id={hoursId} label="Hours" className="w-20">
+      <Field id={hoursId} label={t("time.form.hours")} className="w-20">
         <input
           id={hoursId}
           type="number"
@@ -66,7 +68,7 @@ export function LogTimeForm({ reference }: { reference: string }) {
         />
       </Field>
 
-      <Field id={dateId} label="Date" className="w-36">
+      <Field id={dateId} label={t("time.form.date")} className="w-36">
         <input
           id={dateId}
           type="date"
@@ -80,20 +82,20 @@ export function LogTimeForm({ reference }: { reference: string }) {
         />
       </Field>
 
-      <Field id={noteId} label="Note" className="min-w-40 flex-1">
+      <Field id={noteId} label={t("time.form.note")} className="min-w-40 flex-1">
         <input
           id={noteId}
           type="text"
           value={note}
           maxLength={300}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="Optional"
+          placeholder={t("time.form.optional")}
           className={INPUT}
         />
       </Field>
 
       <Button type="submit" size="sm" disabled={submitting || hours === ""}>
-        {submitting ? "Logging…" : "Log time"}
+        {submitting ? t("time.form.logging") : t("time.form.log")}
       </Button>
 
       {error && (

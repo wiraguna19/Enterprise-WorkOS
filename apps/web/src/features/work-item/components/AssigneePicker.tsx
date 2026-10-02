@@ -4,6 +4,7 @@ import { useId, useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { assignTo, unassign } from "../actions";
 
 type Person = { id: string; name: string };
@@ -38,6 +39,8 @@ export function AssigneePicker({
   people: Person[];
   canAssign: boolean;
 }) {
+  const t = useT();
+  const roleName = t(`assign.role.${role}`);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, startTransition] = useTransition();
@@ -54,7 +57,7 @@ export function AssigneePicker({
 
   if (!canAssign) {
     return current === null ? (
-      <span className="text-s-active">Unassigned</span>
+      <span className="text-s-active">{t("assign.unassigned")}</span>
     ) : (
       <PersonLabel membershipId={current.membership_id} name={current.name} />
     );
@@ -64,7 +67,7 @@ export function AssigneePicker({
     return (
       <span className="inline-flex items-center gap-2">
         {current === null ? (
-          <span className="text-s-active">Unassigned</span>
+          <span className="text-s-active">{t("assign.unassigned")}</span>
         ) : (
           <PersonLabel membershipId={current.membership_id} name={current.name} />
         )}
@@ -75,14 +78,14 @@ export function AssigneePicker({
             reader cannot tell apart. */}
         <button
           type="button"
-          aria-label={`${current === null ? "Assign" : "Change"} ${role}`}
+          aria-label={t(current === null ? "assign.assignRole" : "assign.changeRole", { role: roleName })}
           onClick={() => {
             setError(null);
             setOpen(true);
           }}
           className="text-caption text-n-500 underline-offset-2 hover:text-n-900 hover:underline"
         >
-          {current === null ? "Assign" : "Change"}
+          {current === null ? t("assign.assign") : t("assign.change")}
         </button>
 
         {error !== null && (
@@ -97,7 +100,7 @@ export function AssigneePicker({
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       <label htmlFor={selectId} className="sr-only">
-        {role === "assignee" ? "Assignee" : "Reviewer"}
+        {t(role === "assignee" ? "wi.field.assignee" : "wi.field.reviewer")}
       </label>
 
       <select
@@ -111,7 +114,7 @@ export function AssigneePicker({
         }}
         className={INPUT.replace("w-full", "w-auto")}
       >
-        <option value="">{saving ? "Saving…" : "Choose someone…"}</option>
+        <option value="">{saving ? t("common.saving") : t("assign.choose")}</option>
         {people
           // Whoever holds it is not offered: the API refuses it as "already
           // holds this role", and an option that can only fail is a trap.
@@ -127,22 +130,22 @@ export function AssigneePicker({
         <Button
           size="sm"
           variant="ghost"
-          aria-label={`Clear ${role}`}
+          aria-label={t("assign.clearRole", { role: roleName })}
           disabled={saving}
           onClick={() => act(() => unassign(reference, current.assignment_id))}
         >
-          Clear
+          {t("assign.clear")}
         </Button>
       )}
 
       <Button
         size="sm"
         variant="ghost"
-        aria-label={`Stop changing the ${role}`}
+        aria-label={t("assign.stopRole", { role: roleName })}
         disabled={saving}
         onClick={() => setOpen(false)}
       >
-        Cancel
+        {t("common.cancel")}
       </Button>
 
       {error !== null && (

@@ -1,4 +1,7 @@
 import { Avatar } from "@/components/ui/Avatar";
+import { INTL_TAG, type Locale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator, type Translator } from "@/i18n/translate";
 
 export type ActivityEvent = {
   correlation_id: string;
@@ -24,7 +27,8 @@ export type ActivityEvent = {
 export function ActivityTimeline({
   events,
   timeZone,
-  emptyMessage = "Nothing has happened to this item yet.",
+  emptyMessage,
+  locale = "en",
 }: {
   events: ActivityEvent[];
   timeZone: string;
@@ -37,9 +41,13 @@ export function ActivityTimeline({
    * rendering the same log differently.
    */
   emptyMessage?: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   if (events.length === 0) {
-    return <p className="py-2 text-body-sm text-n-500">{emptyMessage}</p>;
+    return <p className="py-2 text-body-sm text-n-500">{emptyMessage ?? t("act.empty")}</p>;
   }
 
   return (
@@ -60,15 +68,15 @@ export function ActivityTimeline({
               <span className="font-medium text-n-900">{event.actor}</span>{" "}
               {event.entries.map((entry, i) => (
                 <span key={`${entry.verb}-${i}`}>
-                  {i > 0 && <span className="text-n-500">, and </span>}
-                  {describe(entry.verb, entry.changes)}
+                  {i > 0 && <span className="text-n-500">{t("act.and")}</span>}
+                  {describe(entry.verb, entry.changes, t)}
                 </span>
               ))}
             </p>
 
             <p className="text-caption text-n-500">
               <time dateTime={event.occurred_at}>
-                {new Date(event.occurred_at).toLocaleString("en-GB", {
+                {new Date(event.occurred_at).toLocaleString(INTL_TAG[locale], {
                   timeZone,
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -90,7 +98,7 @@ export function ActivityTimeline({
  * seven modules and a rule engine, and a friendly catch-all here would quietly
  * swallow every verb this list has not caught up with.
  */
-function describe(verb: string, changes: Record<string, unknown>): string {
+function describe(verb: string, changes: Record<string, unknown>, t: Translator): string {
   // `label` is the state as the workflow names it; `state` is the category.
   // Rows written before the label was recorded have only the category, so this
   // falls back to it rather than losing the destination — an old row reads
@@ -101,54 +109,54 @@ function describe(verb: string, changes: Record<string, unknown>): string {
 
   switch (verb) {
     case "created":
-      return "created this";
+      return t("act.created");
     case "status_changed":
-      return destination ? `moved it to ${destination}` : "changed its status";
+      return destination ? t("act.movedTo", { state: destination }) : t("act.statusChanged");
     case "submitted_for_review":
-      return "submitted it for review";
+      return t("act.submitted");
     case "review_withdrawn":
-      return "withdrew it from review";
+      return t("act.withdrawn");
     case "assigned":
-      return "assigned it";
+      return t("act.assigned");
     case "reassigned":
-      return "reassigned it";
+      return t("act.reassigned");
     case "unassigned":
-      return "removed an assignee";
+      return t("act.unassigned");
     case "moved":
-      return "moved it to another project";
+      return t("act.moved");
     case "updated":
-      return `changed ${listFields(changes)}`;
+      return t("act.changed", { fields: listFields(changes, t) });
     case "time_logged":
-      return "logged time";
+      return t("act.timeLogged");
     case "time_removed":
-      return "removed a time entry";
+      return t("act.timeRemoved");
 
     // Projects (ADR 0040, ADR 0041). These were written for two commits with
     // nothing able to read them, so this list had never seen them — an
     // unmapped verb renders as itself, which is why the gap looked like
     // nothing rather than like a bug.
     case "archived":
-      return "archived it";
+      return t("act.archived");
     case "restored":
-      return "brought it back";
+      return t("act.restored");
     case "member_added":
-      return `gave access${roleIn(changes)}`;
+      return t("act.memberAdded", { role: roleIn(changes, t) });
     case "member_removed":
-      return "took access away";
+      return t("act.memberRemoved");
     case "member_role_changed":
-      return `changed a role${roleIn(changes)}`;
+      return t("act.roleChanged", { role: roleIn(changes, t) });
 
     // Milestones (ADR 0056). The name travels in `milestone`, so the line
     // reads without opening anything.
     case "milestone_added":
-      return `added the milestone ${milestoneIn(changes, "to")}`;
+      return t("act.milestoneAdded", { name: milestoneIn(changes, "to") });
     case "milestone_updated": {
       const fields = Object.fromEntries(Object.entries(changes).filter(([field]) => field !== "milestone"));
 
-      return `changed ${listFields(fields)} of ${milestoneIn(changes, "to")}`;
+      return t("act.milestoneUpdated", { fields: listFields(fields, t), name: milestoneIn(changes, "to") });
     }
     case "milestone_removed":
-      return `removed the milestone ${milestoneIn(changes, "from")}`;
+      return t("act.milestoneRemoved", { name: milestoneIn(changes, "from") });
 
     default:
       return verb.replace(/_/g, " ");
@@ -164,17 +172,30 @@ function milestoneIn(changes: Record<string, unknown>, side: "from" | "to"): str
 }
 
 /** " as manager", or nothing when the row does not say. */
-function roleIn(changes: Record<string, unknown>): string {
+function roleIn(changes: Record<string, unknown>, t: Translator): string {
   const role = changes.role as { from?: string; to?: string } | undefined;
 
-  return role?.to === undefined ? "" : ` as ${role.to}`;
+  return role?.to === undefined ? "" : t("act.asRole", { role: role.to });
 }
 
-function listFields(changes: Record<string, unknown>): string {
-  const fields = Object.keys(changes).map((field) => field.replace(/_/g, " "));
+/**
+ * The fields the interface names in the reader's language (ADR 0060). A field
+ * the API adds later is shown by its own name until it is given one here.
+ */
+const FIELDS = new Set([
+  "title", "description", "priority", "due_at", "start_at", "estimate_hours",
+  "name", "visibility", "target_date", "type", "status", "milestone_id",
+]);
 
-  if (fields.length === 0) return "something";
+function fieldName(field: string, t: Translator): string {
+  return FIELDS.has(field) ? t(`field.${field}` as MessageKey) : field.replace(/_/g, " ");
+}
+
+function listFields(changes: Record<string, unknown>, t: Translator): string {
+  const fields = Object.keys(changes).map((field) => fieldName(field, t));
+
+  if (fields.length === 0) return t("act.something");
   if (fields.length === 1) return fields[0];
 
-  return `${fields.slice(0, -1).join(", ")} and ${fields[fields.length - 1]}`;
+  return t("act.listAnd", { list: fields.slice(0, -1).join(", "), last: fields[fields.length - 1] });
 }

@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { INTL_TAG } from "@/i18n/config";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { editComment, postComment } from "../actions";
 import { MentionTextarea } from "./MentionTextarea";
 import type { Comment } from "../types";
@@ -44,12 +46,14 @@ export function CommentThread({
   /** Whose comments carry an edit control — identity, not permission. */
   membershipId: string;
 }) {
+  const t = useT();
+
   return (
     <div className="space-y-4">
       {comments.length === 0 ? (
         <p className="text-body text-n-500">
-          No comments yet. Use <span className="font-mono text-body-sm">@name</span> to pull
-          someone in.
+          {t("comments.empty.before")} <span className="font-mono text-body-sm">@name</span>{" "}
+          {t("comments.empty.after")}
         </p>
       ) : (
         <ol className="space-y-4">
@@ -72,7 +76,7 @@ export function CommentThread({
         // think the app is broken; one that explains itself teaches the model
         // (docs/07 §4).
         <p className="border-t border-n-100 pt-4 text-caption text-n-500">
-          You have read-only access to this work item.
+          {t("comments.readOnly")}
         </p>
       )}
     </div>
@@ -90,6 +94,8 @@ function CommentRow({
   timeZone: string;
   mine: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(comment.body_markdown);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +117,7 @@ function CommentRow({
         <p className="flex items-baseline gap-2">
           <span className="font-medium text-n-900">{comment.author.name}</span>
           <span className="text-caption text-n-500 tabular-nums">
-            {new Intl.DateTimeFormat("en-GB", {
+            {new Intl.DateTimeFormat(INTL_TAG[locale], {
               day: "numeric",
               month: "short",
               hour: "2-digit",
@@ -121,7 +127,7 @@ function CommentRow({
           </span>
           {/* "edited" stays visible after an edit, because a comment someone
               replied to may no longer say what they replied to. */}
-          {comment.edited && <span className="text-caption text-n-500">edited</span>}
+          {comment.edited && <span className="text-caption text-n-500">{t("comments.edited")}</span>}
 
           {mine && !editing && (
             <button
@@ -133,7 +139,7 @@ function CommentRow({
               }}
               className="text-caption text-n-500 underline-offset-2 hover:text-n-900 hover:underline"
             >
-              Edit
+              {t("common.edit")}
             </button>
           )}
         </p>
@@ -150,16 +156,16 @@ function CommentRow({
               value={draft}
               onChange={setDraft}
               rows={3}
-              ariaLabel="Edit your comment"
+              ariaLabel={t("comments.editLabel")}
               disabled={saving}
             />
 
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="primary" size="sm" disabled={saving} onClick={save}>
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("common.saving") : t("common.save")}
               </Button>
               <Button variant="ghost" size="sm" disabled={saving} onClick={() => setEditing(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               {error && (
                 <span role="alert" className="text-caption text-s-danger">
@@ -180,6 +186,7 @@ function CommentRow({
 }
 
 function Composer({ reference }: { reference: string }) {
+  const t = useT();
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, startTransition] = useTransition();
@@ -207,13 +214,13 @@ function Composer({ reference }: { reference: string }) {
           value={body}
           onChange={setBody}
           rows={2}
-          placeholder="Write a comment…  @name to mention"
-          ariaLabel="Write a comment"
+          placeholder={t("comments.placeholder")}
+          ariaLabel={t("comments.label")}
           disabled={sending}
           className="min-h-[2.5rem]"
         />
         <Button type="submit" variant="primary" disabled={sending || body.trim() === ""}>
-          {sending ? "Sending…" : "Send"}
+          {sending ? t("comments.sending") : t("comments.send")}
         </Button>
       </div>
 

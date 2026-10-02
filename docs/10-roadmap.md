@@ -228,9 +228,12 @@ last entry is deliberately last.
                         menu, command palette, toasts), Settings index,
                         Settings → Language, sign-in, Home, My Work, Inbox
                         and the approval screen (notification sentences
-                        come from the API and stay English).
-                        Next, one screen at a time: the work item, the
-                        board and project screens, then the rest of
+                        come from the API and stay English), the work item
+                        page with all its panels (workflow state names and
+                        the organization's field labels are its own words
+                        and are shown as written).
+                        Next, one screen at a time: the board and project
+                        screens, new/edit work item, then the rest of
                         Settings.
 ```
 

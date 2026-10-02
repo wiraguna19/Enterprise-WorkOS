@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 import { api, ApiRequestError } from "@/lib/api";
 
 export type ActionState = { error: string | null; requestId?: string };
@@ -73,14 +75,15 @@ export async function acceptAssignment(reference: string): Promise<ActionState> 
   return { error: null };
 }
 
-function failure(error: unknown): ActionState {
+async function failure(error: unknown): Promise<ActionState> {
   if (error instanceof ApiRequestError) {
     // The server's own message, and its request id: "why can't I do this" is
     // answered by the rule that refused, not by a generic apology.
     return { error: error.error.message, requestId: error.error.request_id };
   }
 
-  return { error: "We could not reach the server. Please try again." };
+  // In the browser's copy of the reader's language (ADR 0060).
+  return { error: translator(await requestLocale())("common.unreachable") };
 }
 
 /**
@@ -103,7 +106,7 @@ export async function postComment(reference: string, body: string): Promise<Acti
   // The only rule enforced here, and only because an empty POST is a round trip
   // that can only fail. Length, mentions and markdown are the API's business.
   if (text === "") {
-    return { error: "Write something first." };
+    return { error: translator(await requestLocale())("comments.writeFirst") };
   }
 
   try {
@@ -139,7 +142,7 @@ export async function editComment(
   const text = body.trim();
 
   if (text === "") {
-    return { error: "A comment cannot be emptied. Say something else instead." };
+    return { error: translator(await requestLocale())("comments.cannotEmpty") };
   }
 
   try {
@@ -475,7 +478,7 @@ export async function reserveUpload(
 
     return { fileId: data.file_id, uploadUrl: data.upload_url, error: null };
   } catch (error) {
-    const failed = failure(error);
+    const failed = await failure(error);
 
     return { fileId: null, uploadUrl: null, error: failed.error ?? "Upload could not start." };
   }
@@ -524,7 +527,7 @@ export async function attachmentUrl(fileId: string): Promise<{ url: string | nul
 
     return { url: data.url, error: null };
   } catch (error) {
-    const failed = failure(error);
+    const failed = await failure(error);
 
     return { url: null, error: failed.error ?? "That file could not be opened." };
   }

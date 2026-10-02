@@ -22,6 +22,8 @@ import { WorkItemChannel } from "@/features/realtime/WorkItemChannel";
 import { TimePanel } from "@/features/time/TimePanel";
 import type { TimeEntry } from "@/features/time/types";
 import type { Comment, Transition, WorkItem } from "@/features/work-item/types";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 
@@ -98,6 +100,12 @@ export default async function WorkItemPage({
       .catch(() => [] as Attachment[]),
   ]);
 
+  // Translated (ADR 0060). Workflow state names, transition labels and the
+  // organization's own field labels are the organization's words, not the
+  // interface's, and are shown as written.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
   const assignee = item.assignees?.find((a) => a.role === "assignee");
   const reviewer = item.assignees?.find((a) => a.role === "reviewer");
 
@@ -106,7 +114,7 @@ export default async function WorkItemPage({
   // paid by everybody for a few.
   const people = (item.permissions.assign ?? false)
     ? await api<Array<{ id: string; name: string | null }>>("/people?limit=200")
-        .then((r) => r.data.map((person) => ({ id: person.id, name: person.name ?? "Unnamed" })))
+        .then((r) => r.data.map((person) => ({ id: person.id, name: person.name ?? t("common.unnamed") })))
         .catch(() => [] as Array<{ id: string; name: string }>)
     : [];
 
@@ -117,8 +125,9 @@ export default async function WorkItemPage({
           would be a promise about a page that does not exist (ADR 0026). */}
       {item.project && (
         <Breadcrumb
+          locale={locale}
           items={[
-            { label: "Projects", href: "/projects" },
+            { label: t("nav.projects"), href: "/projects" },
             { label: item.project.name, href: `/projects/${item.project.key}/board` },
             { label: item.reference },
           ]}
@@ -129,7 +138,7 @@ export default async function WorkItemPage({
         <div className="flex items-center gap-2 text-caption text-n-500">
           <span className="font-mono">{item.reference}</span>
           <span aria-hidden>·</span>
-          <PriorityIcon priority={item.priority} withLabel />
+          <PriorityIcon priority={item.priority} withLabel locale={locale} />
         </div>
 
         <div className="flex items-start justify-between gap-4">
@@ -140,7 +149,7 @@ export default async function WorkItemPage({
               only where the API would allow it, which it re-decides anyway. */}
           {(item.permissions.update ?? false) && (
             <ButtonLink href={`/work/${item.reference}/edit`} size="sm">
-              Edit
+              {t("common.edit")}
             </ButtonLink>
           )}
         </div>
@@ -150,7 +159,7 @@ export default async function WorkItemPage({
             <StatusChip category={item.state.category} label={item.state.label} />
           )}
 
-          <Field label="Assignee">
+          <Field label={t("wi.field.assignee")}>
             <span className="inline-flex items-center gap-1.5">
               <AssigneePicker
                 reference={item.reference}
@@ -163,12 +172,12 @@ export default async function WorkItemPage({
                   fact about the person's answer, not about who holds the role,
                   and it must survive whatever the picker is doing. */}
               {assignee && !assignee.accepted && (
-                <span className="text-caption text-s-active">· not accepted</span>
+                <span className="text-caption text-s-active">{t("wi.notAccepted")}</span>
               )}
             </span>
           </Field>
 
-          <Field label="Reviewer">
+          <Field label={t("wi.field.reviewer")}>
             <AssigneePicker
               reference={item.reference}
               role="reviewer"
@@ -178,15 +187,15 @@ export default async function WorkItemPage({
             />
           </Field>
 
-          <Field label="Due">
-            <DueDate value={item.due_at} overdue={item.is_overdue} timeZone={me.user.timezone} />
+          <Field label={t("wi.field.due")}>
+            <DueDate value={item.due_at} overdue={item.is_overdue} timeZone={me.user.timezone} locale={locale} />
           </Field>
 
-          <Field label="Estimate">
+          <Field label={t("wi.field.estimate")}>
             {item.estimate_hours ? (
-              `${item.estimate_hours}h`
+              t("wi.estimateHours", { hours: item.estimate_hours })
             ) : (
-              <span className="text-s-active">not estimated</span>
+              <span className="text-s-active">{t("wi.notEstimated")}</span>
             )}
           </Field>
         </div>
@@ -213,12 +222,12 @@ export default async function WorkItemPage({
               // is the form that writes it is a field nobody sees without
               // clicking Edit — which is the write path with no read path this
               // product keeps finding, in its quietest form.
-              <Panel id="custom-fields" title="Fields for this organization">
+              <Panel id="custom-fields" title={t("wi.customFields")}>
                 <KeyValue columns={2}>
                   {(item.custom_fields ?? []).map((field) => (
                     <KeyValueItem
                       key={field.key}
-                      label={field.live ? field.label : `${field.label} (retired)`}
+                      label={field.live ? field.label : t("wi.retired", { label: field.label })}
                     >
                       {field.value ?? <span className="text-n-500">—</span>}
                     </KeyValueItem>
@@ -227,19 +236,20 @@ export default async function WorkItemPage({
               </Panel>
             )}
 
-            <Panel id="time" title="Time">
+            <Panel id="time" title={t("wi.time")}>
               <TimePanel
                 reference={item.reference}
                 entries={time.entries}
                 total={time.total}
                 cachedTotal={time.cached}
                 canLog={item.permissions.log_time ?? false}
+                locale={locale}
               />
             </Panel>
 
             <Panel
               id="attachments"
-              title="Attachments"
+              title={t("wi.attachments")}
               actions={attachments.length > 0 ? <Badge>{attachments.length}</Badge> : undefined}
             >
               <AttachmentPanel
@@ -253,19 +263,19 @@ export default async function WorkItemPage({
             </Panel>
 
             {history.length > 0 && (
-              <Panel id="assignment-history" title="Assignment history">
-                <AssignmentHistory entries={history} timeZone={me.user.timezone} />
+              <Panel id="assignment-history" title={t("wi.assignmentHistory")}>
+                <AssignmentHistory entries={history} timeZone={me.user.timezone} locale={locale} />
               </Panel>
             )}
 
-            <Panel id="activity" title="History">
-              <ActivityTimeline events={activity} timeZone={me.user.timezone} />
+            <Panel id="activity" title={t("wi.history")}>
+              <ActivityTimeline events={activity} timeZone={me.user.timezone} locale={locale} />
             </Panel>
           </>
         }
       >
         {item.description && (
-          <Panel id="description" title="Description">
+          <Panel id="description" title={t("wi.description")}>
             <p className="max-w-[72ch] whitespace-pre-wrap text-body text-n-700">
               {item.description}
             </p>
@@ -277,7 +287,7 @@ export default async function WorkItemPage({
             is the panel in the column beside this one. */}
         <Panel
           id="comments"
-          title="Comments"
+          title={t("wi.comments")}
           actions={comments.length > 0 ? <Badge>{comments.length}</Badge> : undefined}
         >
           <CommentThread

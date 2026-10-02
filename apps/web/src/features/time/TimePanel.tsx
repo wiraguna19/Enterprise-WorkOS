@@ -1,3 +1,5 @@
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { LogTimeForm } from "./LogTimeForm";
 import type { TimeEntry } from "./types";
 
@@ -17,25 +19,29 @@ export function TimePanel({
   total,
   cachedTotal,
   canLog,
+  locale = "en",
 }: {
   reference: string;
   entries: TimeEntry[];
   total: number;
   cachedTotal: number;
   canLog: boolean;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
   const drifted = Math.abs(total - cachedTotal) > 0.005;
 
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between">
         <span className="text-body-sm text-n-700">
-          {total > 0 ? `${total} h logged` : "No time logged"}
+          {total > 0 ? t("time.logged", { hours: total }) : t("time.none")}
         </span>
 
         {drifted && (
           <span className="text-caption text-s-danger">
-            rollup says {cachedTotal} h — these should match
+            {t("time.drift", { hours: cachedTotal })}
           </span>
         )}
       </div>
@@ -44,7 +50,7 @@ export function TimePanel({
         <ul className="divide-y divide-n-100 border-y border-n-100">
           {entries.map((entry) => (
             <li key={entry.id} className="flex items-baseline gap-3 py-1.5 text-body-sm">
-              <span className="w-14 shrink-0 tabular-nums text-n-900">{entry.hours} h</span>
+              <span className="w-14 shrink-0 tabular-nums text-n-900">{t("time.hours", { hours: entry.hours })}</span>
               <span className="w-24 shrink-0 text-caption text-n-500">{entry.logged_on}</span>
               <span className="min-w-0 flex-1 truncate text-n-700">
                 {entry.note || <span className="text-n-400">—</span>}
