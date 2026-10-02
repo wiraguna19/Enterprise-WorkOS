@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
+import type { Locale } from "@/i18n/config";
+import { translator, type Translator } from "@/i18n/translate";
 import { formatAge, formatDateTime } from "@/lib/format";
 import type { Approval } from "@/features/work-item/types";
 import { DecisionForm } from "./DecisionForm";
@@ -23,11 +25,16 @@ export function ReviewQueue({
   approvals,
   timeZone,
   emptyLabel,
+  locale = "en",
 }: {
   approvals: Approval[];
   timeZone?: string;
   emptyLabel: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   if (approvals.length === 0) {
     return <p className="py-8 text-body text-n-500">{emptyLabel}</p>;
   }
@@ -44,7 +51,7 @@ export function ReviewQueue({
               href={`/work/${approval.subject?.reference ?? ""}`}
               className="text-body font-medium text-n-900 hover:text-a-700 hover:underline"
             >
-              {approval.subject?.title ?? "Untitled"}
+              {approval.subject?.title ?? t("review.untitled")}
             </Link>
 
             <span className="font-mono text-caption text-n-500">
@@ -59,11 +66,11 @@ export function ReviewQueue({
               href={`/approvals/${approval.id}`}
               className="text-caption text-n-500 hover:text-a-700 hover:underline"
             >
-              Full submission
+              {t("review.full")}
             </Link>
 
             {approval.subject && (
-              <PriorityIcon priority={approval.subject.priority} withLabel />
+              <PriorityIcon priority={approval.subject.priority} withLabel locale={locale} />
             )}
 
             {/* How long, not when. The reviewer's question is "how long has
@@ -71,9 +78,9 @@ export function ReviewQueue({
                 subtraction. The exact time stays available on hover. */}
             <span
               className="ml-auto text-caption tabular-nums text-n-500"
-              title={formatDateTime(approval.submitted_at, timeZone)}
+              title={formatDateTime(approval.submitted_at, timeZone, locale)}
             >
-              waiting {formatAge(approval.submitted_at)}
+              {t("review.waiting", { age: formatAge(approval.submitted_at, new Date(), locale) })}
             </span>
           </div>
 
@@ -90,7 +97,7 @@ export function ReviewQueue({
                   name={approval.requested_by.name ?? "?"}
                   size="sm"
                 />
-                <span>{approval.requested_by.name ?? "Unknown"}</span>
+                <span>{approval.requested_by.name ?? t("review.unknown")}</span>
               </>
             )}
 
@@ -100,8 +107,10 @@ export function ReviewQueue({
               <>
                 <span aria-hidden>·</span>
                 <span>
-                  {approval.decisions.filter((d) => d.decision === "approved").length} of{" "}
-                  {approval.required_approvals} approvals
+                  {t("review.approvalsOf", {
+                    done: approval.decisions.filter((d) => d.decision === "approved").length,
+                    required: approval.required_approvals,
+                  })}
                 </span>
               </>
             )}
@@ -124,9 +133,7 @@ export function ReviewQueue({
               on a resubmission, and the easiest to lose. */}
           {approval.decisions.length > 0 && (
             <p className="mt-1.5 border-l-2 border-n-200 pl-2 text-caption text-n-500">
-              {approval.decisions.at(-1)?.reviewer} previously{" "}
-              {(approval.decisions.at(-1)?.decision ?? "").replace("_", " ")}:{" "}
-              {approval.decisions.at(-1)?.comment}
+              {previously(approval.decisions.at(-1), t)}
             </p>
           )}
 
@@ -136,7 +143,7 @@ export function ReviewQueue({
           {approval.permissions.decide && (
             <DecisionForm
               approvalId={approval.id}
-              reference={approval.subject?.reference ?? "this"}
+              reference={approval.subject?.reference ?? t("decide.this")}
             />
           )}
 
@@ -148,4 +155,15 @@ export function ReviewQueue({
       ))}
     </ul>
   );
+}
+
+/** The last decision, as a sentence in the reader's language. */
+function previously(decision: Approval["decisions"][number] | undefined, t: Translator): string {
+  if (decision === undefined) return "";
+
+  return t("review.previously", {
+    reviewer: decision.reviewer ?? t("review.unknown"),
+    decision: t(`decision.verb.${decision.decision}`),
+    comment: decision.comment ?? "",
+  });
 }

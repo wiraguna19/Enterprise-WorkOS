@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { decide } from "./actions";
 
 type Decision = "approved" | "changes_requested" | "rejected";
@@ -30,6 +31,7 @@ export function DecisionForm({
   approvalId: string;
   reference: string;
 }) {
+  const t = useT();
   const [pending, setPending] = useState<Decision | null>(null);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function DecisionForm({
           disabled={submitting}
           onClick={() => send("approved", "")}
         >
-          {submitting ? "Approving…" : "Approve"}
+          {submitting ? t("decide.approving") : t("decide.approve")}
         </Button>
 
         {/* NOT destructive, and the inbox is what proved it. Seven rows with
@@ -74,7 +76,7 @@ export function DecisionForm({
             ordinary outcome of a review, not the end of one. Only Reject
             stops it (ADR 0024). */}
         <Button size="sm" disabled={submitting} onClick={() => setPending("changes_requested")}>
-          Request changes
+          {t("decide.requestChanges")}
         </Button>
 
         <Button
@@ -83,7 +85,7 @@ export function DecisionForm({
           disabled={submitting}
           onClick={() => setPending("rejected")}
         >
-          Reject
+          {t("decide.reject")}
         </Button>
 
         {error && (
@@ -104,9 +106,7 @@ export function DecisionForm({
       }}
     >
       <label htmlFor={fieldId} className="block text-caption font-medium text-n-700">
-        {pending === "rejected"
-          ? `Why are you rejecting ${reference}?`
-          : `What needs to change in ${reference}?`}
+        {t(pending === "rejected" ? "decide.whyReject" : "decide.whatChange", { reference })}
       </label>
 
       <textarea
@@ -116,7 +116,7 @@ export function DecisionForm({
         rows={3}
         value={comment}
         onChange={(event) => setComment(event.target.value)}
-        placeholder="Be specific enough that they can act on it without asking you a follow-up question."
+        placeholder={t("decide.placeholder")}
         // The shared input, not a fourth hand-rolled copy of it: this textarea
         // had a lighter border and a different focus ring from every other
         // control in the product (docs/09 §5).
@@ -139,7 +139,7 @@ export function DecisionForm({
           size="sm"
           disabled={submitting || comment.trim() === ""}
         >
-          {pending === "rejected" ? "Reject" : "Send back"}
+          {pending === "rejected" ? t("decide.reject") : t("decide.sendBack")}
         </Button>
 
         <Button
@@ -151,7 +151,7 @@ export function DecisionForm({
             setComment("");
           }}
         >
-          Cancel
+          {t("decide.cancel")}
         </Button>
       </div>
     </form>

@@ -11,7 +11,9 @@ import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import type { Approval } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { formatAge, formatDateTime } from "@/lib/format";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
+import { formatAge, formatAgo, formatDateTime } from "@/lib/format";
 
 /**
  * One approval, in full.
@@ -55,24 +57,31 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
   }
 
   const decided = approval.decisions.filter((d) => d.decision === "approved").length;
+  // Translated (ADR 0060), with the screen it is reached from, the Inbox.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   return (
     <div className="space-y-5">
       {/* The trail every other nested screen has, instead of a hand-drawn back
           link: this approval really is inside the review queue (ADR 0026). */}
       <Breadcrumb
+        locale={locale}
         items={[
-          { label: "Review queue", href: "/inbox?tab=reviews" },
-          { label: approval.subject?.reference ?? "Approval" },
+          { label: t("approval.queue"), href: "/inbox?tab=reviews" },
+          { label: approval.subject?.reference ?? t("approval.fallback") },
         ]}
       />
 
       <PageHeader
-        title={approval.subject?.title ?? "Untitled"}
+        title={approval.subject?.title ?? t("review.untitled")}
         description={
           approval.status === "pending"
-            ? `Waiting ${formatAge(approval.submitted_at)}`
-            : `${STATUS_LABEL[approval.status]} ${formatAge(approval.resolved_at)}`
+            ? t("approval.waiting", { age: formatAge(approval.submitted_at, new Date(), locale) })
+            : t("approval.resolved", {
+                status: t(`approval.status.${approval.status}`),
+                age: formatAgo(approval.resolved_at, locale),
+              })
         }
       />
 
@@ -85,29 +94,27 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             >
               {approval.subject.reference}
             </Link>
-            <PriorityIcon priority={approval.subject.priority} withLabel />
+            <PriorityIcon priority={approval.subject.priority} withLabel locale={locale} />
           </>
         )}
 
-        <span title={formatDateTime(approval.submitted_at, me.user.timezone)}>
-          submitted {formatAge(approval.submitted_at)}
+        <span title={formatDateTime(approval.submitted_at, me.user.timezone, locale)}>
+          {t("approval.submittedAge", { age: formatAgo(approval.submitted_at, locale) })}
         </span>
 
         {/* Stated whenever it is not the trivial case, and stated as a count
             rather than implied by the roster below: "any one of" and "two of
             four" look identical in a list of names. */}
         {approval.policy !== "any_one" && (
-          <span>
-            {decided} of {approval.required_approvals} approvals
-          </span>
+          <span>{t("review.approvalsOf", { done: decided, required: approval.required_approvals })}</span>
         )}
       </div>
 
       <PageBody>
       <Panel
         id="submitted"
-        title="Submitted"
-        description="What the submitter wrote when they sent it for review."
+        title={t("approval.submitted.title")}
+        description={t("approval.submitted.description")}
       >
       <div className="space-y-2">
 
@@ -119,7 +126,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
                 name={approval.requested_by.name ?? "?"}
                 size="sm"
               />
-              <span>{approval.requested_by.name ?? "Unknown"}</span>
+              <span>{approval.requested_by.name ?? t("review.unknown")}</span>
             </>
           )}
         </div>
@@ -133,18 +140,18 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             {approval.submission_note}
           </p>
         ) : (
-          <p className="text-body text-n-500">No note was given.</p>
+          <p className="text-body text-n-500">{t("approval.noNote")}</p>
         )}
       </div>
       </Panel>
 
       <Panel
         id="reviewers"
-        title="Asked to decide"
+        title={t("approval.reviewers.title")}
         description={
           approval.policy === "any_one"
-            ? "Any one of them can decide this."
-            : `${approval.required_approvals} of them must approve.`
+            ? t("approval.reviewers.anyOne")
+            : t("approval.reviewers.mustApprove", { count: approval.required_approvals })
         }
       >
 
@@ -153,9 +160,9 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             wrong one about an approval is how work sits pending forever while
             the page insists no reviewer exists. */}
         {approval.reviewers === undefined ? (
-          <p className="text-body text-n-500">Not available.</p>
+          <p className="text-body text-n-500">{t("approval.reviewers.unavailable")}</p>
         ) : approval.reviewers.length === 0 ? (
-          <p className="text-body text-n-500">Nobody — this approval cannot be decided.</p>
+          <p className="text-body text-n-500">{t("approval.reviewers.nobody")}</p>
         ) : (
           <ul className="flex flex-wrap gap-x-4 gap-y-2">
             {approval.reviewers.map((person) => (
@@ -168,7 +175,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
                   name={person.name ?? "?"}
                   size="sm"
                 />
-                <span>{person.name ?? "Unknown"}</span>
+                <span>{person.name ?? t("review.unknown")}</span>
               </li>
             ))}
           </ul>
@@ -177,12 +184,12 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
 
       <Panel
         id="decisions"
-        title="Decisions"
-        description="Oldest first, and all of them — a reviewer who approved and then asked for changes leaves two."
+        title={t("approval.decisions.title")}
+        description={t("approval.decisions.description")}
       >
 
         {approval.decisions.length === 0 ? (
-          <p className="text-body text-n-500">Nobody has decided yet.</p>
+          <p className="text-body text-n-500">{t("approval.decisions.none")}</p>
         ) : (
           // Oldest first, and ALL of them. A reviewer who approved and then
           // asked for changes leaves two rows; showing the later one alone
@@ -191,13 +198,13 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
             {approval.decisions.map((decision) => (
               <li key={decision.id}>
                 <p className="text-body-sm text-n-900">
-                  <span className="font-medium">{decision.reviewer ?? "Someone"}</span>{" "}
-                  {decision.decision.replace("_", " ")}
+                  <span className="font-medium">{decision.reviewer ?? t("approval.decisions.someone")}</span>{" "}
+                  {t(`decision.verb.${decision.decision}`)}
                   <span
                     className="ml-2 text-caption text-n-500"
-                    title={formatDateTime(decision.decided_at, me.user.timezone)}
+                    title={formatDateTime(decision.decided_at, me.user.timezone, locale)}
                   >
-                    {formatAge(decision.decided_at)}
+                    {formatAgo(decision.decided_at, locale)}
                   </span>
                 </p>
 
@@ -219,7 +226,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
       {approval.permissions.decide && (
         <DecisionForm
           approvalId={approval.id}
-          reference={approval.subject?.reference ?? "this"}
+          reference={approval.subject?.reference ?? t("decide.this")}
         />
       )}
 
@@ -228,11 +235,3 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
     </div>
   );
 }
-
-const STATUS_LABEL: Record<Approval["status"], string> = {
-  pending: "Pending",
-  approved: "Approved",
-  changes_requested: "Changes requested",
-  rejected: "Rejected",
-  withdrawn: "Withdrawn",
-};

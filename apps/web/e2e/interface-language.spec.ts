@@ -16,7 +16,7 @@ import { test, signedInPhone } from "./support/auth";
 const BUDI = "budi@acme.test";
 
 test.describe("interface language", () => {
-  test("choosing Indonesian translates the shell, Settings, Home and My Work", async ({
+  test("choosing Indonesian translates the shell, Settings, Home, My Work and Inbox", async ({
     browser,
     viewport,
   }) => {
@@ -53,6 +53,12 @@ test.describe("interface language", () => {
       await expect(page.getByRole("heading", { name: "Pekerjaan Saya", level: 1 })).toBeVisible();
       await expect(page.getByRole("navigation", { name: "Tampilan pekerjaan" })).toBeVisible();
       await expect(page.getByRole("link", { name: "Hari ini", exact: true })).toBeVisible();
+
+      // Inbox, with the approval screen it leads to.
+      await page.goto("/inbox");
+      await expect(page.getByRole("heading", { name: "Kotak Masuk", level: 1 })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Bagian kotak masuk" })).toBeVisible();
+      await expect(page.getByRole("link", { name: /Perlu keputusan Anda/ })).toBeVisible();
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

@@ -226,9 +226,11 @@ last entry is deliberately last.
                         in e2e/interface-language).
                         Translated: the shell (sidebar, bottom bar, account
                         menu, command palette, toasts), Settings index,
-                        Settings → Language, sign-in, Home, My Work.
-                        Next, one screen at a time: Inbox, the work item,
-                        the board and project screens, then the rest of
+                        Settings → Language, sign-in, Home, My Work, Inbox
+                        and the approval screen (notification sentences
+                        come from the API and stay English).
+                        Next, one screen at a time: the work item, the
+                        board and project screens, then the rest of
                         Settings.
 ```
 

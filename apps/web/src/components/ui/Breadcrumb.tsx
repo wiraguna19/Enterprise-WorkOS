@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Where this page sits, when it genuinely sits somewhere (ADR 0026).
@@ -18,11 +20,18 @@ import Link from "next/link";
  */
 export type Crumb = { label: string; href?: string };
 
-export function Breadcrumb({ items }: { items: Crumb[] }) {
+export function Breadcrumb({
+  items,
+  locale = "en",
+}: {
+  items: Crumb[];
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
+}) {
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="Breadcrumb">
+    <nav aria-label={translator(locale)("breadcrumb.label")}>
       <ol className="flex flex-wrap items-center gap-x-1.5 text-body-sm text-n-500">
         {items.map((item, index) => {
           const last = index === items.length - 1;

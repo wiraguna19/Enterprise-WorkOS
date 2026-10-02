@@ -7,6 +7,8 @@ import { MarkReadButton } from "@/features/inbox/MarkReadButton";
 import { NotificationList } from "@/features/inbox/NotificationList";
 import { ReviewQueue } from "@/features/inbox/ReviewQueue";
 import type { Approval, Notification } from "@/features/work-item/types";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { clsx } from "@/lib/clsx";
@@ -23,11 +25,8 @@ import { clsx } from "@/lib/clsx";
  * loudest content is "someone edited a field" is one people stop opening.
  */
 
-const TABS = [
-  { key: "reviews", label: "Needs your decision" },
-  { key: "waiting", label: "Waiting on others" },
-  { key: "activity", label: "Everything else" },
-] as const;
+// Labels in the dictionaries as `inbox.tab.<key>` (ADR 0060).
+const TABS = ["reviews", "waiting", "activity"] as const;
 
 export default async function InboxPage({
   searchParams,
@@ -35,7 +34,11 @@ export default async function InboxPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const [me, params] = await Promise.all([requireUser(), searchParams]);
-  const tab = TABS.find((t) => t.key === params.tab)?.key ?? "reviews";
+  const tab = TABS.find((key) => key === params.tab) ?? "reviews";
+  // Translated (ADR 0060). The notifications' own sentences are written by
+  // the server and stay English until the API speaks the language too.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   // Every list here is a PAGE, and every count beside it is a total the server
   // counted before paging. They are different questions and this screen used to
@@ -64,11 +67,11 @@ export default async function InboxPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Inbox"
+        title={t("nav.inbox")}
         description={
           reviews.total > 0
-            ? `${reviews.total} waiting on you · ${unread} unread`
-            : `${unread} unread`
+            ? `${t("inbox.summary.waiting", { count: reviews.total })} · ${t("inbox.summary.unread", { count: unread })}`
+            : t("inbox.summary.unread", { count: unread })
         }
         // "All" is decided by the server, not by the rows this page happened to
         // page in: the badge counts every unread notification, so a control
@@ -76,27 +79,27 @@ export default async function InboxPage({
         // get to zero — which is how the badge got into this state.
         action={
           unread > 0 ? (
-            <MarkReadButton label="Mark all read" busyLabel="Marking…" variant="secondary" />
+            <MarkReadButton label={t("inbox.markAll")} busyLabel={t("inbox.marking")} variant="secondary" />
           ) : undefined
         }
       />
 
-      <nav aria-label="Inbox sections" className="flex gap-1 overflow-x-auto border-b border-n-100">
-        {TABS.map((t) => {
-          const active = t.key === tab;
+      <nav aria-label={t("inbox.sections")} className="flex gap-1 overflow-x-auto border-b border-n-100">
+        {TABS.map((key) => {
+          const active = key === tab;
           // The server's totals for the two queues. "Everything else" has no
           // total of its own — it is the notification page minus the approval
           // rows, a filter this screen applies — so it counts what it shows and
           // is the one tab whose number is honestly about the page.
           const count =
-            t.key === "reviews" ? reviews.total
-            : t.key === "waiting" ? waiting.total
+            key === "reviews" ? reviews.total
+            : key === "waiting" ? waiting.total
             : rest.length;
 
           return (
             <Link
-              key={t.key}
-              href={`/inbox?tab=${t.key}`}
+              key={key}
+              href={`/inbox?tab=${key}`}
               aria-current={active ? "page" : undefined}
               className={clsx(
                 "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-body",
@@ -105,7 +108,7 @@ export default async function InboxPage({
                   : "border-transparent text-n-500 hover:text-n-900",
               )}
             >
-              {t.label}
+              {t(`inbox.tab.${key}`)}
               {count > 0 && <span className="ml-1.5 tabular-nums text-n-500">{count}</span>}
             </Link>
           );
@@ -120,20 +123,21 @@ export default async function InboxPage({
         {tab === "reviews" && (
           reviews.rows.length === 0 ? (
             <EmptyState
-              title="Nothing is waiting on you"
-              description="When someone submits work for your review it appears here, with their note, so you can decide without opening every item."
+              title={t("inbox.reviews.empty.title")}
+              description={t("inbox.reviews.empty.body")}
             />
           ) : (
             <Panel
               id="reviews"
-              title="Waiting on you"
-              description="Oldest first — a review that has been waiting longest is the one holding somebody up."
+              title={t("inbox.reviews.title")}
+              description={t("inbox.reviews.description")}
               bleed
             >
               <ReviewQueue
                 approvals={reviews.rows}
                 timeZone={me.user.timezone}
-                emptyLabel="Nothing is waiting on you."
+                emptyLabel={t("inbox.reviews.emptyLabel")}
+                locale={locale}
               />
             </Panel>
           )
@@ -142,20 +146,21 @@ export default async function InboxPage({
         {tab === "waiting" && (
           waiting.rows.length === 0 ? (
             <EmptyState
-              title="You are not waiting on anyone"
-              description="Work you submit for review stays here until it is decided, so a submission never disappears the moment you send it."
+              title={t("inbox.waiting.empty.title")}
+              description={t("inbox.waiting.empty.body")}
             />
           ) : (
             <Panel
               id="waiting"
-              title="Waiting on somebody else"
-              description="Work you submitted, until it is decided."
+              title={t("inbox.waiting.title")}
+              description={t("inbox.waiting.description")}
               bleed
             >
               <ReviewQueue
                 approvals={waiting.rows}
                 timeZone={me.user.timezone}
-                emptyLabel="You are not waiting on anyone."
+                emptyLabel={t("inbox.waiting.emptyLabel")}
+                locale={locale}
               />
             </Panel>
           )
@@ -164,17 +169,17 @@ export default async function InboxPage({
         {tab === "activity" && (
           rest.length === 0 ? (
             <EmptyState
-              title="Nothing else to catch up on"
-              description="Assignments, mentions, and escalations land here. Everything you do yourself is left out on purpose."
+              title={t("inbox.activity.empty.title")}
+              description={t("inbox.activity.empty.body")}
             />
           ) : (
             <Panel
               id="activity"
-              title="Everything else"
-              description="Assignments, mentions and escalations. Anything you did yourself is left out."
+              title={t("inbox.activity.title")}
+              description={t("inbox.activity.description")}
               bleed
             >
-              <NotificationList notifications={rest} timeZone={me.user.timezone} />
+              <NotificationList notifications={rest} timeZone={me.user.timezone} locale={locale} />
             </Panel>
           )
         )}

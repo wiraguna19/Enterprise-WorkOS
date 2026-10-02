@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { useT } from "@/i18n/I18nProvider";
 import { withdraw } from "./actions";
 
 /**
@@ -18,6 +19,7 @@ import { withdraw } from "./actions";
  * `decide` and ignored the answer beside it.
  */
 export function WithdrawButton({ approvalId }: { approvalId: string }) {
+  const t = useT();
   const [armed, setArmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -39,13 +41,13 @@ export function WithdrawButton({ approvalId }: { approvalId: string }) {
       {armed ? (
         <>
           <span className="text-caption text-n-500">
-            It leaves your reviewer&apos;s queue. You can submit it again.
+            {t("withdraw.explain")}
           </span>
           <Button variant="danger" size="sm" disabled={pending} onClick={take}>
-            {pending ? "Withdrawing…" : "Withdraw it"}
+            {pending ? t("withdraw.withdrawing") : t("withdraw.confirm")}
           </Button>
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => setArmed(false)}>
-            Leave it
+            {t("withdraw.keep")}
           </Button>
         </>
       ) : (
@@ -57,7 +59,7 @@ export function WithdrawButton({ approvalId }: { approvalId: string }) {
             setArmed(true);
           }}
         >
-          Withdraw
+          {t("withdraw.button")}
         </Button>
       )}
 

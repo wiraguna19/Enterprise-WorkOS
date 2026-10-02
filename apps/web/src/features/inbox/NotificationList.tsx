@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { MarkReadButton } from "./MarkReadButton";
 import { clsx } from "@/lib/clsx";
+import { INTL_TAG, type Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDateTime } from "@/lib/format";
 import type { Notification } from "@/features/work-item/types";
 
@@ -25,11 +27,15 @@ import type { Notification } from "@/features/work-item/types";
 export function NotificationList({
   notifications,
   timeZone,
+  locale = "en",
 }: {
   notifications: Notification[];
   timeZone?: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
-  const groups = groupByDay(notifications, timeZone);
+  const t = translator(locale);
+  const groups = groupByDay(notifications, timeZone, locale);
 
   return (
     // Inside a panel now (ADR 0024), so the day headings carry the gutter the
@@ -75,7 +81,7 @@ export function NotificationList({
                     dateTime={notification.created_at}
                     className="shrink-0 text-caption tabular-nums text-n-500"
                   >
-                    {formatDateTime(notification.created_at, timeZone)}
+                    {formatDateTime(notification.created_at, timeZone, locale)}
                   </time>
                 </Link>
 
@@ -87,8 +93,8 @@ export function NotificationList({
                 {!notification.read && (
                   <MarkReadButton
                     ids={[notification.id]}
-                    label="Mark read"
-                    busyLabel="Marking…"
+                    label={t("inbox.markRead")}
+                    busyLabel={t("inbox.marking")}
                   />
                 )}
               </li>
@@ -120,8 +126,11 @@ function hrefFor(notification: Notification): string {
 
 function groupByDay(
   notifications: Notification[],
-  timeZone?: string,
+  timeZone: string | undefined,
+  locale: Locale,
 ): Array<[string, Notification[]]> {
+  // Compared by the full date in ONE fixed language, so "today" does not
+  // depend on how the reader's language happens to spell it.
   const today = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone })
     .format(new Date());
 
@@ -132,8 +141,8 @@ function groupByDay(
       .format(new Date(notification.created_at));
 
     const label = full === today
-      ? "Today"
-      : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone })
+      ? translator(locale)("inbox.today")
+      : new Intl.DateTimeFormat(INTL_TAG[locale], { day: "numeric", month: "short", timeZone })
           .format(new Date(notification.created_at));
 
     groups.set(label, [...(groups.get(label) ?? []), notification]);

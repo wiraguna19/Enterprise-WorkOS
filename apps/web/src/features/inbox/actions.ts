@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 import { api, ApiRequestError } from "@/lib/api";
 
 export type DecisionState = { error: string | null; requestId?: string };
@@ -34,7 +36,7 @@ export async function decide(
       return { error: error.error.message, requestId: error.error.request_id };
     }
 
-    return { error: "We could not reach the server. Please try again." };
+    return { error: translator(await requestLocale())("common.unreachable") };
   }
 
   // Both sides of the queue change: the reviewer's list loses a row, and the
@@ -72,7 +74,7 @@ export async function markRead(ids?: string[]): Promise<{ error: string | null }
       return { error: error.error.message };
     }
 
-    return { error: "We could not reach the server. Please try again." };
+    return { error: translator(await requestLocale())("common.unreachable") };
   }
 
   // The badge lives in the shell layout, not on this page, so revalidating
@@ -104,7 +106,7 @@ export async function withdraw(approvalId: string): Promise<DecisionState> {
       return { error: error.error.message, requestId: error.error.request_id };
     }
 
-    return { error: "We could not reach the server. Please try again." };
+    return { error: translator(await requestLocale())("common.unreachable") };
   }
 
   // Both sides: the requester's "waiting on others" loses a row, and the

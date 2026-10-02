@@ -7,6 +7,7 @@
  */
 
 import { INTL_TAG, type Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 export function formatDate(value: string | null, timeZone?: string, locale: Locale = "en"): string {
   if (!value) return "—";
@@ -43,20 +44,43 @@ export function formatDateTime(
  * blocked. The unit degrades with the magnitude so the number stays small and
  * comparable: "4h" and "3d" scan; "96 hours" does not.
  */
-export function formatAge(value: string | null, now: Date = new Date()): string {
+export function formatAge(
+  value: string | null,
+  now: Date = new Date(),
+  locale: Locale = "en",
+): string {
   if (!value) return "—";
 
+  const t = translator(locale);
   const minutes = Math.floor((now.getTime() - new Date(value).getTime()) / 60000);
 
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m`;
-  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}h`;
+  if (minutes < 1) return t("age.justNow");
+  if (minutes < 60) return t("age.minutes", { count: minutes });
+  if (minutes < 60 * 24) return t("age.hours", { count: Math.floor(minutes / 60) });
 
   const days = Math.floor(minutes / (60 * 24));
 
   // Past a fortnight the exact count stops meaning anything and the fact that
   // it has been forgotten is the message.
-  return days <= 14 ? `${days}d` : "over 2 weeks";
+  return days <= 14 ? t("age.days", { count: days }) : t("age.long");
+}
+
+/**
+ * An age that says it is in the past, where the language needs it to.
+ *
+ * English reads "submitted 4h" as past already; Indonesian wants "4 jam lalu"
+ * — and never "baru saja lalu", so "just now" is left as it is (ADR 0060).
+ */
+export function formatAgo(value: string | null, locale: Locale = "en"): string {
+  const age = formatAge(value, new Date(), locale);
+
+  if (!value || minutesSince(value) < 1) return age;
+
+  return translator(locale)("age.ago", { age });
+}
+
+function minutesSince(value: string): number {
+  return Math.floor((Date.now() - new Date(value).getTime()) / 60000);
 }
 
 export function formatHours(value: number | string | null): string {
