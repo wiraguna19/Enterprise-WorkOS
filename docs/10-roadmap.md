@@ -232,9 +232,12 @@ last entry is deliberately last.
                         page with all its panels (workflow state names and
                         the organization's field labels are its own words
                         and are shown as written).
-                        Next, one screen at a time: the board and project
-                        screens, new/edit work item, then the rest of
-                        Settings.
+                        The project list, a project's overview (health,
+                        milestones, the items behind each signal) and its
+                        board, including the whole-column page.
+                        Next, one screen at a time: project settings and
+                        the new-project form, new/edit work item, then the
+                        rest of Settings.
 ```
 
 ---

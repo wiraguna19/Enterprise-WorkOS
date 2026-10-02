@@ -1,4 +1,7 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator, type Translator } from "@/i18n/translate";
 import { formatDate } from "@/lib/format";
 import { clsx } from "@/lib/clsx";
 import type { Health, HealthStatus } from "./types";
@@ -20,10 +23,15 @@ import type { Health, HealthStatus } from "./types";
 export function HealthSignals({
   health,
   projectKey,
+  locale = "en",
 }: {
   health: Health;
   projectKey: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+  const date = (value: string) => formatDate(value, undefined, locale);
   const { signals, thresholds } = health;
   const drill = (signal: string) =>
     `/projects/${projectKey}/overview/items?signal=${signal}`;
@@ -34,63 +42,68 @@ export function HealthSignals({
     // bordered container puts two lines a pixel apart.
     <ul className="divide-y divide-n-100">
       <Signal
-        name="Schedule"
+        locale={locale}
+        name={t("health.schedule.name")}
         status={signals.schedule.status}
         figure={
           signals.schedule.end_date === null
-            ? "No end date"
-            : `Due ${formatDate(signals.schedule.end_date)}`
+            ? t("health.schedule.noEnd")
+            : t("health.due", { date: date(signals.schedule.end_date) })
         }
         rule={
           signals.schedule.end_date === null
-            ? "A project with no end date has no schedule to be on. Unknown, rather than green."
-            : `Late once the end date has passed with work still open; a warning inside ${thresholds.schedule_warning_days} days. A project with nothing open is finished, not late.`
+            ? t("health.schedule.ruleNoEnd")
+            : t("health.schedule.rule", { days: thresholds.schedule_warning_days })
         }
         drillTo={health.open_count > 0 ? drill("open") : undefined}
-        drillLabel={`${health.open_count} still open`}
+        drillLabel={t("health.stillOpen", { count: health.open_count })}
       />
 
       <Signal
-        name="Overdue work"
+        locale={locale}
+        name={t("health.overdue.name")}
         status={signals.overdue_work.status}
         figure={
           signals.overdue_work.status === "unknown"
-            ? "No work yet"
-            : `${signals.overdue_work.count} of ${signals.overdue_work.open_count} open`
+            ? t("health.noWork")
+            : t("health.overdue.figure", { count: signals.overdue_work.count, open: signals.overdue_work.open_count })
         }
-        rule={`A warning at one overdue item; off track once overdue work reaches ${Math.round(
-          thresholds.overdue_off_track_share * 100,
-        )}% of what is open. Finished work is never counted as late.`}
+        rule={t("health.overdue.rule", { percent: Math.round(thresholds.overdue_off_track_share * 100) })}
         drillTo={signals.overdue_work.count > 0 ? drill("overdue") : undefined}
-        drillLabel={`${signals.overdue_work.count} overdue`}
+        drillLabel={t("count.overdue", { count: signals.overdue_work.count })}
       />
 
       <Signal
-        name="Blocked work"
+        locale={locale}
+        name={t("health.blocked.name")}
         status={signals.blocked_work.status}
         figure={
           signals.blocked_work.status === "unknown"
-            ? "No work yet"
+            ? t("health.noWork")
             : signals.blocked_work.count === 0
-              ? "Nothing blocked"
+              ? t("health.blocked.none")
               : signals.blocked_work.longest_days === null
-                ? `${signals.blocked_work.count} blocked`
-                : `${signals.blocked_work.count} blocked · longest ${signals.blocked_work.longest_days} d`
+                ? t("health.blocked.count", { count: signals.blocked_work.count })
+                : t("health.blocked.longest", {
+                    count: signals.blocked_work.count,
+                    days: signals.blocked_work.longest_days,
+                  })
         }
-        rule={`Off track once something has been blocked for ${thresholds.blocked_off_track_days} days — past that it has stopped being a hand-off and become a stall. Measured from the most recent block, not the first.`}
+        rule={t("health.blocked.rule", { days: thresholds.blocked_off_track_days })}
         drillTo={signals.blocked_work.count > 0 ? drill("blocked") : undefined}
-        drillLabel={`${signals.blocked_work.count} blocked`}
+        drillLabel={t("health.blocked.count", { count: signals.blocked_work.count })}
       />
 
       <Signal
-        name="Milestones"
+        locale={locale}
+        name={t("health.milestones.name")}
         status={signals.milestones.status}
         figure={
           signals.milestones.count === 0
-            ? "None set"
-            : `${signals.milestones.past_due_count} past due of ${signals.milestones.count}`
+            ? t("health.milestones.none")
+            : t("health.milestones.figure", { past: signals.milestones.past_due_count, count: signals.milestones.count })
         }
-        rule="A warning at one past-due milestone; off track at two, or at any milestone marked missed. A milestone that was completed late is not held against the project."
+        rule={t("health.milestones.rule")}
       >
         {health.past_due_milestones.length > 0 && (
           // The records behind this signal, listed here rather than a click
@@ -105,9 +118,9 @@ export function HealthSignals({
                 <span className="text-n-900">{milestone.name}</span>
                 <span className="text-n-500">
                   {milestone.due_date
-                    ? formatDate(milestone.due_date)
-                    : "no date"}{" "}
-                  · {milestone.status.replace("_", " ")}
+                    ? date(milestone.due_date)
+                    : t("health.noDate")}{" "}
+                  · {milestoneStatus(milestone.status, t)}
                 </span>
               </li>
             ))}
@@ -116,16 +129,20 @@ export function HealthSignals({
       </Signal>
 
       <Signal
-        name="Activity"
+        locale={locale}
+        name={t("health.activity.name")}
         status={signals.activity.status}
         figure={
           signals.activity.days_since === null
-            ? "Nothing has moved yet"
-            : `Last movement ${signals.activity.days_since} d ago`
+            ? t("health.activity.none")
+            : t("health.activity.last", { days: signals.activity.days_since })
         }
-        rule={`A warning after ${thresholds.activity_at_risk_days} days without a single item moving, off track after ${thresholds.activity_off_track_days}. A project with nothing open is allowed to be quiet.`}
+        rule={t("health.activity.rule", {
+          risk: thresholds.activity_at_risk_days,
+          off: thresholds.activity_off_track_days,
+        })}
         drillTo={signals.activity.stale_count > 0 ? drill("stale") : undefined}
-        drillLabel={`${signals.activity.stale_count} sitting still`}
+        drillLabel={t("health.activity.drill", { count: signals.activity.stale_count })}
       />
     </ul>
   );
@@ -139,7 +156,9 @@ function Signal({
   drillTo,
   drillLabel,
   children,
+  locale,
 }: {
+  locale: Locale;
   name: string;
   status: HealthStatus;
   figure: string;
@@ -152,7 +171,7 @@ function Signal({
     // `px-4` matches the panel's own padding: the list bleeds to the border,
     // so each row has to carry the gutter the container gave up.
     <li className="flex gap-4 px-4 py-3">
-      <StatusDot status={status} />
+      <StatusDot status={status} locale={locale} />
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -182,13 +201,8 @@ function Signal({
  * A red/amber/green page that means nothing in greyscale means nothing to a
  * reader with a colour vision deficiency either (docs/09 §2).
  */
-export function StatusDot({ status }: { status: HealthStatus }) {
-  const label = {
-    on_track: "On track",
-    at_risk: "At risk",
-    off_track: "Off track",
-    unknown: "Unknown",
-  }[status];
+export function StatusDot({ status, locale = "en" }: { status: HealthStatus; locale?: Locale }) {
+  const label = translator(locale)(`health.status.${status}`);
 
   return (
     <span className="flex w-24 shrink-0 items-baseline gap-2">
@@ -205,4 +219,11 @@ export function StatusDot({ status }: { status: HealthStatus }) {
       <span className="text-caption text-n-700">{label}</span>
     </span>
   );
+}
+
+/** A milestone's status in the reader's language; one the API adds later shows as it arrives. */
+function milestoneStatus(status: string, t: Translator): string {
+  return ["open", "at_risk", "completed", "missed"].includes(status)
+    ? t(`milestone.status.${status}` as MessageKey)
+    : status.replace("_", " ");
 }

@@ -5,6 +5,8 @@ import { Board } from "@/features/board/Board";
 import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { BoardColumn as Column, Project } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -53,6 +55,10 @@ export default async function BoardPage({
     0,
   );
   const truncated = board.columns.some((column) => column.hidden_count > 0);
+  // Translated (ADR 0060). Column names are the workflow's own.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+  const items = t.plural("board.summary", total);
 
   return (
     <div className="space-y-5">
@@ -60,8 +66,8 @@ export default async function BoardPage({
         title={board.project.name}
         description={
           overdueVisible > 0
-            ? `${total} items · ${truncated ? "at least " : ""}${overdueVisible} overdue`
-            : `${total} items`
+            ? `${items} · ${t(truncated ? "board.atLeastOverdue" : "board.overdue", { overdue: overdueVisible })}`
+            : items
         }
         action={
           board.project.permissions.create_work ? (
@@ -69,7 +75,7 @@ export default async function BoardPage({
               variant="primary"
               href={`/work/new?project=${board.project.key}`}
             >
-              New work item
+              {t("myWork.new")}
             </ButtonLink>
           ) : undefined
         }
@@ -79,6 +85,7 @@ export default async function BoardPage({
         projectKey={board.project.key}
         active="board"
         canManage={board.project.permissions.update ?? false}
+        locale={locale}
       />
 
       {/* Horizontal scroll is correct here and only here: a board IS a

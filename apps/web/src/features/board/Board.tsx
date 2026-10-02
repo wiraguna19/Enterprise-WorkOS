@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState, useTransition, type RefObject } from "react";
 import { Button } from "@/components/ui/Button";
+import { useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
 import type { BoardColumn as Column, Transition, WorkItem } from "@/features/work-item/types";
 import { dropOnColumn, legalMoves, reorderInColumn } from "./actions";
@@ -44,6 +45,7 @@ export function Board({
   projectId?: string;
   timeZone: string;
 }) {
+  const t = useT();
   const [picked, setPicked] = useState<Picked | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,7 @@ export function Board({
     setError(null);
     draggingRef.current = { item, fromStateId };
     setPicked({ item, fromStateId, transitions: null, targetIndex: columnIndexOf(fromStateId) });
-    announce(`${item.reference} picked up. Use left and right to choose a column, space to drop.`);
+    announce(t("board.pickedUp", { reference: item.reference }));
 
     // Asked once per pick-up, for this card only. Until it answers, every
     // column reads as "not yet known" rather than as droppable — the board must
@@ -93,7 +95,7 @@ export function Board({
   };
 
   const cancel = (): void => {
-    if (picked) announce(`${picked.item.reference} left in place.`);
+    if (picked) announce(t("board.leftInPlace", { reference: picked.item.reference }));
     draggingRef.current = null;
     setPicked(null);
   };
@@ -130,15 +132,15 @@ export function Board({
     if (transitions !== null && !transition) {
       // The graph has no edge here. Refused where the drop happened, naming the
       // destination — "nothing happened" is the failure this replaces.
-      refuse(item, columns[columnIndexOf(toStateId)]?.state.label ?? "that column",
-        "The workflow has no move from here to there.");
+      refuse(item, columns[columnIndexOf(toStateId)]?.state.label ?? t("board.thatColumn"),
+        t("board.noEdge"));
 
       return;
     }
 
     if (transition && !transition.available) {
       refuse(item, transition.to_state.label,
-        transition.blocked_reason ?? "This move is not available right now.");
+        transition.blocked_reason ?? t("board.unavailable"));
 
       return;
     }
@@ -159,7 +161,7 @@ export function Board({
     setPicked(null);
     setMoving(item.id);
     setError(null);
-    announce(`Moving ${item.reference}…`);
+    announce(t("board.moving", { reference: item.reference }));
 
     startMoving(async () => {
       const result = await dropOnColumn(item.reference, projectKey, toStateId, comment);
@@ -168,8 +170,8 @@ export function Board({
       setError(result.error);
       announce(
         result.error === null
-          ? `${item.reference} moved.`
-          : `${item.reference} was not moved. ${result.error}`,
+          ? t("board.moved", { reference: item.reference })
+          : t("board.notMoved", { reference: item.reference, error: result.error }),
       );
 
       if (result.error === null) {
@@ -186,8 +188,10 @@ export function Board({
   const refuse = (item: WorkItem, where: string, why: string): void => {
     draggingRef.current = null;
     setPicked(null);
-    setError(`${item.reference} cannot move to ${where}. ${why}`);
-    announce(`${item.reference} cannot move to ${where}. ${why}`);
+    const message = t("board.refused", { reference: item.reference, where, why });
+
+    setError(message);
+    announce(message);
   };
 
   const announce = (message: string): void => setAnnouncement(message);
@@ -199,7 +203,7 @@ export function Board({
       const next = Math.min(columns.length - 1, Math.max(0, current.targetIndex + delta));
 
       if (next !== current.targetIndex) {
-        announce(`${columns[next].state.label}, ${columns[next].items.length} items.`);
+        announce(t.plural("board.columnInfo", columns[next].items.length, { label: columns[next].state.label }));
       }
 
       return { ...current, targetIndex: next };
@@ -334,6 +338,7 @@ function BoardColumnDropZone({
   onDrop: (toStateId: string) => void;
   onReorder: (item: WorkItem, beforeId: string | null, afterId: string | null) => void;
 }) {
+  const t = useT();
   const [over, setOver] = useState(false);
 
   const isSource = picked?.fromStateId === column.state.id;
@@ -404,7 +409,7 @@ function BoardColumnDropZone({
       <ol className="flex flex-1 flex-col gap-1.5">
         {column.items.length === 0 ? (
           <li className="rounded-lg border border-dashed border-n-300 px-3 py-6 text-center text-caption text-n-500">
-            Nothing here
+            {t("items.empty")}
           </li>
         ) : (
           column.items.map((item, index) => (
@@ -443,12 +448,12 @@ function BoardColumnDropZone({
               stopped at fifty would be read that way too — and a cap with
               nowhere to go is a disappearance with a footnote, which is why
               this now leads somewhere. */}
-          {column.hidden_count} more —{" "}
+          {t("board.more", { count: column.hidden_count })}{" "}
           <Link
             href={`/projects/${projectKey}/board/${column.state.key}`}
             className="text-a-500 underline underline-offset-2"
           >
-            see the whole column
+            {t("board.seeColumn")}
           </Link>
         </p>
       )}
@@ -458,7 +463,7 @@ function BoardColumnDropZone({
           {/* Archived work has left the board, not the product (ADR 0054):
               said here so a Done column that shrank overnight reads as
               housekeeping rather than as loss. */}
-          {column.archived_count} archived
+          {t("board.archived", { count: column.archived_count ?? 0 })}
           {projectId && (
             <>
               {" "}—{" "}
@@ -466,7 +471,7 @@ function BoardColumnDropZone({
                 href={`/work?project=${projectId}&archived=only`}
                 className="text-a-500 underline underline-offset-2"
               >
-                see them
+                {t("board.seeThem")}
               </Link>
             </>
           )}
@@ -504,6 +509,7 @@ function CommentPrompt({
   onCancel: () => void;
   onSubmit: (comment: string) => void;
 }) {
+  const t = useT();
   const [comment, setComment] = useState("");
 
   return (
@@ -511,7 +517,7 @@ function CommentPrompt({
       <form
         role="dialog"
         aria-modal="true"
-        aria-label={`Move ${reference} to ${transition.to_state.label}`}
+        aria-label={t("status.dialog", { reference, state: transition.to_state.label })}
         className="w-full max-w-md space-y-2 rounded-xl border border-n-300 bg-n-0 p-4 shadow-e2"
         onSubmit={(event) => {
           event.preventDefault();
@@ -519,7 +525,7 @@ function CommentPrompt({
         }}
       >
         <label htmlFor="board-move-comment" className="block text-caption font-medium text-n-700">
-          Why are you moving {reference} to {transition.to_state.label}?
+          {t("board.why", { reference, state: transition.to_state.label })}
         </label>
 
         <textarea
@@ -530,12 +536,12 @@ function CommentPrompt({
           value={comment}
           onChange={(event) => setComment(event.target.value)}
           className="w-full rounded-md border border-n-300 px-2 py-1.5 text-body text-n-900 focus:border-a-500 focus:outline-2 focus:outline-offset-1 focus:outline-a-500"
-          placeholder="The person picking this up next reads this first."
+          placeholder={t("status.placeholder")}
         />
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" variant="primary" size="sm" disabled={comment.trim() === ""}>
             {transition.label}

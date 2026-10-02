@@ -11,6 +11,8 @@ import { ProjectTabs } from "@/features/project/ProjectTabs";
 import type { Health } from "@/features/insights/types";
 import type { Project } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -50,19 +52,26 @@ export default async function ProjectOverviewPage({
     throw error;
   }
 
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
   return (
     <div className="space-y-5">
       <PageHeader
         title={project.name}
         description={
           health.progress_percent === null
-            ? `${health.open_count} open`
-            : `${Math.round(health.progress_percent)}% complete · ${health.open_count} open`
+            ? t("count.open", { count: health.open_count })
+            : t("overview.progress", {
+                percent: Math.round(health.progress_percent),
+                open: t("count.open", { count: health.open_count }),
+              })
         }
         action={
           project.permissions.create_work ? (
             <ButtonLink variant="primary" href={`/work/new?project=${project.key}`}>
-              New work item
+              {t("myWork.new")}
             </ButtonLink>
           ) : undefined
         }
@@ -72,6 +81,7 @@ export default async function ProjectOverviewPage({
         projectKey={project.key}
         active="overview"
         canManage={project.permissions.update ?? false}
+        locale={locale}
       />
 
       <PageBody>
@@ -82,15 +92,13 @@ export default async function ProjectOverviewPage({
             floating at the same level as the others (ADR 0024). */}
         <Panel
           id="health"
-          title="Health"
-          description="The worst of the five signals below, never an average — a project on fire in one dimension and quiet in four is not healthy."
-          actions={<StatusDot status={health.status} />}
+          title={t("overview.health.title")}
+          description={t("overview.health.description")}
+          actions={<StatusDot status={health.status} locale={locale} />}
           footer={
             <div className="space-y-2">
               <p className="max-w-prose text-caption text-n-500">
-                Progress counts completed items against everything that is not cancelled. It is
-                computed from the work itself on every load rather than read from a stored
-                figure, so it cannot drift from the items it describes.
+                {t("overview.health.method")}
               </p>
 
               {/* A report about a subject is reached from the subject. There is
@@ -101,15 +109,15 @@ export default async function ProjectOverviewPage({
                   href={`/reports/project?project=${project.key}`}
                   className="text-a-500 underline underline-offset-2"
                 >
-                  Project report
+                  {t("overview.report.link")}
                 </Link>{" "}
-                — the same figures as a table, and exportable.
+                {t("overview.report.rest")}
               </p>
             </div>
           }
           bleed
         >
-          <HealthSignals health={health} projectKey={project.key} />
+          <HealthSignals health={health} projectKey={project.key} locale={locale} />
         </Panel>
 
         <Milestones

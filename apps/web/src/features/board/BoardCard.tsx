@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
 import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { DueDate } from "@/features/work-item/components/DueDate";
@@ -38,6 +39,8 @@ export function BoardCard({
   onCancel: () => void;
   onReorderTo: (direction: -1 | 1) => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const assignee = item.assignees?.find((a) => a.role === "assignee");
 
   return (
@@ -75,15 +78,15 @@ export function BoardCard({
           </Link>
 
           <div className="flex items-center gap-2">
-            <PriorityIcon priority={item.priority} />
+            <PriorityIcon priority={item.priority} locale={locale} />
             <span className="font-mono text-micro text-n-500">{item.reference}</span>
 
             <span className="ml-auto flex items-center gap-2">
-              <DueDate value={item.due_at} overdue={item.is_overdue} timeZone={timeZone} />
+              <DueDate value={item.due_at} overdue={item.is_overdue} timeZone={timeZone} locale={locale} />
               {assignee ? (
                 <Avatar id={assignee.membership_id} name={assignee.name ?? "?"} size="sm" />
               ) : (
-                <span className="text-micro text-s-active">unassigned</span>
+                <span className="text-micro text-s-active">{t("row.unassigned")}</span>
               )}
             </span>
           </div>
@@ -95,8 +98,8 @@ export function BoardCard({
           aria-pressed={picked}
           aria-label={
             picked
-              ? `${item.reference} picked up, in ${column.state.label}. Left and right choose a column, space drops, escape cancels.`
-              : `Move ${item.reference}, currently in ${column.state.label}`
+              ? t("card.picked", { reference: item.reference, state: column.state.label })
+              : t("card.move", { reference: item.reference, state: column.state.label })
           }
           disabled={moving}
           onClick={() => (picked ? onCancel() : onPickUp())}

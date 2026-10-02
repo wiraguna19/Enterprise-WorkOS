@@ -6,6 +6,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import type { HealthItem, HealthItemsMeta } from "@/features/insights/types";
 import { formatDateTime } from "@/lib/format";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -16,23 +19,12 @@ import { requireUser } from "@/lib/auth";
  * would give the page a second definition, and the first time the two disagreed
  * the number and its evidence would be arguing with each other.
  */
-const TITLES: Record<string, { title: string; description: string }> = {
-  overdue: {
-    title: "Overdue work",
-    description: "Open items whose due date has passed.",
-  },
-  blocked: {
-    title: "Blocked work",
-    description: "Items sitting in a blocked state.",
-  },
-  open: {
-    title: "Open work",
-    description: "Everything not yet done or cancelled.",
-  },
-  stale: {
-    title: "Work sitting still",
-    description: "Open items that have not moved in over two weeks.",
-  },
+// Dictionary keys (ADR 0060).
+const TITLES: Record<string, { title: MessageKey; description: MessageKey }> = {
+  overdue: { title: "health.overdue.name", description: "items.overdue.description" },
+  blocked: { title: "health.blocked.name", description: "items.blocked.description" },
+  open: { title: "items.open.title", description: "items.open.description" },
+  stale: { title: "items.stale.title", description: "items.stale.description" },
 };
 
 export default async function HealthItemsPage({
@@ -64,22 +56,30 @@ export default async function HealthItemsPage({
     throw error;
   }
 
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
   return (
     <div className="space-y-5">
       <div className="space-y-3">
         <Breadcrumb
+          locale={locale}
           items={[
-            { label: "Projects", href: "/projects" },
+            { label: t("nav.projects"), href: "/projects" },
             { label: key, href: `/projects/${key}/overview` },
-            { label: "Items" },
+            { label: t("items.crumb") },
           ]}
         />
 
-        <PageHeader title={heading.title} description={`${meta.total} in ${meta.project}`} />
+        <PageHeader
+          title={t(heading.title)}
+          description={t("items.summary", { count: meta.total, project: meta.project })}
+        />
       </div>
 
       {items.length === 0 ? (
-        <EmptyState title="Nothing here" description={heading.description} />
+        <EmptyState title={t("items.empty")} description={t(heading.description)} />
       ) : (
         <>
           <ul className="border-y border-n-100">
@@ -96,7 +96,7 @@ export default async function HealthItemsPage({
                     {item.title}
                   </span>
                   <span className="shrink-0 text-caption tabular-nums text-n-500">
-                    {item.due_at ? formatDateTime(item.due_at, me.user.timezone) : "no due date"}
+                    {item.due_at ? formatDateTime(item.due_at, me.user.timezone, locale) : t("items.noDue")}
                   </span>
                 </Link>
               </li>
@@ -108,14 +108,11 @@ export default async function HealthItemsPage({
             // is a fact about the reader. Saying so is what stops the
             // difference reading as an arithmetic error (ADR 0008).
             <p className="max-w-[72ch] text-caption text-s-active">
-              {meta.hidden_count} further{" "}
-              {meta.hidden_count === 1 ? "item is" : "items are"} counted in this signal but not
-              listed here — {meta.hidden_count === 1 ? "it is" : "they are"} work you do not have
-              access to.
+              {t.plural("items.hidden", meta.hidden_count)}
             </p>
           )}
 
-          <p className="max-w-[72ch] text-caption text-n-500">{heading.description}</p>
+          <p className="max-w-[72ch] text-caption text-n-500">{t(heading.description)}</p>
         </>
       )}
     </div>

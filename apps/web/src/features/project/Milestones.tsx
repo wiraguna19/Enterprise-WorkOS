@@ -4,6 +4,7 @@ import { useId, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { Panel } from "@/components/ui/Panel";
 import {
   createMilestone,
@@ -13,12 +14,8 @@ import {
   type MilestoneChange,
 } from "./actions";
 
-const STATUSES: Array<{ value: Milestone["status"]; label: string }> = [
-  { value: "open", label: "Open" },
-  { value: "at_risk", label: "At risk" },
-  { value: "completed", label: "Completed" },
-  { value: "missed", label: "Missed" },
-];
+// Labels in the dictionaries as `milestone.status.<value>` (ADR 0060).
+const STATUSES: Array<Milestone["status"]> = ["open", "at_risk", "completed", "missed"];
 
 const TONE = { open: "neutral", at_risk: "warning", completed: "success", missed: "danger" } as const;
 
@@ -47,6 +44,7 @@ export function Milestones({
   /** The reader's calendar day, YYYY-MM-DD — past due is a question of whose today. */
   today: string;
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
 
@@ -56,11 +54,11 @@ export function Milestones({
   return (
     <Panel
       id="milestones"
-      title="Milestones"
+      title={t("health.milestones.name")}
       description={
         milestones.length === 0
-          ? "None yet. Health counts milestones that are past due — a project with none has no verdict on this signal."
-          : "In date order. Health counts the ones past due and the ones marked missed."
+          ? t("ms.descEmpty")
+          : t("ms.desc")
       }
       bleed
     >
@@ -111,6 +109,7 @@ function MilestoneRow({
   onChange: (changes: MilestoneChange) => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(milestone.name);
   const [due, setDue] = useState(milestone.due_date ?? "");
@@ -124,11 +123,11 @@ function MilestoneRow({
     return (
       <li className="flex flex-wrap items-end gap-2 px-4 py-2.5">
         <label className="min-w-48 flex-1 text-caption text-n-700">
-          Name
+          {t("projects.col.name")}
           <input value={name} onChange={(event) => setName(event.target.value)} className={`${INPUT} mt-0.5`} />
         </label>
         <label className="text-caption text-n-700">
-          Due
+          {t("wi.field.due")}
           <input type="date" value={due} onChange={(event) => setDue(event.target.value)} className={`${INPUT} mt-0.5`} />
         </label>
         <Button
@@ -145,10 +144,10 @@ function MilestoneRow({
             setEditing(false);
           }}
         >
-          Save
+          {t("common.save")}
         </Button>
         <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </li>
     );
@@ -159,14 +158,14 @@ function MilestoneRow({
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-n-900">{milestone.name}</p>
         <p className="text-caption text-n-500">
-          {milestone.due_date === null ? "No date" : `Due ${milestone.due_date}`}
-          {pastDue && <span className="font-medium text-s-danger"> · past due</span>}
+          {milestone.due_date === null ? t("ms.noDate") : t("health.due", { date: milestone.due_date })}
+          {pastDue && <span className="font-medium text-s-danger">{t("ms.pastDue")}</span>}
           {milestone.work_count !== null && (
             <>
               {" · "}
               {milestone.work_count === 0
-                ? "no work in it"
-                : `${milestone.open_work_count ?? 0} of ${milestone.work_count} open`}
+                ? t("ms.noWork")
+                : t("ms.openOf", { open: milestone.open_work_count ?? 0, count: milestone.work_count })}
             </>
           )}
         </p>
@@ -175,7 +174,7 @@ function MilestoneRow({
       {canManage ? (
         <>
           <label htmlFor={statusId} className="sr-only">
-            Status of {milestone.name}
+            {t("ms.statusOf", { name: milestone.name })}
           </label>
           <select
             id={statusId}
@@ -185,24 +184,29 @@ function MilestoneRow({
             className={`${INPUT} w-auto`}
           >
             {STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
+              <option key={status} value={status}>
+                {t(`milestone.status.${status}`)}
               </option>
             ))}
           </select>
-          <Button variant="ghost" size="sm" onClick={() => setEditing(true)} aria-label={`Edit ${milestone.name}`}>
-            Edit
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setEditing(true)}
+            aria-label={t("ms.edit", { name: milestone.name })}
+          >
+            {t("common.edit")}
           </Button>
           {confirming ? (
             <span className="flex items-center gap-1.5">
               <span className="text-caption text-n-700">
-                {milestone.work_count ? `Its ${milestone.work_count} items stay, ungrouped.` : "Remove it?"}
+                {milestone.work_count ? t("ms.itemsStay", { count: milestone.work_count }) : t("ms.removeQ")}
               </span>
               <Button variant="destructive" size="sm" disabled={busy} onClick={onDelete}>
-                Remove
+                {t("ms.remove")}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
-                Keep
+                {t("ms.keep")}
               </Button>
             </span>
           ) : (
@@ -210,15 +214,15 @@ function MilestoneRow({
               variant="ghost"
               size="sm"
               onClick={() => setConfirming(true)}
-              aria-label={`Remove ${milestone.name}`}
+              aria-label={t("ms.removeName", { name: milestone.name })}
             >
-              Remove
+              {t("ms.remove")}
             </Button>
           )}
         </>
       ) : (
         <Badge tone={TONE[milestone.status]}>
-          {STATUSES.find((status) => status.value === milestone.status)?.label}
+          {t(`milestone.status.${milestone.status}`)}
         </Badge>
       )}
     </li>
@@ -232,12 +236,13 @@ function NewMilestone({
   busy: boolean;
   onCreate: (name: string, dueDate: string | null) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [due, setDue] = useState("");
 
   return (
     <form
-      aria-label="New milestone"
+      aria-label={t("ms.new")}
       className="flex flex-wrap items-end gap-2 border-t border-n-100 px-4 py-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -247,20 +252,20 @@ function NewMilestone({
       }}
     >
       <label className="min-w-48 flex-1 text-caption text-n-700">
-        Milestone
+        {t("ms.field")}
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Beta, Launch, Audit sign-off…"
+          placeholder={t("ms.placeholder")}
           className={`${INPUT} mt-0.5`}
         />
       </label>
       <label className="text-caption text-n-700">
-        Due
+        {t("wi.field.due")}
         <input type="date" value={due} onChange={(event) => setDue(event.target.value)} className={`${INPUT} mt-0.5`} />
       </label>
       <Button type="submit" variant="affirmative" size="sm" disabled={busy || name.trim().length < 2}>
-        Add milestone
+        {t("ms.add")}
       </Button>
     </form>
   );

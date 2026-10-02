@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 import { api, ApiRequestError } from "@/lib/api";
 import type { Transition } from "@/features/work-item/types";
 
@@ -108,10 +110,10 @@ function revalidateBoard(projectKey: string, reference: string): void {
   revalidatePath("/");
 }
 
-function failure(error: unknown): BoardActionState {
+async function failure(error: unknown): Promise<BoardActionState> {
   if (error instanceof ApiRequestError) {
     return { error: error.error.message, requestId: error.error.request_id };
   }
 
-  return { error: "We could not reach the server. Please try again." };
+  return { error: translator(await requestLocale())("common.unreachable") };
 }

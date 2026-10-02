@@ -10,6 +10,9 @@ import { ButtonLink } from "@/components/ui/Button";
 import type { Project } from "@/features/work-item/types";
 import { formatDateTime } from "@/lib/format";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 import { clsx } from "@/lib/clsx";
 
@@ -32,6 +35,17 @@ export default async function ProjectsPage() {
   // product: whether the thing exists is not this page's to disclose.
   if (!me.permissions.includes("project.view")) notFound();
 
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
+  // The five statuses a project can be in, in the reader's language; one the
+  // API adds later is shown as it arrives.
+  const projectStatus = (status: string): string =>
+    ["planning", "active", "on_hold", "completed", "cancelled"].includes(status)
+      ? t(`project.status.${status}` as MessageKey)
+      : status.replace("_", " ");
+
   const [{ data: projects }, pinned] = await Promise.all([
     api<Project[]>("/projects"),
     // Its own small read rather than another subquery on the directory: the
@@ -45,12 +59,12 @@ export default async function ProjectsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Projects"
-        description={`${projects.length} active in ${me.organization.name}`}
+        title={t("nav.projects")}
+        description={t("projects.summary", { count: projects.length, org: me.organization.name })}
         action={
           me.permissions.includes("project.create") ? (
             <ButtonLink variant="primary" href="/projects/new">
-              New project
+              {t("projects.new")}
             </ButtonLink>
           ) : undefined
         }
@@ -59,12 +73,12 @@ export default async function ProjectsPage() {
       <PageBody>
         {projects.length === 0 ? (
           <EmptyState
-            title="No projects yet"
-            description="A project groups work, milestones, and the people doing it. Work does not have to live in one — requests and incidents exist on their own."
+            title={t("projects.empty.title")}
+            description={t("projects.empty.body")}
             action={
               me.permissions.includes("project.create") ? (
                 <ButtonLink variant="primary" href="/projects/new">
-                  Create the first project
+                  {t("projects.createFirst")}
                 </ButtonLink>
               ) : undefined
             }
@@ -72,24 +86,24 @@ export default async function ProjectsPage() {
         ) : (
           <Panel
             id="projects"
-            title="Projects"
-            description={`${projects.length} ${projects.length === 1 ? "project" : "projects"}`}
+            title={t("nav.projects")}
+            description={t.plural("projects.count", projects.length)}
             bleed
           >
-            <DataTable caption="Projects you can see">
+            <DataTable caption={t("projects.caption")}>
               <THead>
                 <Tr>
                   {/* No heading: the column is a row of toggles, and "Pin"
                       over a star reads as an instruction rather than a label.
                       Each button carries its own accessible name. */}
                   <Th width="w-8">
-                    <span className="sr-only">Pinned</span>
+                    <span className="sr-only">{t("projects.col.pinned")}</span>
                   </Th>
-                  <Th width="w-16">Key</Th>
-                  <Th>Name</Th>
-                  <Th width="w-48">Progress</Th>
+                  <Th width="w-16">{t("projects.col.key")}</Th>
+                  <Th>{t("projects.col.name")}</Th>
+                  <Th width="w-48">{t("projects.col.progress")}</Th>
                   <Th width="w-32" align="right">
-                    Work
+                    {t("projects.col.work")}
                   </Th>
                 </Tr>
               </THead>
@@ -117,17 +131,17 @@ export default async function ProjectsPage() {
                           {project.name}
                         </span>
                         <span className="mt-0.5 flex items-center gap-1.5 text-caption text-n-500">
-                          <span className="capitalize">{project.status.replace("_", " ")}</span>
+                          <span className="capitalize">{projectStatus(project.status)}</span>
                           {project.visibility === "private" && (
                             <>
                               <span aria-hidden>·</span>
-                              <span>private</span>
+                              <span>{t("projects.private")}</span>
                             </>
                           )}
                           {project.member_count !== undefined && (
                             <>
                               <span aria-hidden>·</span>
-                              <span>{project.member_count} members</span>
+                              <span>{t("projects.members", { count: project.member_count })}</span>
                             </>
                           )}
                         </span>
@@ -146,19 +160,21 @@ export default async function ProjectsPage() {
                         nobody goes looking for the bug. */}
                     <Td muted>
                       {project.progress_as_of === null ? (
-                        "not computed yet"
+                        t("projects.notComputed")
                       ) : project.progress === null ? (
                         /* Counted, and there was nothing to count. The bar
                            used to render 0% here, which reads as "none of it
                            is done" about a project nobody has put work in yet
                            — the same confident-zero the comment above already
                            describes, surviving the fix for it (ADR 0042). */
-                        <span className="text-n-500">no work yet</span>
+                        <span className="text-n-500">{t("projects.noWork")}</span>
                       ) : (
                         <span className="flex items-center gap-2">
                           <span
                             className="h-1.5 flex-1 overflow-hidden rounded-full bg-n-100"
-                            title={`As of ${formatDateTime(project.progress_as_of, me.user.timezone)}`}
+                            title={t("projects.asOf", {
+                              date: formatDateTime(project.progress_as_of, me.user.timezone, locale),
+                            })}
                           >
                             <span
                               className="block h-full rounded-full bg-a-500"
@@ -174,11 +190,11 @@ export default async function ProjectsPage() {
 
                     <Td align="right">
                       <span className="tabular-nums text-n-700">
-                        {project.open_work_count ?? 0} open
+                        {t("count.open", { count: project.open_work_count ?? 0 })}
                       </span>
                       {(project.overdue_work_count ?? 0) > 0 && (
                         <span className={clsx("ml-1.5 font-semibold tabular-nums text-s-danger")}>
-                          {project.overdue_work_count} late
+                          {t("projects.late", { count: project.overdue_work_count ?? 0 })}
                         </span>
                       )}
                     </Td>

@@ -8,6 +8,8 @@ import { PriorityIcon } from "@/features/work-item/components/PriorityIcon";
 import { DueDate } from "@/features/work-item/components/DueDate";
 import type { BoardColumn, Project, WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -56,13 +58,17 @@ export default async function BoardColumnPage({
   );
 
   const pagination = meta?.pagination as { has_more?: boolean } | undefined;
+  // Translated (ADR 0060). The column's name is the workflow's own.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   return (
     <div className="space-y-5">
       <div className="space-y-3">
         <Breadcrumb
+          locale={locale}
           items={[
-            { label: "Projects", href: "/projects" },
+            { label: t("nav.projects"), href: "/projects" },
             { label: board.project.name, href: `/projects/${key}/board` },
             { label: column.state.label },
           ]}
@@ -70,14 +76,14 @@ export default async function BoardColumnPage({
 
         <PageHeader
           title={column.state.label}
-          description={`${column.total} in ${board.project.key}`}
+          description={t("items.summary", { count: column.total, project: board.project.key })}
         />
       </div>
 
       {items.length === 0 ? (
         <EmptyState
-          title="Nothing here"
-          description={`No work is currently in ${column.state.label}.`}
+          title={t("items.empty")}
+          description={t("column.empty", { state: column.state.label })}
         />
       ) : (
         <>
@@ -94,12 +100,13 @@ export default async function BoardColumnPage({
                   <span className="min-w-0 flex-1 truncate font-medium text-n-900">
                     {item.title}
                   </span>
-                  <PriorityIcon priority={item.priority} />
+                  <PriorityIcon priority={item.priority} locale={locale} />
                   <span className="shrink-0">
                     <DueDate
                       value={item.due_at}
                       overdue={item.is_overdue}
                       timeZone={me.user.timezone}
+                      locale={locale}
                     />
                   </span>
                 </Link>
@@ -112,18 +119,16 @@ export default async function BoardColumnPage({
             // exists because a silent cap is the defect; reproducing one here
             // would be the same mistake with a longer list.
             <p className="max-w-[72ch] text-caption text-s-active">
-              Showing the first {PER_PAGE} of {column.total}. This column is
-              longer than a list is useful for — the project&rsquo;s own filters are the
-              better tool past this point.
+              {t("column.firstOf", { shown: PER_PAGE, total: column.total })}
             </p>
           )}
 
           <p className="max-w-[72ch] text-caption text-n-500">
-            In the board&rsquo;s own order. Moving work from here is done on the{" "}
+            {t("column.order.before")}{" "}
             <Link href={`/projects/${key}/board`} className="text-a-500 underline underline-offset-2">
-              board
+              {t("column.order.board")}
             </Link>{" "}
-            or on the item&rsquo;s own page.
+            {t("column.order.after")}
           </p>
         </>
       )}

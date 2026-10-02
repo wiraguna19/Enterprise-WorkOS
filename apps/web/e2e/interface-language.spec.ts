@@ -67,6 +67,20 @@ test.describe("interface language", () => {
         await expect(page.getByRole("heading", { name: "Komentar" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Riwayat", exact: true })).toBeVisible();
       }
+
+      // Projects: the list, an overview and its board.
+      const [project] = await call<Array<{ key: string }>>(session, "/projects");
+      if (project !== undefined) {
+        await page.goto("/projects");
+        await expect(page.getByRole("heading", { name: "Proyek", level: 1 })).toBeVisible();
+
+        await page.goto(`/projects/${project.key}/overview`);
+        await expect(page.getByRole("navigation", { name: "Tampilan proyek" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Kesehatan" })).toBeVisible();
+
+        await page.goto(`/projects/${project.key}/board`);
+        await expect(page.getByRole("link", { name: "Ringkasan", exact: true })).toBeVisible();
+      }
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
 import { setProjectPinned } from "./actions";
 
@@ -26,6 +27,7 @@ export function PinToggle({
   name: string;
   pinned: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [working, start] = useTransition();
@@ -35,8 +37,8 @@ export function PinToggle({
       <button
         type="button"
         aria-pressed={pinned}
-        aria-label={pinned ? `Unpin ${name}` : `Pin ${name}`}
-        title={pinned ? "In your sidebar" : "Keep in your sidebar"}
+        aria-label={t(pinned ? "pin.unpin" : "pin.pin", { name })}
+        title={t(pinned ? "pin.inSidebar" : "pin.keep")}
         disabled={working}
         onClick={() =>
           start(async () => {

@@ -1,4 +1,7 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator } from "@/i18n/translate";
 import { clsx } from "@/lib/clsx";
 
 /**
@@ -12,8 +15,8 @@ import { clsx } from "@/lib/clsx";
  * product — the same defect the Phase 5 pass found in the app shell.
  */
 const VIEWS = [
-  { segment: "overview", label: "Overview" },
-  { segment: "board", label: "Board" },
+  { segment: "overview", label: "tabs.overview" },
+  { segment: "board", label: "tabs.board" },
 ] as const;
 
 /**
@@ -23,21 +26,26 @@ const VIEWS = [
  * in this product: a URL is typed, pasted, bookmarked and followed from an old
  * message, and a nav that merely hides something has not refused it.
  */
-const MANAGE = { segment: "settings", label: "Settings" } as const;
+const MANAGE = { segment: "settings", label: "nav.settings" } as const;
 
 /** docs/08 lists these; they ship in later phases. */
-const LATER = ["List", "Timeline", "Calendar"];
+// Dictionary keys (ADR 0060); the labels are looked up at render.
+const LATER: MessageKey[] = ["tabs.list", "tabs.timeline", "tabs.calendar"];
 
 export function ProjectTabs({
   projectKey,
   active,
   canManage = false,
+  locale = "en",
 }: {
   projectKey: string;
   active: (typeof VIEWS)[number]["segment"] | (typeof MANAGE)["segment"];
   /** True when the reader holds `project.update` on this project. */
   canManage?: boolean;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
   const views = [...VIEWS];
 
   // Scrolls sideways rather than wrapping or spilling. Six entries do not fit
@@ -46,7 +54,7 @@ export function ProjectTabs({
   // way to reach it. The mobile run of the project flow found it by timing out.
   return (
     <nav
-      aria-label="Project views"
+      aria-label={t("tabs.label")}
       className="flex gap-4 overflow-x-auto whitespace-nowrap border-b border-n-100 text-body"
     >
       {views.map((view) => (
@@ -61,7 +69,7 @@ export function ProjectTabs({
               : "border-transparent text-n-500 hover:text-n-700",
           )}
         >
-          {view.label}
+          {t(view.label)}
         </Link>
       ))}
 
@@ -84,10 +92,10 @@ export function ProjectTabs({
           key={view}
           type="button"
           disabled
-          title={`${view} view ships in a later phase`}
+          title={t("tabs.later", { view: t(view) })}
           className="shrink-0 cursor-not-allowed pb-2 text-n-500/60"
         >
-          {view}
+          {t(view)}
         </button>
       ))}
 
@@ -102,7 +110,7 @@ export function ProjectTabs({
               : "border-transparent text-n-500 hover:text-n-700",
           )}
         >
-          {MANAGE.label}
+          {t(MANAGE.label)}
         </Link>
       )}
     </nav>
