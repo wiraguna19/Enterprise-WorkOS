@@ -151,6 +151,8 @@ function refreshProject(key: string): void {
 export type ProjectMember = {
   id: string;
   subject: "person" | "team";
+  /** A service account (ADR 0059): a membership like a person's, labelled apart. */
+  is_service: boolean;
   membership_id: string | null;
   team_id: string | null;
   name: string | null;

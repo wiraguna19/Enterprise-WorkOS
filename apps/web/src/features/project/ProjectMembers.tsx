@@ -20,7 +20,9 @@ const ROLES = ["owner", "manager", "member", "viewer"];
  * Who can see and work on a project (ADR 0041).
  *
  * A row grants access to a PERSON or a TEAM, never both, and the two are one
- * list here rather than two panels. Team access follows the team as people
+ * list here rather than two panels. A service account (ADR 0059) is a person
+ * row as far as the API is concerned — a membership — and is offered and
+ * labelled apart, because `/people` deliberately does not list it. Team access follows the team as people
  * join and leave it, which is the whole reason the column exists — a member
  * list assembled by hand from a team roster goes stale the first time somebody
  * moves.
@@ -34,12 +36,14 @@ export function ProjectMembers({
   members,
   people,
   teams,
+  integrations = [],
   canManage,
 }: {
   projectKey: string;
   members: ProjectMember[];
   people: Array<{ id: string; label: string }>;
   teams: Array<{ id: string; label: string }>;
+  integrations?: Array<{ id: string; label: string }>;
   canManage: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -81,10 +85,12 @@ export function ProjectMembers({
               <Tr key={member.id}>
                 <Td>
                   <span className="flex items-center gap-2">
-                    {member.subject === "person" ? (
-                      <Avatar id={member.membership_id ?? member.id} name={member.name ?? "?"} size="sm" />
-                    ) : (
+                    {member.subject === "team" ? (
                       <Badge tone="info">team</Badge>
+                    ) : member.is_service ? (
+                      <Badge tone="neutral">integration</Badge>
+                    ) : (
+                      <Avatar id={member.membership_id ?? member.id} name={member.name ?? "?"} size="sm" />
                     )}
                     <span className="font-medium">{member.name ?? "Unnamed"}</span>
                   </span>
@@ -133,6 +139,7 @@ export function ProjectMembers({
           projectKey={projectKey}
           people={people.filter((person) => !takenPeople.has(person.id))}
           teams={teams.filter((team) => !takenTeams.has(team.id))}
+          integrations={integrations.filter((account) => !takenPeople.has(account.id))}
           working={working}
           onAdd={(input) => run(() => addProjectMember(projectKey, input))}
         />
@@ -140,6 +147,16 @@ export function ProjectMembers({
     </div>
   );
 }
+
+type Subject = "person" | "team" | "integration";
+
+const LABEL: Record<Subject, string> = { person: "Person", team: "Team", integration: "Integration" };
+const NOUN: Record<Subject, string> = { person: "a person", team: "a team", integration: "an integration" };
+const EXHAUSTED: Record<Subject, string> = {
+  person: "Everyone already has access.",
+  team: "Every team already has access.",
+  integration: "No integration is left to add. Settings → Service accounts makes one.",
+};
 
 /**
  * Adding one, with the person/team choice made explicitly.
@@ -153,20 +170,22 @@ function AddMember({
   projectKey,
   people,
   teams,
+  integrations,
   working,
   onAdd,
 }: {
   projectKey: string;
   people: Array<{ id: string; label: string }>;
   teams: Array<{ id: string; label: string }>;
+  integrations: Array<{ id: string; label: string }>;
   working: boolean;
   onAdd: (input: { membership_id?: string; team_id?: string; role: string }) => void;
 }) {
-  const [subject, setSubject] = useState<"person" | "team">("person");
+  const [subject, setSubject] = useState<Subject>("person");
   const [who, setWho] = useState("");
   const [role, setRole] = useState("member");
 
-  const options = subject === "person" ? people : teams;
+  const options = subject === "person" ? people : subject === "team" ? teams : integrations;
 
   return (
     <Panel
@@ -181,7 +200,8 @@ function AddMember({
             disabled={working || who === ""}
             onClick={() => {
               onAdd({
-                ...(subject === "person" ? { membership_id: who } : { team_id: who }),
+                // An integration is a membership, sent exactly as a person is.
+                ...(subject === "team" ? { team_id: who } : { membership_id: who }),
                 role,
               });
               setWho("");
@@ -192,9 +212,7 @@ function AddMember({
 
           {who === "" && (
             <p role="status" className="text-caption text-n-500">
-              {options.length === 0
-                ? `Everyone ${subject === "person" ? "" : "and every team "}already has access.`
-                : `Choose a ${subject}.`}
+              {options.length === 0 ? EXHAUSTED[subject] : `Choose ${NOUN[subject]}.`}
             </p>
           )}
         </div>
@@ -206,7 +224,7 @@ function AddMember({
             id={`${projectKey}-subject`}
             value={subject}
             onChange={(event) => {
-              setSubject(event.target.value as "person" | "team");
+              setSubject(event.target.value as Subject);
               // Cleared on purpose: a membership id left in the box while the
               // switch says "team" is the one input this form must never send.
               setWho("");
@@ -215,10 +233,11 @@ function AddMember({
           >
             <option value="person">a person</option>
             <option value="team">a team</option>
+            <option value="integration">an integration</option>
           </select>
         </Field>
 
-        <Field id={`${projectKey}-who`} label={subject === "person" ? "Person" : "Team"}>
+        <Field id={`${projectKey}-who`} label={LABEL[subject]}>
           <select
             id={`${projectKey}-who`}
             value={who}

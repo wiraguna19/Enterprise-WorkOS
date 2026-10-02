@@ -63,3 +63,22 @@ through tokens an administrator issued.**
   on memberships; a service account is one.
 - Every place that lists memberships as PEOPLE must ask for `kind = person`.
   `/people` does; any new listing inherits the question.
+
+## Addendum — project access (2026-10-02)
+
+The first slice left one hole the consequences above predicted: a project's
+Access screen offers people from `/people`, which leaves service accounts
+out, so an integration could reach public projects only. A private project
+had no way to let one in.
+
+- `GET /projects/{key}/integrations` lists the organization's ACTIVE service
+  accounts, by id and name only, to whoever the project policy lets manage
+  that project's members. That is usually the project's owner or manager, not
+  the administrator who holds `service_account.manage`. The roles and tokens
+  stay on the administrator's screen.
+- Adding one goes through the unchanged `POST /projects/{key}/members` with a
+  `membership_id`, because a service account IS a membership. A member row
+  keeps `subject: person` so that no consumer has to branch, and it gains
+  `is_service` so the screen can label it "integration".
+- The Access panel offers a third choice, "an integration", beside a person
+  and a team.

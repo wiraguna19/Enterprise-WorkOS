@@ -59,7 +59,7 @@ export default async function ProjectSettingsPage({
 
   // The pickers are only fetched for somebody who can actually add: a reader
   // who may see the member list has no business pulling the whole directory.
-  const [members, activity, people, teams, vocabulary, templates, customFields] = await Promise.all([
+  const [members, activity, people, teams, integrations, vocabulary, templates, customFields] = await Promise.all([
     api<ProjectMember[]>(`/projects/${key}/members`)
       .then((r) => r.data)
       .catch(() => [] as ProjectMember[]),
@@ -75,6 +75,14 @@ export default async function ProjectSettingsPage({
       : Promise.resolve([]),
     canManage
       ? api<Array<{ id: string; name: string }>>("/teams")
+          .then((r) => r.data)
+          .catch(() => [])
+      : Promise.resolve([]),
+    // Service accounts (ADR 0059), which `/people` leaves out on purpose.
+    // Served per project, to whoever may change its access — the person who
+    // decides is usually not the administrator who made the account.
+    canManage
+      ? api<Array<{ id: string; name: string | null }>>(`/projects/${key}/integrations`)
           .then((r) => r.data)
           .catch(() => [])
       : Promise.resolve([]),
@@ -119,6 +127,7 @@ export default async function ProjectSettingsPage({
           members={members}
           people={people.map((person) => ({ id: person.id, label: person.name ?? "Unnamed" }))}
           teams={teams.map((team) => ({ id: team.id, label: team.name }))}
+          integrations={integrations.map((account) => ({ id: account.id, label: account.name ?? "Unnamed" }))}
           canManage={canManage}
         />
 

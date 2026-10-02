@@ -105,6 +105,10 @@ Route::delete('projects/{key}/milestones/{id}', [MilestoneController::class, 'de
 
 Route::get('projects/{key}/members', [ProjectController::class, 'members'])
     ->middleware('permission:project.view');
+// The service accounts this project could add (ADR 0059) — to whoever may add
+// members to it, which the policy decides.
+Route::get('projects/{key}/integrations', [ProjectController::class, 'integrations'])
+    ->middleware('permission:project.view');
 Route::post('projects/{key}/members', [ProjectController::class, 'addMember'])
     ->middleware(['permission:project.view', 'throttle:writes']);
 Route::patch('projects/{key}/members/{member}', [ProjectController::class, 'setMemberRole'])

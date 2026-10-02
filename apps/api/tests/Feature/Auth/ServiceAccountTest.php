@@ -131,3 +131,46 @@ it('is an administrator\'s to make', function (): void {
         ->postJson('/api/v1/service-accounts', ['name' => 'Not mine to make', 'role' => 'employee'])
         ->assertForbidden();
 });
+
+it('is offered to a private project, and sees it once added', function (): void {
+    // An employee-role account: nothing but project membership would show it
+    // FIN, the seeded private project.
+    [$id, $token] = serviceAccountWithToken($this->admin, role: 'employee');
+
+    $this->withToken($token)->getJson('/api/v1/projects/FIN')->assertNotFound();
+
+    $offered = collect($this->withToken($this->admin)
+        ->getJson('/api/v1/projects/FIN/integrations')
+        ->assertOk()
+        ->json('data'));
+
+    expect($offered->pluck('id'))->toContain($id)
+        ->and($offered->firstWhere('id', $id)['name'])->toBe('Warehouse integration');
+
+    $this->withToken($this->admin)
+        ->postJson('/api/v1/projects/FIN/members', ['membership_id' => $id, 'role' => 'member'])
+        ->assertStatus(201)
+        ->assertJsonPath('data.subject', 'person')
+        ->assertJsonPath('data.is_service', true);
+
+    $this->withToken($token)->getJson('/api/v1/projects/FIN')->assertOk();
+});
+
+it('is offered only to somebody who may change who has access', function (): void {
+    serviceAccountWithToken($this->admin);
+
+    // Sarah may read ENG but not manage its access.
+    $this->withToken($this->loginAs('sarah@acme.test'))
+        ->getJson('/api/v1/projects/ENG/integrations')
+        ->assertForbidden();
+});
+
+it('is no longer offered once switched off', function (): void {
+    [$id] = serviceAccountWithToken($this->admin);
+
+    $this->withToken($this->admin)->deleteJson("/api/v1/service-accounts/{$id}")->assertNoContent();
+
+    $offered = $this->withToken($this->admin)->getJson('/api/v1/projects/ENG/integrations')->json('data');
+
+    expect(collect($offered)->pluck('id'))->not->toContain($id);
+});

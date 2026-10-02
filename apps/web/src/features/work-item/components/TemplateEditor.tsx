@@ -326,7 +326,7 @@ function TemplateForm({
     >
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id={nameId} label="Name" hint="What the picker shows. Unique in this organization.">
+          <Field id={nameId} label="Name" hint="What the picker shows. Unique among this organization's templates, or this project's.">
             <input
               id={nameId}
               value={name}

@@ -164,7 +164,7 @@ final class ProjectService
         return ProjectMemberModel::query()
             ->where('project_id', $project->getKey())
             ->whereNull('removed_at')
-            ->with(['membership.user:id,name,avatar_path', 'team:id,name,key'])
+            ->with(['membership.user:id,name,avatar_path,kind', 'team:id,name,key'])
             // Owners first, then managers, then everybody by name. A member
             // list whose order is insertion order makes "who runs this" a
             // question you answer by reading every row.

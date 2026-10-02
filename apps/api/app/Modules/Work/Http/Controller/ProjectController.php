@@ -392,6 +392,40 @@ final class ProjectController extends ApiController
         );
     }
 
+    /**
+     * The service accounts this project could give access to (ADR 0059).
+     *
+     * `/people` leaves them out on purpose — they are not colleagues — so the
+     * Access screen had nothing to offer and an integration could reach only
+     * public projects. Settings → Service accounts lists them, but only to
+     * whoever holds `service_account.manage`, and the person deciding a
+     * project's access is its owner or manager, who usually does not.
+     *
+     * So: the names and ids of the organization's ACTIVE service accounts, to
+     * exactly the people who may add members to THIS project. Names only —
+     * their roles and tokens stay on the administrator's screen.
+     */
+    public function integrations(string $key): ApiResponse
+    {
+        $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
+
+        $this->authorize('manageMembers', $project);
+
+        $accounts = MembershipModel::query()
+            ->with('user:id,name')
+            ->where('status', 'active')
+            // Raw for the reason PersonController gives: PHPStan cannot see
+            // `kind` on the closure's bare builder.
+            ->whereHas('user', fn (Builder $u) => $u->whereRaw('kind = ?', ['service']))
+            ->orderBy('id')
+            ->get();
+
+        return ApiResponse::collection($accounts->map(fn (MembershipModel $m): array => [
+            'id' => $m->getKey(),
+            'name' => $m->user?->name,
+        ])->all());
+    }
+
     public function addMember(Request $request, string $key): ApiResponse
     {
         $project = $this->visibleProjects()->where('key', mb_strtoupper($key))->firstOrFail();
@@ -412,7 +446,7 @@ final class ProjectController extends ApiController
         );
 
         return ApiResponse::item($this->presentMember($member->fresh([
-            'membership.user:id,name,avatar_path', 'team:id,name,key',
+            'membership.user:id,name,avatar_path,kind', 'team:id,name,key',
         ]) ?? $member), status: 201);
     }
 
@@ -429,7 +463,7 @@ final class ProjectController extends ApiController
         $updated = $this->projects->setMemberRole($project, $member, $validated['role']);
 
         return $this->ok($this->presentMember($updated->fresh([
-            'membership.user:id,name,avatar_path', 'team:id,name,key',
+            'membership.user:id,name,avatar_path,kind', 'team:id,name,key',
         ]) ?? $updated));
     }
 
@@ -459,6 +493,10 @@ final class ProjectController extends ApiController
         return [
             'id' => $member->id,
             'subject' => $member->team_id === null ? 'person' : 'team',
+            // A service account is a membership like a person's, so `subject`
+            // stays `person` and every consumer keeps working; this says which
+            // kind of member it is, for the screen that labels it (ADR 0059).
+            'is_service' => $member->membership?->user?->isService() ?? false,
             'membership_id' => $member->membership_id,
             'team_id' => $member->team_id,
             'name' => $member->team_id === null
