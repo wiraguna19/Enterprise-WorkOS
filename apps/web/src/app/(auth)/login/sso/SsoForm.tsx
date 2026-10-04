@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
 import { startSingleSignOn, type SsoStartState } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 const INITIAL: SsoStartState = { error: null };
 
@@ -17,6 +18,7 @@ const INITIAL: SsoStartState = { error: null };
 export function SsoForm({ next, failure }: { next: string; failure: string | null }) {
   const [state, formAction] = useActionState(startSingleSignOn, INITIAL);
   const error = state.error ?? failure;
+  const t = useT();
 
   return (
     <form action={formAction} className="space-y-4">
@@ -33,7 +35,7 @@ export function SsoForm({ next, failure }: { next: string; failure: string | nul
 
       <div>
         <label htmlFor="email" className="mb-1 block text-caption font-medium text-n-700">
-          Work email
+          {t("ssologin.email")}
         </label>
         <input
           id="email"
@@ -50,7 +52,7 @@ export function SsoForm({ next, failure }: { next: string; failure: string | nul
 
       <p className="pt-2 text-caption text-n-500">
         <a href="/login" className="text-a-500 hover:text-a-700 hover:underline">
-          Sign in with a password instead
+          {t("ssologin.password")}
         </a>
       </p>
     </form>
@@ -59,10 +61,11 @@ export function SsoForm({ next, failure }: { next: string; failure: string | nul
 
 function Submit() {
   const { pending } = useFormStatus();
+  const t = useT();
 
   return (
     <Button type="submit" variant="primary" size="lg" className="w-full" disabled={pending}>
-      {pending ? "Finding your organization…" : "Continue"}
+      {pending ? t("ssologin.finding") : t("ssologin.continue")}
     </Button>
   );
 }

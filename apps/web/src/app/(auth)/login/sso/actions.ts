@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { api, ApiRequestError } from "@/lib/api";
 import { safeNextPath } from "@/lib/next-path";
 import { setSsoBinding } from "@/lib/session";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 
 export type SsoStartState = { error: string | null; requestId?: string };
 
@@ -40,7 +42,7 @@ export async function startSingleSignOn(
       return { error: error.error.message, requestId: error.error.request_id };
     }
 
-    return { error: "We could not reach the server. Please try again." };
+    return { error: translator(await requestLocale())("common.unreachable") };
   }
 
   await setSsoBinding(binding, next);

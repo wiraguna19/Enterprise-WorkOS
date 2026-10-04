@@ -209,9 +209,14 @@ final class Invitations
      *
      * @return array{membership_id: string, organization_id: string}
      */
-    public function accept(string $token, string $name, string $password, Request $request): array
-    {
-        return DB::transaction(function () use ($token, $name, $password, $request): array {
+    public function accept(
+        string $token,
+        string $name,
+        string $password,
+        Request $request,
+        string $locale = 'en',
+    ): array {
+        return DB::transaction(function () use ($token, $name, $password, $request, $locale): array {
             // Locked for the rest of the transaction: two people opening the
             // same link at once would otherwise both pass the "still usable"
             // check and race to create the membership.
@@ -236,7 +241,11 @@ final class Invitations
                     'name' => $name,
                     'password_hash' => Hash::make($password),
                     'timezone' => 'Asia/Jakarta',
-                    'locale' => 'en',
+                    // The language the invitation was accepted in, so a person
+                    // who joined in Indonesian is not met in English on their
+                    // first sign-in. Only for a NEW account: somebody who
+                    // already has one chose their language already.
+                    'locale' => $locale,
                     'is_platform_admin' => false,
                 ])->save();
             }

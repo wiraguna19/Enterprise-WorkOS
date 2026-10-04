@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { acceptInvitation } from "@/features/people/invitations";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Accepting an invitation.
@@ -20,6 +21,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const t = useT();
 
   return (
     <form
@@ -45,7 +47,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         </p>
       )}
 
-      <Field id="name" label="Your name">
+      <Field id="name" label={t("join.name")}>
         <input
           id="name"
           className={INPUT}
@@ -57,7 +59,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         />
       </Field>
 
-      <Field id="password" label="Password" hint="At least twelve characters.">
+      <Field id="password" label={t("login.password")} hint={t("join.password.hint")}>
         <input
           id="password"
           type="password"
@@ -71,7 +73,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
       </Field>
 
       <Button type="submit" variant="primary" disabled={busy || name === "" || password === ""}>
-        {busy ? "Joining…" : "Join"}
+        {busy ? t("join.joining") : t("join.join")}
       </Button>
     </form>
   );

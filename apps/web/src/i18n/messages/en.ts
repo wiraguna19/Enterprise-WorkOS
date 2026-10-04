@@ -1806,6 +1806,25 @@ export const en = {
   "rform.save": "Save the rule",
   "rform.create": "Create the rule",
 
+  // ── Signed out: SSO sign-in, accepting an invitation ────────────────────
+  "ssologin.title": "Single sign-on",
+  "ssologin.subtitle": "Sign in through your organization's identity provider.",
+  "ssologin.expired": "That sign-in took too long or was already used. Please start again.",
+  "ssologin.failed": "Your identity provider's answer could not be accepted. Try again, and if it keeps happening, tell your administrator.",
+  "ssologin.noAccount": "There is no account here for that address. Ask your administrator for an invitation.",
+  "ssologin.generic": "Single sign-on did not complete. Please start again.",
+  "ssologin.email": "Work email",
+  "ssologin.password": "Sign in with a password instead",
+  "ssologin.finding": "Finding your organization…",
+  "ssologin.continue": "Continue",
+  "join.metaTitle": "Accept an invitation",
+  "join.title": "Join {org}",
+  "join.invitedAs": "Invited as {email}. Choose a password and you are in.",
+  "join.name": "Your name",
+  "join.password.hint": "At least twelve characters.",
+  "join.joining": "Joining…",
+  "join.join": "Join",
+
   // ── Sign in ──────────────────────────────────────────────────────────────
   "login.metaTitle": "Sign in",
   "login.title": "Sign in",

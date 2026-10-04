@@ -88,6 +88,36 @@ it('lets a stranger accept, and puts them in the organization with their role', 
     expect($role)->toBe('employee');
 });
 
+it('gives a new account the language its invitation was accepted in', function (): void {
+    // The page a newcomer reads is in the language their browser asked for;
+    // without this, the account it creates opened in English regardless.
+    $token = $this->withToken($this->admin)
+        ->postJson('/api/v1/people/invite', ['email' => $this->address])
+        ->json('data.token');
+
+    $this->postJson("/api/v1/invitations/{$token}/accept", [
+        'name' => 'Newcomer Person',
+        'password' => 'a-long-enough-password',
+        'locale' => 'id',
+    ])->assertOk();
+
+    $locale = DB::table('users')->whereRaw('lower(email) = ?', [$this->address])->value('locale');
+
+    expect($locale)->toBe('id');
+});
+
+it('refuses a language the interface does not have', function (): void {
+    $token = $this->withToken($this->admin)
+        ->postJson('/api/v1/people/invite', ['email' => $this->address])
+        ->json('data.token');
+
+    $this->postJson("/api/v1/invitations/{$token}/accept", [
+        'name' => 'Newcomer Person',
+        'password' => 'a-long-enough-password',
+        'locale' => 'fr',
+    ])->assertStatus(422);
+});
+
 it('does not touch the password of somebody who already has an account', function (): void {
     // The branch that is an account takeover if it is wrong. Gil exists, in
     // Globex; inviting him into Acme must add a membership and leave his

@@ -49,6 +49,7 @@ final class InvitationAcceptController extends ApiController
             $request->string('name')->toString(),
             $request->string('password')->toString(),
             $request,
+            $request->string('locale', 'en')->toString(),
         ));
     }
 }

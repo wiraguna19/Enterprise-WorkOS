@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
 import { safeNextPath } from "@/lib/next-path";
 import { SsoForm } from "./SsoForm";
+import { LanguageSwitch } from "../LanguageSwitch";
+import { I18nProvider } from "@/i18n/I18nProvider";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
+import type { MessageKey } from "@/i18n/messages/en";
 
-export const metadata: Metadata = { title: "Single sign-on — Work OS" };
+// The layout's template adds "— Work OS"; a title that carried it too read
+// "Single sign-on — Work OS — Work OS" in the tab.
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: translator(await requestLocale())("ssologin.title") };
+}
 
 /**
  * What a failed round trip comes back with (ADR 0052).
@@ -12,15 +21,11 @@ export const metadata: Metadata = { title: "Single sign-on — Work OS" };
  * choosing on this product's letterhead. Anything not listed reads as the
  * generic failure.
  */
-const FAILURES: Record<string, string> = {
-  "auth.sso_expired": "That sign-in took too long or was already used. Please start again.",
-  "auth.sso_failed":
-    "Your identity provider's answer could not be accepted. Try again, and if it keeps happening, tell your administrator.",
-  "auth.sso_no_account":
-    "There is no account here for that address. Ask your administrator for an invitation.",
+const FAILURES: Record<string, MessageKey> = {
+  "auth.sso_expired": "ssologin.expired",
+  "auth.sso_failed": "ssologin.failed",
+  "auth.sso_no_account": "ssologin.noAccount",
 };
-
-const GENERIC = "Single sign-on did not complete. Please start again.";
 
 export default async function SsoLoginPage({
   searchParams,
@@ -29,8 +34,11 @@ export default async function SsoLoginPage({
 }) {
   const { next, error } = await searchParams;
   const code = Array.isArray(error) ? error[0] : error;
+  const locale = await requestLocale();
+  const t = translator(locale);
 
   return (
+    <I18nProvider locale={locale}>
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8">
@@ -40,17 +48,20 @@ export default async function SsoLoginPage({
             </span>
             <span className="text-body font-semibold text-n-900">Work OS</span>
           </div>
-          <h1 className="text-h1 font-semibold text-n-900">Single sign-on</h1>
+          <h1 className="text-h1 font-semibold text-n-900">{t("ssologin.title")}</h1>
           <p className="mt-1 text-body text-n-500">
-            Sign in through your organization&apos;s identity provider.
+            {t("ssologin.subtitle")}
           </p>
         </div>
 
         <SsoForm
           next={safeNextPath(Array.isArray(next) ? next[0] : next)}
-          failure={code === undefined ? null : (FAILURES[code] ?? GENERIC)}
+          failure={code === undefined ? null : t(FAILURES[code] ?? "ssologin.generic")}
         />
+
+        <LanguageSwitch current={locale} />
       </div>
     </main>
+    </I18nProvider>
   );
 }

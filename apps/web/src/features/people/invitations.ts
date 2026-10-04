@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { api, describeApiError } from "@/lib/api";
+import { requestLocale } from "@/i18n/server";
 
 /**
  * Inviting somebody in (ADR 0017).
@@ -65,7 +66,12 @@ export async function acceptInvitation(
   input: { name: string; password: string },
 ): Promise<{ error: string | null }> {
   try {
-    await api(`/invitations/${token}/accept`, { method: "POST", body: input });
+    // The language the page was read in becomes the new account's, so the
+    // first screen after signing in speaks the same language as the invite.
+    await api(`/invitations/${token}/accept`, {
+      method: "POST",
+      body: { ...input, locale: await requestLocale() },
+    });
   } catch (error) {
     return { error: describeApiError(error).error };
   }

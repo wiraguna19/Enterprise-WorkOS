@@ -1823,6 +1823,25 @@ export const id: Messages = {
   "rform.save": "Simpan aturan",
   "rform.create": "Buat aturan",
 
+  // ── Signed out: SSO sign-in, accepting an invitation ────────────────────
+  "ssologin.title": "Single sign-on",
+  "ssologin.subtitle": "Masuk lewat penyedia identitas organisasi Anda.",
+  "ssologin.expired": "Proses masuk itu terlalu lama atau sudah dipakai. Silakan mulai lagi.",
+  "ssologin.failed": "Jawaban penyedia identitas Anda tidak bisa diterima. Coba lagi, dan jika terus terjadi, beri tahu administrator Anda.",
+  "ssologin.noAccount": "Tidak ada akun di sini untuk alamat itu. Mintalah undangan kepada administrator Anda.",
+  "ssologin.generic": "Single sign-on tidak selesai. Silakan mulai lagi.",
+  "ssologin.email": "Email kantor",
+  "ssologin.password": "Masuk dengan kata sandi saja",
+  "ssologin.finding": "Mencari organisasi Anda…",
+  "ssologin.continue": "Lanjutkan",
+  "join.metaTitle": "Terima undangan",
+  "join.title": "Bergabung dengan {org}",
+  "join.invitedAs": "Diundang sebagai {email}. Pilih kata sandi dan Anda langsung bisa masuk.",
+  "join.name": "Nama Anda",
+  "join.password.hint": "Minimal dua belas karakter.",
+  "join.joining": "Bergabung…",
+  "join.join": "Bergabung",
+
   // ── Sign in ──────────────────────────────────────────────────────────────
   "login.metaTitle": "Masuk",
   "login.title": "Masuk",

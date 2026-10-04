@@ -268,10 +268,12 @@ last entry is deliberately last.
                         the graph editor) and automation rules (the list,
                         each rule's runs, the rule form, the preview), with
                         rule sentences built from the reader's dictionary.
-                        Every signed-in screen now reads in Indonesian.
-                        Left: the two signed-out pages besides the login
-                        form — accepting an invitation and signing in
-                        through SSO. Still English by design: messages the
+                        The signed-out pages too: SSO sign-in and accepting
+                        an invitation, each with the language switch — and
+                        an account created from an invitation now takes the
+                        language the invitation was accepted in.
+                        Every screen of the web interface reads in
+                        Indonesian. Still English by design: messages the
                         API writes (refusals, notification sentences,
                         email), and what an organization names for itself.
 ```

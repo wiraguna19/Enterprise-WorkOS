@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import { call } from "./support/api";
+import { call, signIn } from "./support/api";
 import { test, signedInPhone } from "./support/auth";
 
 /**
@@ -201,6 +201,49 @@ test.describe("interface language", () => {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,
       );
+    }
+  });
+
+  test("the signed-out pages answer in the language the browser chose", async ({
+    browser,
+    viewport,
+    baseURL,
+  }) => {
+    // Nobody is signed in here, so the language comes from the cookie the
+    // sign-in page's switch writes — set directly, as the switch would.
+    const context = await browser.newContext({ viewport: viewport ?? undefined });
+    await context.addCookies([{ name: "wos_locale", value: "id", url: baseURL ?? "http://localhost:3000" }]);
+    const page = await context.newPage();
+
+    try {
+      await page.goto("/login/sso");
+      await expect(page.getByText("Masuk lewat penyedia identitas organisasi Anda.")).toBeVisible();
+      await expect(page.getByLabel("Email kantor")).toBeVisible();
+
+      // An invitation, accepted in Indonesian. The account it creates must
+      // open in Indonesian too — before this it was always created in English.
+      const rina = await signIn("rina@acme.test");
+      const address = `e2e-bahasa-${Date.now()}@acme.test`;
+      const { token } = await call<{ token: string }>(rina, "/people/invite", {
+        method: "POST",
+        body: { email: address, role: "employee" },
+      });
+
+      await page.goto(`/invite/${token}`);
+      await expect(
+        page.getByRole("heading", { name: /^Bergabung dengan /, level: 1 }),
+      ).toBeVisible();
+
+      await page.getByLabel("Nama Anda").fill("Pendatang Baru");
+      await page.getByLabel("Kata sandi").fill("kata-sandi-cukup-panjang");
+      await page.getByRole("button", { name: "Bergabung", exact: true }).click();
+      await expect(page).toHaveURL(/\/login/);
+
+      const newcomer = await signIn(address, "kata-sandi-cukup-panjang");
+      const me = await call<{ user: { locale: string } }>(newcomer, "/auth/me");
+      expect(me.user.locale).toBe("id");
+    } finally {
+      await context.close();
     }
   });
 });

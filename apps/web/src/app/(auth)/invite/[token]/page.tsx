@@ -2,8 +2,15 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 import { api } from "@/lib/api";
+import { LanguageSwitch } from "../../login/LanguageSwitch";
+import { I18nProvider } from "@/i18n/I18nProvider";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 
-export const metadata: Metadata = { title: "Accept an invitation — Work OS" };
+// The layout's template adds "— Work OS" itself.
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: translator(await requestLocale())("join.metaTitle") };
+}
 
 /**
  * The only screen in this product used by somebody it has never met (ADR 0017).
@@ -32,7 +39,15 @@ export default async function AcceptInvitePage({
 
   if (!invitation) notFound();
 
+  const locale = await requestLocale();
+  const t = translator(locale);
+
+  // The address is bold inside the sentence; the sentence is cut at its
+  // placeholder so each language keeps its own order around it.
+  const [before, after] = t("join.invitedAs").split("{email}");
+
   return (
+    <I18nProvider locale={locale}>
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8">
@@ -42,15 +57,21 @@ export default async function AcceptInvitePage({
             </span>
             <span className="text-body font-semibold text-n-900">Work OS</span>
           </div>
-          <h1 className="text-h1 font-semibold text-n-900">Join {invitation.organization}</h1>
+          <h1 className="text-h1 font-semibold text-n-900">
+            {t("join.title", { org: invitation.organization })}
+          </h1>
           <p className="mt-1 text-body text-n-500">
-            Invited as <strong className="text-n-700">{invitation.email}</strong>. Choose a password
-            and you are in.
+            {before}
+            <strong className="text-n-700">{invitation.email}</strong>
+            {after}
           </p>
         </div>
 
         <AcceptInviteForm token={token} />
+
+        <LanguageSwitch current={locale} />
       </div>
     </main>
+    </I18nProvider>
   );
 }
