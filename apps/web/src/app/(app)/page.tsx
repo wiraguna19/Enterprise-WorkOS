@@ -172,10 +172,35 @@ export default async function HomePage() {
         <Glance
           label={t("home.glance")}
           items={[
-            { href: "/my-work?view=overdue", count: counts.overdue ?? 0, label: t("home.glance.overdue"), urgent: true },
-            { href: "/my-work?view=today", count: counts.due_today ?? 0, label: t("home.glance.dueToday") },
-            { href: "/inbox?tab=reviews", count: reviews.length, label: t("home.glance.reviews") },
-            { href: "/announcements", count: announcements.unread, label: t("home.glance.announcements") },
+            {
+              href: "/my-work?view=overdue",
+              count: counts.overdue ?? 0,
+              label: t("home.glance.overdue"),
+              caption: t("home.glance.overdue.caption"),
+              icon: "alert",
+              urgent: true,
+            },
+            {
+              href: "/my-work?view=today",
+              count: counts.due_today ?? 0,
+              label: t("home.glance.dueToday"),
+              caption: t("home.glance.dueToday.caption"),
+              icon: "clock",
+            },
+            {
+              href: "/inbox?tab=reviews",
+              count: reviews.length,
+              label: t("home.glance.reviews"),
+              caption: t("home.glance.reviews.caption"),
+              icon: "eye",
+            },
+            {
+              href: "/announcements",
+              count: announcements.unread,
+              label: t("home.glance.announcements"),
+              caption: t("home.glance.announcements.caption"),
+              icon: "megaphone",
+            },
           ]}
         />
       </div>

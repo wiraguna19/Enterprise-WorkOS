@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ToastProvider } from "@/components/ui/Toast";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { clsx } from "@/lib/clsx";
 import { AccountMenu } from "@/features/auth/AccountMenu";
 import { CommandPalette } from "@/features/search/CommandPalette";
@@ -30,6 +31,8 @@ type NavItem = {
   /** Which of the two counters this is; decides the badge's colour. */
   counter?: CounterTone;
   permission?: string;
+  /** Fixed destinations carry one; project and team names do not. */
+  icon?: IconName;
 };
 
 /**
@@ -56,37 +59,37 @@ function labelled(items: FixedItem[], t: Translator): NavItem[] {
 }
 
 const PRIMARY: FixedItem[] = [
-  { href: "/", labelKey: "nav.home" },
-  { href: "/my-work", labelKey: "nav.myWork", count: 0, counter: "late" },
-  { href: "/inbox", labelKey: "nav.inbox", count: 0, counter: "unread" },
+  { href: "/", labelKey: "nav.home", icon: "home" },
+  { href: "/my-work", labelKey: "nav.myWork", icon: "list", count: 0, counter: "late" },
+  { href: "/inbox", labelKey: "nav.inbox", icon: "inbox", count: 0, counter: "unread" },
 ];
 
 const SECONDARY: FixedItem[] = [
   // The browse screen. Until it existed, four places listed work items and each
   // asked a FIXED question — a board column, one person's work, one team's,
   // one report — so nobody could ask a question of their own.
-  { href: "/work", labelKey: "nav.work", permission: "work_item.view" },
-  { href: "/projects", labelKey: "nav.projects", permission: "project.view" },
+  { href: "/work", labelKey: "nav.work", icon: "layers", permission: "work_item.view" },
+  { href: "/projects", labelKey: "nav.projects", icon: "folder", permission: "project.view" },
   // Ungated: reading what was said to your groups needs nothing (ADR 0061).
   // No counter either — the two that exist are the only two (ADR 0027).
-  { href: "/announcements", labelKey: "nav.announcements" },
-  { href: "/calendar", labelKey: "nav.calendar" },
-  { href: "/time", labelKey: "nav.timesheet" },
+  { href: "/announcements", labelKey: "nav.announcements", icon: "megaphone" },
+  { href: "/calendar", labelKey: "nav.calendar", icon: "calendar" },
+  { href: "/time", labelKey: "nav.timesheet", icon: "clock" },
   // Standing instructions to create work. Gated on the permission the route
   // itself requires, so it does not appear for somebody who would only find a
   // refusal behind it.
-  { href: "/recurring", labelKey: "nav.recurring", permission: "work_item.create" },
-  { href: "/reports", labelKey: "nav.flow", permission: "report.view" },
+  { href: "/recurring", labelKey: "nav.recurring", icon: "repeat", permission: "work_item.create" },
+  { href: "/reports", labelKey: "nav.flow", icon: "trend", permission: "report.view" },
   // ADR 0062. Gated on the permission the list itself requires.
-  { href: "/kpis", labelKey: "nav.kpis", permission: "kpi.view" },
+  { href: "/kpis", labelKey: "nav.kpis", icon: "target", permission: "kpi.view" },
 ];
 
 const ADMIN: FixedItem[] = [
-  { href: "/people", labelKey: "nav.people", permission: "person.view" },
-  { href: "/teams", labelKey: "nav.teams", permission: "team.view" },
+  { href: "/people", labelKey: "nav.people", icon: "person", permission: "person.view" },
+  { href: "/teams", labelKey: "nav.teams", icon: "people", permission: "team.view" },
   // Gated on `department.view` like every other entry here, so it does not
   // appear for somebody who would only find a 403 behind it.
-  { href: "/departments", labelKey: "nav.departments", permission: "department.view" },
+  { href: "/departments", labelKey: "nav.departments", icon: "building", permission: "department.view" },
   // Pointed straight at the one settings screen that existed, because an index
   // of one adds a click and says nothing. The workflow catalogue and the
   // automation rules made it three, so the index exists now — which was always
@@ -100,7 +103,7 @@ const ADMIN: FixedItem[] = [
   // organization-reading permission is a gate that refuses the wrong thing. The
   // index filters itself entry by entry, which is where the question belongs:
   // each entry is gated on the permission its own page requires.
-  { href: "/settings", labelKey: "nav.settings" },
+  { href: "/settings", labelKey: "nav.settings", icon: "settings" },
 ];
 
 export function AppShell({
@@ -468,7 +471,12 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
           active ? "bg-a-50 font-medium text-a-700" : "text-n-700 hover:bg-n-50",
         )}
       >
-        <span className="truncate">{item.label}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {item.icon && (
+            <Icon name={item.icon} className={clsx("size-4", active ? "text-a-700" : "text-n-500")} />
+          )}
+          <span className="truncate">{item.label}</span>
+        </span>
         {item.count !== undefined && item.count > 0 && (
           <NavCount count={item.count} tone={item.counter ?? "unread"} label={item.label} />
         )}
