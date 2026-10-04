@@ -37,6 +37,7 @@ final class DatabaseSeeder extends Seeder
             'demo_work.sql',           // workflows, states, projects
             'demo_work_items.sql',     // work items, assignments, comments
             'demo_workflow.sql',       // transitions, rules, approvals, notifications
+            'demo_kpis.sql',           // KPIs and their entered values (ADR 0062)
         ];
 
         foreach ($files as $file) {
