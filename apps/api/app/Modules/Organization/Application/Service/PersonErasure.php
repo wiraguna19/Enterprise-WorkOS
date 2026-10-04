@@ -145,6 +145,10 @@ final class PersonErasure
         // are other people's records, and only the name inside them is.
         DB::table('notifications')->where('membership_id', $id)->delete();
 
+        // What they searched for. Their own memory of their habits, and a
+        // record of what somebody was looking for is a record about them.
+        DB::table('recent_searches')->where('membership_id', $id)->delete();
+
         DB::table('employee_profiles')->where('membership_id', $id)->update([
             'employee_number' => null,
             'job_title' => '',

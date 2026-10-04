@@ -4,7 +4,16 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import { clsx } from "@/lib/clsx";
-import { search, type SearchHit } from "./actions";
+import {
+  forgetAllSearches,
+  forgetSearch,
+  recentSearches,
+  rememberSearch,
+  search,
+  type RecentSearch,
+  type SearchCategory,
+  type SearchHit,
+} from "./actions";
 
 /**
  * ⌘K — the primary navigation for experienced users and the safety net for
@@ -46,6 +55,16 @@ export function CommandPalette() {
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const [pending, startTransition] = useTransition();
+  // What the search is narrowed to, chosen before typing or after; null is
+  // everything. And this person's recent searches, offered while the field is
+  // still empty.
+  const [category, setCategory] = useState<SearchCategory | null>(null);
+  const [recent, setRecent] = useState<RecentSearch[]>([]);
+  // The last write to the palette's memory, still in flight or done. Opening
+  // the palette waits for it before reading: a search remembered on the way
+  // to a result is otherwise missing when the palette opens again on the
+  // page it led to — the request to remember it has not landed yet.
+  const remembering = useRef<Promise<void>>(Promise.resolve());
 
   const close = useCallback(() => {
     setOpen(false);
@@ -59,6 +78,7 @@ export function CommandPalette() {
     setHits([]);
     setError(null);
     setActive(0);
+    setCategory(null);
   }, []);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +126,24 @@ export function CommandPalette() {
     }
   }, [open]);
 
+  // Read each time the palette opens, so a search remembered on another
+  // device — or a moment ago — is there.
+  useEffect(() => {
+    if (!open) return;
+
+    let current = true;
+
+    void remembering.current
+      .then(() => recentSearches())
+      .then((rows) => {
+        if (current) setRecent(rows);
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [open]);
+
   // Debounced: 150ms is under the threshold where typing feels laggy and far
   // above the rate that would burn the API's 30/min search budget.
   useEffect(() => {
@@ -121,7 +159,7 @@ export function CommandPalette() {
       latest.current = terms;
 
       startTransition(async () => {
-        const outcome = await search(terms);
+        const outcome = await search(terms, category);
 
         // Out-of-order guard — see the note at the top of this file.
         if (latest.current !== terms) {
@@ -135,10 +173,14 @@ export function CommandPalette() {
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, category]);
 
   const go = useCallback(
     (hit: SearchHit) => {
+      // Remembered because it led somewhere — and not awaited, so opening the
+      // result never waits on the palette's memory.
+      remembering.current = rememberSearch(query, category);
+
       close();
 
       const href =
@@ -153,8 +195,24 @@ export function CommandPalette() {
 
       router.push(href);
     },
-    [router, close],
+    [router, close, query, category],
   );
+
+  function recall(entry: RecentSearch): void {
+    setCategory(entry.type);
+    setQuery(entry.query);
+    inputRef.current?.focus();
+  }
+
+  function forget(entry: RecentSearch): void {
+    setRecent((rows) => rows.filter((row) => row.id !== entry.id));
+    remembering.current = forgetSearch(entry.id);
+  }
+
+  function forgetAll(): void {
+    setRecent([]);
+    remembering.current = forgetAllSearches();
+  }
 
   const terms = query.trim();
   // Derived, not stored: results belong to the query that is on screen.
@@ -240,6 +298,34 @@ export function CommandPalette() {
             )}
           </div>
 
+          {/* Where to look, before a word is typed. Pressed state rather than
+              tabs: the results list below is the same list, only narrowed. */}
+          <div
+            role="group"
+            aria-label={t("palette.categories")}
+            className="flex flex-wrap gap-1.5 border-b border-n-100 px-3 py-2"
+          >
+            {([null, ...ORDER] as Array<SearchCategory | null>).map((option) => (
+              <button
+                key={option ?? "all"}
+                type="button"
+                aria-pressed={category === option}
+                onClick={() => {
+                  setCategory(option);
+                  inputRef.current?.focus();
+                }}
+                className={clsx(
+                  "rounded-full border px-2.5 py-0.5 text-caption",
+                  category === option
+                    ? "border-a-500 bg-a-50 text-a-700"
+                    : "border-n-200 text-n-700 hover:bg-n-50",
+                )}
+              >
+                {option === null ? t("palette.all") : t(`palette.group.${option}`)}
+              </button>
+            ))}
+          </div>
+
           <ul id="palette-results" ref={listRef} className="max-h-80 overflow-y-auto py-1">
             {/* An error belongs to a query, exactly like results do: clearing
                 the field must clear it too, or the palette opens accusing the
@@ -254,7 +340,56 @@ export function CommandPalette() {
               </li>
             )}
 
-            {terms.length < 2 && (
+            {terms.length < 2 && recent.length > 0 && (
+              <li>
+                <div className="flex items-center justify-between px-3 pb-1 pt-2">
+                  <span className="text-micro font-medium uppercase tracking-wide text-n-500">
+                    {t("palette.recent.title")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={forgetAll}
+                    className="text-micro text-n-500 hover:text-a-700 hover:underline"
+                  >
+                    {t("palette.recent.clear")}
+                  </button>
+                </div>
+
+                <ul>
+                  {recent.map((entry) => (
+                    <li key={entry.id} className="flex items-center hover:bg-n-50">
+                      <button
+                        type="button"
+                        onClick={() => recall(entry)}
+                        className="flex min-w-0 flex-1 items-baseline gap-2 px-3 py-1.5 text-left"
+                      >
+                        <span aria-hidden className="text-n-400">
+                          ↺
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-body-sm text-n-900">
+                          {entry.query}
+                        </span>
+                        {entry.type !== null && (
+                          <span className="shrink-0 text-micro text-n-500">
+                            {t(`palette.group.${entry.type}`)}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => forget(entry)}
+                        aria-label={t("palette.recent.forget", { query: entry.query })}
+                        className="px-3 py-1.5 text-n-400 hover:text-n-900"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            )}
+
+            {terms.length < 2 && recent.length === 0 && (
               <li className="px-3 py-6 text-center text-body-sm text-n-500">
                 {t("palette.hint")}
               </li>

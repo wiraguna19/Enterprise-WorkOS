@@ -553,7 +553,7 @@ export async function mentionable(query: string): Promise<Mentionable[]> {
   try {
     const { data } = await api<Array<{ id: string; name: string | null; job_title: string | null }>>(
       `/people?limit=6${terms === "" ? "" : `&q=${encodeURIComponent(terms)}`}`,
-      { revalidate: false },
+      { revalidate: 0 },
     );
 
     return data

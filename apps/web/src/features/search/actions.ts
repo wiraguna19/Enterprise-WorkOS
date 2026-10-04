@@ -27,7 +27,11 @@ export type SearchOutcome =
  * each record's visibility rule (docs/06 §2) — and a cache keyed on the query
  * alone would serve one person's permitted results to another.
  */
-export async function search(query: string): Promise<SearchOutcome> {
+export type SearchCategory = SearchHit["type"];
+
+export type RecentSearch = { id: string; query: string; type: SearchCategory | null };
+
+export async function search(query: string, category: SearchCategory | null = null): Promise<SearchOutcome> {
   const terms = query.trim();
 
   // The API refuses anything shorter, and asking it to say so on every
@@ -38,8 +42,8 @@ export async function search(query: string): Promise<SearchOutcome> {
 
   try {
     const { data } = await api<SearchHit[]>(
-      `/search?q=${encodeURIComponent(terms)}&limit=15`,
-      { revalidate: false },
+      `/search?q=${encodeURIComponent(terms)}&limit=15${category === null ? "" : `&types=${category}`}`,
+      { revalidate: 0 },
     );
 
     return { results: data, error: null };
@@ -62,4 +66,42 @@ export async function search(query: string): Promise<SearchOutcome> {
 
     return { results: [], error: t("common.unreachable") };
   }
+}
+
+/**
+ * This person's recent searches, newest first. A failure is an empty list:
+ * the palette still searches without its memory, and a red error before a
+ * single key is pressed would be about something nobody asked for.
+ */
+export async function recentSearches(): Promise<RecentSearch[]> {
+  // `revalidate: 0`, never `false`: in Next.js `false` caches the answer
+  // forever, and a palette offering searches already forgotten — with ids that
+  // no longer exist, so × removes nothing — is exactly what that produced.
+  return api<RecentSearch[]>("/me/recent-searches", { revalidate: 0 })
+    .then((r) => r.data)
+    .catch(() => []);
+}
+
+/**
+ * Remember a search that led somewhere. Called when a result is opened, and
+ * never awaited by the navigation: losing one entry of a convenience is not a
+ * reason to hold somebody on the palette.
+ */
+export async function rememberSearch(query: string, category: SearchCategory | null): Promise<void> {
+  const terms = query.trim();
+
+  if (terms.length < 2) return;
+
+  await api("/me/recent-searches", {
+    method: "POST",
+    body: category === null ? { query: terms } : { query: terms, type: category },
+  }).catch(() => undefined);
+}
+
+export async function forgetSearch(id: string): Promise<void> {
+  await api(`/me/recent-searches/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => undefined);
+}
+
+export async function forgetAllSearches(): Promise<void> {
+  await api("/me/recent-searches", { method: "DELETE" }).catch(() => undefined);
 }

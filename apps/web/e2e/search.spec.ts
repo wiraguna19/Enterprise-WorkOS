@@ -70,6 +70,63 @@ test.describe("search", () => {
 
     await expect(page).toHaveURL(new RegExp(`/work/${item.reference}$`));
   });
+
+  test("narrows to a category before typing, and offers the search back next time", async ({
+    browser,
+    viewport,
+  }) => {
+    const { page, session } = await signedInPhone(browser, AHMAD, viewport);
+
+    // Arranged: earlier runs' searches are this account's too, and the list
+    // asserted below is the whole list.
+    await call(session, "/me/recent-searches", { method: "DELETE" });
+
+    await page.goto("/");
+    await page.keyboard.press("ControlOrMeta+k");
+
+    const palette = page.getByRole("dialog", { name: "Search" });
+    const field = palette.getByRole("textbox", { name: "Search" });
+    const people = palette.getByRole("button", { name: "People", exact: true });
+
+    // Before a word is typed: the categories are there to choose from.
+    await expect(palette.getByRole("group", { name: "Search in" })).toBeVisible();
+    await people.click();
+    await expect(people).toHaveAttribute("aria-pressed", "true");
+
+    await field.fill("Sarah");
+
+    // Only people: the category is what was asked for.
+    await expect(palette.getByText("People", { exact: true }).last()).toBeVisible();
+    await expect(palette.getByText("Work", { exact: true })).toHaveCount(1); // the chip alone
+
+    await palette.getByRole("button", { name: /Sarah Chen/ }).first().click();
+    await expect(page).toHaveURL(/\/people\//);
+
+    // Next time, before typing: the search that led somewhere, with its category.
+    await page.keyboard.press("ControlOrMeta+k");
+
+    const recent = palette.getByRole("listitem").filter({ hasText: "Sarah" });
+
+    await expect(palette.getByText("Recent searches")).toBeVisible();
+    await expect(recent.first()).toContainText("People");
+
+    // Taken up again: the field and the category both come back.
+    await recent.first().getByRole("button", { name: /Sarah/ }).first().click();
+    await expect(field).toHaveValue("Sarah");
+    await expect(people).toHaveAttribute("aria-pressed", "true");
+
+    // And forgotten, from the server too.
+    await field.fill("");
+    await palette.getByRole("button", { name: "Remove “Sarah” from recent searches" }).click();
+    await expect(palette.getByText("Recent searches")).toBeHidden();
+
+    // The forgetting is not awaited by the screen, so it is waited for here.
+    await expect
+      .poll(() => call<unknown[]>(session, "/me/recent-searches"), {
+        message: "The search was removed from the palette but is still on the server.",
+      })
+      .toEqual([]);
+  });
 });
 
 async function anEngItem(session: Session): Promise<WorkItem> {
