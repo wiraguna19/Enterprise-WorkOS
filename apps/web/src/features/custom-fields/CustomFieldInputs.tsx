@@ -1,6 +1,8 @@
 "use client";
 
 import { Field, INPUT } from "@/components/ui/Field";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import type { CustomFieldAnswer } from "./types";
 
 /**
@@ -20,13 +22,18 @@ export function CustomFieldInputs({
   values,
   onChange,
   idPrefix,
+  locale = "en",
 }: {
   fields: CustomFieldAnswer[];
   /** key → current value, "" meaning unanswered. */
   values: Record<string, string>;
   onChange: (key: string, value: string) => void;
   idPrefix: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   if (fields.length === 0) return null;
 
   return (
@@ -41,7 +48,7 @@ export function CustomFieldInputs({
               key={field.key}
               id={id}
               label={field.label}
-              hint="This field has been retired. Its answer is kept, and cannot be changed."
+              hint={t("cf.retired")}
             >
               <p id={id} className="text-body-sm text-n-700">
                 {value === "" ? "—" : value}
@@ -55,7 +62,7 @@ export function CustomFieldInputs({
             key={field.key}
             id={id}
             label={field.required ? `${field.label} *` : field.label}
-            hint={field.required ? "Required. Clearing this is refused." : undefined}
+            hint={field.required ? t("cf.required") : undefined}
           >
             {field.type === "select" ? (
               <select

@@ -5,6 +5,9 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import type { MessageKey } from "@/i18n/messages/en";
+import { priorityName } from "@/i18n/labels";
+import { useT } from "@/i18n/I18nProvider";
 import type { Project } from "@/features/work-item/types";
 import { setProjectArchived, updateProject, type ProjectEdit } from "./actions";
 
@@ -40,6 +43,7 @@ export function EditProjectForm({
 }) {
   const router = useRouter();
 
+  const t = useT();
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description ?? "");
   const [status, setStatus] = useState(project.status);
@@ -93,11 +97,11 @@ export function EditProjectForm({
     <div className="space-y-4">
       <Panel
         id="details"
-        title="Details"
+        title={t("pedit.details")}
         description={
           <>
-            The key <code className="font-mono">{project.key}</code> cannot change — it is in
-            every work item reference this project has produced.
+            {t("pedit.keyNote.before")} <code className="font-mono">{project.key}</code>{" "}
+            {t("pedit.keyNote.after")}
           </>
         }
         footer={
@@ -108,19 +112,19 @@ export function EditProjectForm({
               disabled={saving || conflict !== null || name.trim().length < 2}
               onClick={save}
             >
-              {saving ? "Saving…" : "Save changes"}
+              {saving ? t("common.saving") : t("pedit.saveChanges")}
             </Button>
 
             {name.trim().length < 2 && (
               <p role="status" className="text-caption text-n-500">
-                A project needs a name of at least two characters.
+                {t("pedit.nameTooShort")}
               </p>
             )}
           </div>
         }
       >
         <div className="space-y-3">
-          <Field id={nameId} label="Name">
+          <Field id={nameId} label={t("projects.col.name")}>
             <input
               id={nameId}
               value={name}
@@ -130,7 +134,7 @@ export function EditProjectForm({
             />
           </Field>
 
-          <Field id={descriptionId} label="Description">
+          <Field id={descriptionId} label={t("wi.description")}>
             <textarea
               id={descriptionId}
               rows={4}
@@ -143,8 +147,8 @@ export function EditProjectForm({
           <div className="grid gap-3 sm:grid-cols-3">
             <Field
               id={statusId}
-              label="Status"
-              hint="How the work is going. Not the same as archived."
+              label={t("status.status")}
+              hint={t("pedit.statusHint")}
             >
               <select
                 id={statusId}
@@ -154,13 +158,13 @@ export function EditProjectForm({
               >
                 {STATUSES.map((candidate) => (
                   <option key={candidate} value={candidate}>
-                    {candidate.replace(/_/g, " ")}
+                    {t(`project.status.${candidate}` as MessageKey)}
                   </option>
                 ))}
               </select>
             </Field>
 
-            <Field id={priorityId} label="Priority">
+            <Field id={priorityId} label={t("form.priority")}>
               <select
                 id={priorityId}
                 value={priority}
@@ -169,7 +173,7 @@ export function EditProjectForm({
               >
                 {(priorities.includes(project.priority) ? priorities : [project.priority, ...priorities]).map((candidate) => (
                   <option key={candidate} value={candidate}>
-                    {candidate}
+                    {priorityName(candidate, t)}
                   </option>
                 ))}
               </select>
@@ -177,8 +181,8 @@ export function EditProjectForm({
 
             <Field
               id={visibilityId}
-              label="Visibility"
-              hint="Private is visible to its members only."
+              label={t("pedit.visibility")}
+              hint={t("pedit.visHint")}
             >
               <select
                 id={visibilityId}
@@ -186,14 +190,14 @@ export function EditProjectForm({
                 onChange={(event) => setVisibility(event.target.value as Project["visibility"])}
                 className={INPUT}
               >
-                <option value="internal">internal</option>
-                <option value="private">private</option>
+                <option value="internal">{t("pedit.internal")}</option>
+                <option value="private">{t("projects.private")}</option>
               </select>
             </Field>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field id={startId} label="Starts" hint="Empty clears it.">
+            <Field id={startId} label={t("pedit.starts")} hint={t("pedit.startsHint")}>
               <input
                 id={startId}
                 type="date"
@@ -203,7 +207,7 @@ export function EditProjectForm({
               />
             </Field>
 
-            <Field id={endId} label="Ends" hint="Cannot be before the start.">
+            <Field id={endId} label={t("pedit.ends")} hint={t("pedit.endsHint")}>
               <input
                 id={endId}
                 type="date"
@@ -217,12 +221,10 @@ export function EditProjectForm({
           {conflict !== null ? (
             <div role="alert" className="space-y-2 rounded-lg border border-s-active/40 bg-s-active/5 p-3">
               <p className="text-body-sm text-n-900">
-                Somebody else saved this project while you had it open — it is now at version{" "}
-                {conflict.current}, and you started from {conflict.yours}. Your changes have not
-                been saved, and theirs have not been touched.
+                {t("pedit.conflict", { current: conflict.current, yours: conflict.yours })}
               </p>
               <Button size="sm" onClick={() => router.refresh()}>
-                Reload their version
+                {t("pedit.reload")}
               </Button>
             </div>
           ) : (
@@ -249,6 +251,7 @@ export function EditProjectForm({
  */
 function ArchiveControl({ project }: { project: Project }) {
   const router = useRouter();
+  const t = useT();
   const [armed, setArmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [working, start] = useTransition();
@@ -268,31 +271,27 @@ function ArchiveControl({ project }: { project: Project }) {
   return (
     <Panel
       id="archive"
-      title={archived ? "Archived" : "Archive this project"}
-      description={
-        archived
-          ? "It is off the boards and out of the directory. Its work, hours and history are untouched."
-          : "It comes off the boards and out of the directory. Nothing is deleted, and you can bring it back."
-      }
+      title={archived ? t("parchive.archived") : t("parchive.title")}
+      description={archived ? t("parchive.archivedDesc") : t("parchive.desc")}
       tone={archived ? "default" : "danger"}
     >
       <div className="flex flex-wrap items-center gap-2">
         {archived ? (
           <Button size="sm" variant="affirmative" disabled={working} onClick={run}>
-            {working ? "Restoring…" : "Bring it back"}
+            {working ? t("archived.restoring") : t("parchive.bringBack")}
           </Button>
         ) : armed ? (
           <>
             <Button size="sm" variant="danger" disabled={working} onClick={run}>
-              {working ? "Archiving…" : `Archive ${project.key}`}
+              {working ? t("parchive.archiving") : t("parchive.archiveKey", { key: project.key })}
             </Button>
             <Button size="sm" variant="ghost" disabled={working} onClick={() => setArmed(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </>
         ) : (
           <Button size="sm" variant="destructive" disabled={working} onClick={() => setArmed(true)}>
-            Archive
+            {t("parchive.archive")}
           </Button>
         )}
 

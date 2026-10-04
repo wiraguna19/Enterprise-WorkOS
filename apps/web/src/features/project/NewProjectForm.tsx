@@ -5,6 +5,8 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import { priorityName } from "@/i18n/labels";
+import { useT } from "@/i18n/I18nProvider";
 import { createProject } from "./actions";
 
 type Option = { id: string; label: string };
@@ -40,6 +42,7 @@ export function NewProjectForm({
    */
   priorities: string[];
 }) {
+  const t = useT();
   const router = useRouter();
 
   const [key, setKey] = useState("");
@@ -99,8 +102,8 @@ export function NewProjectForm({
           consequential control in the product sits (ADR 0024). */}
       <Panel
         id="new-project"
-        title="Project"
-        description="The key is permanent; everything else can change later."
+        title={t("pnew.panel")}
+        description={t("pnew.panelDesc")}
         footer={
           <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -109,7 +112,7 @@ export function NewProjectForm({
                 variant="primary"
                 disabled={submitting || key.trim() === "" || name.trim().length < 2}
               >
-                {submitting ? "Creating…" : "Create project"}
+                {submitting ? t("pnew.creating") : t("pnew.create")}
               </Button>
 
               <Button
@@ -118,7 +121,7 @@ export function NewProjectForm({
                 disabled={submitting}
                 onClick={() => router.back()}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
 
@@ -135,7 +138,7 @@ export function NewProjectForm({
       >
       <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
-        <Field id={keyId} label="Key" hint="ENG, OPS-style. Permanent.">
+        <Field id={keyId} label={t("projects.col.key")} hint={t("pnew.keyHint")}>
           <input
             id={keyId}
             type="text"
@@ -152,7 +155,7 @@ export function NewProjectForm({
           />
         </Field>
 
-        <Field id={nameId} label="Name">
+        <Field id={nameId} label={t("projects.col.name")}>
           <input
             id={nameId}
             type="text"
@@ -161,13 +164,13 @@ export function NewProjectForm({
             minLength={2}
             maxLength={160}
             required
-            placeholder="What this project is for"
+            placeholder={t("pnew.namePlaceholder")}
             className={INPUT}
           />
         </Field>
       </div>
 
-      <Field id={descriptionId} label="Description" hint="Markdown, and optional.">
+      <Field id={descriptionId} label={t("wi.description")} hint={t("pnew.descHint")}>
         <textarea
           id={descriptionId}
           value={description}
@@ -181,8 +184,8 @@ export function NewProjectForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           id={visibilityId}
-          label="Visibility"
-          hint="Private means members only, and it is not reversible from here."
+          label={t("pedit.visibility")}
+          hint={t("pnew.visHint")}
         >
           <select
             id={visibilityId}
@@ -190,23 +193,23 @@ export function NewProjectForm({
             onChange={(event) => setVisibility(event.target.value)}
             className={INPUT}
           >
-            <option value="">Default</option>
-            <option value="internal">Internal — anyone in the organization</option>
-            <option value="private">Private — project members only</option>
+            <option value="">{t("form.default")}</option>
+            <option value="internal">{t("pnew.vis.internal")}</option>
+            <option value="private">{t("pnew.vis.private")}</option>
           </select>
         </Field>
 
-        <Field id={priorityId} label="Priority">
+        <Field id={priorityId} label={t("form.priority")}>
           <select
             id={priorityId}
             value={priority}
             onChange={(event) => setPriority(event.target.value)}
             className={INPUT}
           >
-            <option value="">Default</option>
+            <option value="">{t("form.default")}</option>
             {priorities.map((value) => (
               <option key={value} value={value}>
-                {value.charAt(0).toUpperCase() + value.slice(1)}
+                {priorityName(value, t)}
               </option>
             ))}
           </select>
@@ -214,8 +217,8 @@ export function NewProjectForm({
 
         <Field
           id={departmentFieldId}
-          label="Department"
-          hint="Optional. Reports split delivered work by this."
+          label={t("pnew.department")}
+          hint={t("pnew.deptHint")}
         >
           <select
             id={departmentFieldId}
@@ -223,7 +226,7 @@ export function NewProjectForm({
             onChange={(event) => setDepartmentId(event.target.value)}
             className={INPUT}
           >
-            <option value="">None</option>
+            <option value="">{t("form.none")}</option>
             {departments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.label}
@@ -233,7 +236,7 @@ export function NewProjectForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field id={startId} label="Start">
+          <Field id={startId} label={t("pnew.start")}>
             <input
               id={startId}
               type="date"
@@ -243,7 +246,7 @@ export function NewProjectForm({
             />
           </Field>
 
-          <Field id={endId} label="End">
+          <Field id={endId} label={t("pnew.end")}>
             <input
               id={endId}
               type="date"

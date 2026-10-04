@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, TBody, Td, THead, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import type { MessageKey } from "@/i18n/messages/en";
+import { useT } from "@/i18n/I18nProvider";
+import type { Translator } from "@/i18n/translate";
 import {
   addProjectMember,
   removeProjectMember,
@@ -15,6 +18,11 @@ import {
 } from "./actions";
 
 const ROLES = ["owner", "manager", "member", "viewer"];
+
+/** A role in the reader's language; one the API adds later shows as it arrives (ADR 0060). */
+function roleName(role: string, t: Translator): string {
+  return ROLES.includes(role) ? t(`members.role.${role}` as MessageKey) : role;
+}
 
 /**
  * Who can see and work on a project (ADR 0041).
@@ -46,6 +54,7 @@ export function ProjectMembers({
   integrations?: Array<{ id: string; label: string }>;
   canManage: boolean;
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [working, start] = useTransition();
 
@@ -68,16 +77,16 @@ export function ProjectMembers({
 
       <Panel
         id="members"
-        title="Access"
-        description={`${members.length} ${members.length === 1 ? "entry" : "entries"}. A private project is visible to these people only.`}
+        title={t("members.title")}
+        description={t.plural("members.entries", members.length)}
         bleed
       >
-        <DataTable caption="People and teams with access to this project">
+        <DataTable caption={t("members.caption")}>
           <THead>
             <Tr>
-              <Th>Name</Th>
-              <Th>Role</Th>
-              <Th align="right">Actions</Th>
+              <Th>{t("projects.col.name")}</Th>
+              <Th>{t("members.col.role")}</Th>
+              <Th align="right">{t("members.col.actions")}</Th>
             </Tr>
           </THead>
           <TBody>
@@ -86,19 +95,19 @@ export function ProjectMembers({
                 <Td>
                   <span className="flex items-center gap-2">
                     {member.subject === "team" ? (
-                      <Badge tone="info">team</Badge>
+                      <Badge tone="info">{t("members.team")}</Badge>
                     ) : member.is_service ? (
-                      <Badge tone="neutral">integration</Badge>
+                      <Badge tone="neutral">{t("members.integration")}</Badge>
                     ) : (
                       <Avatar id={member.membership_id ?? member.id} name={member.name ?? "?"} size="sm" />
                     )}
-                    <span className="font-medium">{member.name ?? "Unnamed"}</span>
+                    <span className="font-medium">{member.name ?? t("common.unnamed")}</span>
                   </span>
                 </Td>
                 <Td muted>
                   {canManage ? (
                     <select
-                      aria-label={`Role for ${member.name ?? "this entry"}`}
+                      aria-label={t("members.roleFor", { name: member.name ?? t("members.thisEntry") })}
                       value={member.role}
                       disabled={working}
                       onChange={(event) =>
@@ -108,12 +117,12 @@ export function ProjectMembers({
                     >
                       {ROLES.map((role) => (
                         <option key={role} value={role}>
-                          {role}
+                          {roleName(role, t)}
                         </option>
                       ))}
                     </select>
                   ) : (
-                    member.role
+                    roleName(member.role, t)
                   )}
                 </Td>
                 <Td align="right">
@@ -124,7 +133,7 @@ export function ProjectMembers({
                       disabled={working}
                       onClick={() => run(() => removeProjectMember(projectKey, member.id))}
                     >
-                      Remove
+                      {t("ms.remove")}
                     </Button>
                   )}
                 </Td>
@@ -150,13 +159,8 @@ export function ProjectMembers({
 
 type Subject = "person" | "team" | "integration";
 
-const LABEL: Record<Subject, string> = { person: "Person", team: "Team", integration: "Integration" };
-const NOUN: Record<Subject, string> = { person: "a person", team: "a team", integration: "an integration" };
-const EXHAUSTED: Record<Subject, string> = {
-  person: "Everyone already has access.",
-  team: "Every team already has access.",
-  integration: "No integration is left to add. Settings → Service accounts makes one.",
-};
+// Words for each subject live in the dictionaries (ADR 0060):
+// `give.label.*`, `give.subject.*`, `give.choose.*`, `give.exhausted.*`.
 
 /**
  * Adding one, with the person/team choice made explicitly.
@@ -181,6 +185,7 @@ function AddMember({
   working: boolean;
   onAdd: (input: { membership_id?: string; team_id?: string; role: string }) => void;
 }) {
+  const t = useT();
   const [subject, setSubject] = useState<Subject>("person");
   const [who, setWho] = useState("");
   const [role, setRole] = useState("member");
@@ -190,8 +195,8 @@ function AddMember({
   return (
     <Panel
       id="add-member"
-      title="Give access"
-      description="A team's access follows the team — people who join it get access, people who leave lose it."
+      title={t("give.title")}
+      description={t("give.desc")}
       footer={
         <div className="flex flex-wrap items-center gap-3">
           <Button
@@ -207,19 +212,19 @@ function AddMember({
               setWho("");
             }}
           >
-            {working ? "Adding…" : "Add"}
+            {working ? t("give.adding") : t("give.add")}
           </Button>
 
           {who === "" && (
             <p role="status" className="text-caption text-n-500">
-              {options.length === 0 ? EXHAUSTED[subject] : `Choose ${NOUN[subject]}.`}
+              {t(options.length === 0 ? `give.exhausted.${subject}` : `give.choose.${subject}`)}
             </p>
           )}
         </div>
       }
     >
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field id={`${projectKey}-subject`} label="Add">
+        <Field id={`${projectKey}-subject`} label={t("give.addLabel")}>
           <select
             id={`${projectKey}-subject`}
             value={subject}
@@ -231,13 +236,13 @@ function AddMember({
             }}
             className={INPUT}
           >
-            <option value="person">a person</option>
-            <option value="team">a team</option>
-            <option value="integration">an integration</option>
+            <option value="person">{t("give.subject.person")}</option>
+            <option value="team">{t("give.subject.team")}</option>
+            <option value="integration">{t("give.subject.integration")}</option>
           </select>
         </Field>
 
-        <Field id={`${projectKey}-who`} label={LABEL[subject]}>
+        <Field id={`${projectKey}-who`} label={t(`give.label.${subject}`)}>
           <select
             id={`${projectKey}-who`}
             value={who}
@@ -253,7 +258,7 @@ function AddMember({
           </select>
         </Field>
 
-        <Field id={`${projectKey}-role`} label="Role" hint="Owners and managers can change the project.">
+        <Field id={`${projectKey}-role`} label={t("members.col.role")} hint={t("give.roleHint")}>
           <select
             id={`${projectKey}-role`}
             value={role}
@@ -262,7 +267,7 @@ function AddMember({
           >
             {ROLES.map((candidate) => (
               <option key={candidate} value={candidate}>
-                {candidate}
+                {roleName(candidate, t)}
               </option>
             ))}
           </select>

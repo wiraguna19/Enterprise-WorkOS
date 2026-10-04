@@ -81,6 +81,11 @@ test.describe("interface language", () => {
         await page.goto(`/projects/${project.key}/board`);
         await expect(page.getByRole("link", { name: "Ringkasan", exact: true })).toBeVisible();
       }
+
+      // The new-project screen answers in Indonesian whether or not Budi may
+      // create one: the refusal is translated too.
+      await page.goto("/projects/new");
+      await expect(page.getByRole("heading", { name: "Proyek baru", level: 1 })).toBeVisible();
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

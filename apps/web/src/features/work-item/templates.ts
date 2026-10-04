@@ -1,4 +1,7 @@
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
+import type { Locale } from "@/i18n/config";
+import { priorityName } from "@/i18n/labels";
+import { translator } from "@/i18n/translate";
 
 /**
  * A work item template, as `WorkItemTemplateController::present()` sends it
@@ -143,20 +146,22 @@ export function addDays(date: string, days: number): string {
 }
 
 /** What a template fills in, in words, for a row in a list. */
-export function describeFields(fields: TemplateFields): string {
+export function describeFields(fields: TemplateFields, locale: Locale = "en"): string {
+  // English unless the screen around it has been translated (ADR 0060).
+  const t = translator(locale);
   const parts: string[] = [];
 
   if (fields.type) parts.push(humanize(fields.type));
-  if (fields.priority) parts.push(`${humanize(fields.priority)} priority`);
-  if (fields.estimate_hours !== undefined) parts.push(`${fields.estimate_hours} h`);
+  if (fields.priority) parts.push(t("tf.priority", { priority: priorityName(fields.priority, t) }));
+  if (fields.estimate_hours !== undefined) parts.push(t("time.hours", { hours: fields.estimate_hours }));
   if (fields.due_in_days !== undefined) {
-    parts.push(fields.due_in_days === 0 ? "due the same day" : `due in ${fields.due_in_days} d`);
+    parts.push(fields.due_in_days === 0 ? t("tf.sameDay") : t("tf.dueIn", { days: fields.due_in_days }));
   }
-  if (fields.title) parts.push(`title “${fields.title}”`);
-  if (fields.description) parts.push("a description");
+  if (fields.title) parts.push(t("tf.title", { title: fields.title }));
+  if (fields.description) parts.push(t("tf.description"));
 
   const custom = Object.keys(fields.custom_fields ?? {}).length;
-  if (custom > 0) parts.push(`${custom} custom field${custom === 1 ? "" : "s"}`);
+  if (custom > 0) parts.push(t.plural("tf.custom", custom));
 
   return parts.join(" · ");
 }

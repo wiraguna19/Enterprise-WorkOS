@@ -5,6 +5,8 @@ import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { TemplateEditor } from "@/features/work-item/components/TemplateEditor";
 import type { WorkItemTemplate, WorkVocabulary } from "@/features/work-item/templates";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -25,6 +27,9 @@ export default async function TemplatesPage() {
 
   if (!me.permissions.includes("work_item_template.manage")) notFound();
 
+  // Translated (ADR 0060), with the editor it shares with project settings.
+  const t = translator(asLocale(me.user.locale));
+
   const [templates, vocabulary, customFields] = await Promise.all([
     api<WorkItemTemplate[]>("/work-item-templates").then((r) => r.data),
     api<WorkVocabulary>("/work-items/vocabulary").then((r) => r.data),
@@ -36,8 +41,8 @@ export default async function TemplatesPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Templates"
-        description="Starting points for new work. Picked on the New work item form, and changed freely there."
+        title={t("settings.templates.label")}
+        description={t("tpl.page.description")}
       />
 
       <PageBody>

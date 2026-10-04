@@ -15,6 +15,9 @@ import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { TemplateEditor } from "@/features/work-item/components/TemplateEditor";
 import type { WorkItemTemplate, WorkVocabulary } from "@/features/work-item/templates";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -102,15 +105,21 @@ export default async function ProjectSettingsPage({
   ]);
 
   const priorities = vocabulary.priorities;
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+  const status = ["planning", "active", "on_hold", "completed", "cancelled"].includes(project.status)
+    ? t(`project.status.${project.status}` as MessageKey)
+    : project.status.replace(/_/g, " ");
 
   return (
     <div className="space-y-5">
       <PageHeader
         title={project.name}
-        description={project.archived ? "Archived." : `${project.key} · ${project.status.replace(/_/g, " ")}`}
+        description={project.archived ? t("psettings.archived") : `${project.key} · ${status}`}
       />
 
-      <ProjectTabs projectKey={project.key} active="settings" canManage />
+      <ProjectTabs projectKey={project.key} active="settings" canManage locale={locale} />
 
       <PageBody>
         <EditProjectForm project={project} priorities={priorities} />
@@ -125,21 +134,22 @@ export default async function ProjectSettingsPage({
         <ProjectMembers
           projectKey={project.key}
           members={members}
-          people={people.map((person) => ({ id: person.id, label: person.name ?? "Unnamed" }))}
+          people={people.map((person) => ({ id: person.id, label: person.name ?? t("common.unnamed") }))}
           teams={teams.map((team) => ({ id: team.id, label: team.name }))}
-          integrations={integrations.map((account) => ({ id: account.id, label: account.name ?? "Unnamed" }))}
+          integrations={integrations.map((account) => ({ id: account.id, label: account.name ?? t("common.unnamed") }))}
           canManage={canManage}
         />
 
         <Panel
           id="history"
-          title="History"
-          description="Who changed this project, and who gained or lost access to it."
+          title={t("wi.history")}
+          description={t("psettings.history.description")}
         >
           <ActivityTimeline
             events={activity}
             timeZone={me.user.timezone}
-            emptyMessage="Nothing has happened to this project yet."
+            emptyMessage={t("psettings.history.empty")}
+            locale={locale}
           />
         </Panel>
       </PageBody>

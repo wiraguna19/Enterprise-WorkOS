@@ -8,6 +8,8 @@ import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { CustomFieldInputs } from "@/features/custom-fields/CustomFieldInputs";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
+import { priorityName } from "@/i18n/labels";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { createTemplate, deleteTemplate, saveTemplate } from "../template-actions";
 import {
   applicableAnswers,
@@ -50,6 +52,8 @@ export function TemplateEditor({
   /** Live fields only, blank — the same list the create form gets. */
   customFields: CustomFieldAnswer[];
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [saving, start] = useTransition();
@@ -76,25 +80,25 @@ export function TemplateEditor({
 
       <Panel
         id="templates"
-        title="Templates"
+        title={t("settings.templates.label")}
         description={
           project !== undefined
             ? templates.length === 0
-              ? `None yet. A template written here is offered when creating work in ${project.name}, beside the organization's.`
-              : `${templates.length} offered when creating work in ${project.name}, beside the organization's.`
+              ? t("tpl.project.empty", { project: project.name })
+              : t("tpl.project.count", { count: templates.length, project: project.name })
             : templates.length === 0
-              ? "None yet. A template you write here is offered on the New work item form in every project."
-              : `${templates.length} offered on the New work item form in every project. A project's own templates are kept in its settings.`
+              ? t("tpl.org.empty")
+              : t("tpl.org.count", { count: templates.length })
         }
         bleed
       >
         {templates.length > 0 && (
-          <DataTable caption="Work item templates, alphabetically">
+          <DataTable caption={t("tpl.caption")}>
             <THead>
               <Tr>
-                <Th>Name</Th>
-                <Th>Fills in</Th>
-                <Th align="right">Actions</Th>
+                <Th>{t("projects.col.name")}</Th>
+                <Th>{t("tpl.col.fills")}</Th>
+                <Th align="right">{t("members.col.actions")}</Th>
               </Tr>
             </THead>
             <TBody>
@@ -112,11 +116,11 @@ export function TemplateEditor({
                       )}
                     </Td>
                     <Td muted>
-                      {describeFields(template.fields)}
+                      {describeFields(template.fields, locale)}
                       {stale.length > 0 && (
                         <span className="mt-1 block">
                           <Badge tone="neutral" icon="minus">
-                            {`skips ${stale.join(", ")}`}
+                            {t("tpl.skips", { fields: stale.join(", ") })}
                           </Badge>
                         </span>
                       )}
@@ -129,7 +133,7 @@ export function TemplateEditor({
                           disabled={saving}
                           onClick={() => setEditing(editing === template.id ? null : template.id)}
                         >
-                          {editing === template.id ? "Close" : "Edit"}
+                          {editing === template.id ? t("tpl.close") : t("common.edit")}
                         </Button>
                         <DeleteTemplate
                           name={template.name}
@@ -152,8 +156,8 @@ export function TemplateEditor({
           <TemplateForm
             key={template.id}
             id={`edit-${template.id}`}
-            title={`Edit ${template.name}`}
-            submitLabel="Save"
+            title={t("ms.edit", { name: template.name })}
+            submitLabel={t("common.save")}
             initial={template}
             vocabulary={vocabulary}
             customFields={customFields}
@@ -167,8 +171,8 @@ export function TemplateEditor({
         // empties itself without a reset function for every field.
         key={`new-${templates.length}`}
         id="new-template"
-        title={project === undefined ? "Write a template" : `Write a template for ${project.name}`}
-        submitLabel="Save template"
+        title={project === undefined ? t("tpl.write") : t("tpl.writeFor", { project: project.name })}
+        submitLabel={t("tpl.saveTemplate")}
         vocabulary={vocabulary}
         customFields={customFields}
         saving={saving}
@@ -194,12 +198,13 @@ function DeleteTemplate({
   disabled: boolean;
   onConfirm: () => void;
 }) {
+  const t = useT();
   const [armed, setArmed] = useState(false);
 
   if (!armed) {
     return (
       <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setArmed(true)}>
-        Delete
+        {t("tpl.delete")}
       </Button>
     );
   }
@@ -215,10 +220,10 @@ function DeleteTemplate({
           onConfirm();
         }}
       >
-        Delete {name} (work already created stays)
+        {t("tpl.deleteConfirm", { name })}
       </Button>
       <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setArmed(false)}>
-        Cancel
+        {t("common.cancel")}
       </Button>
     </span>
   );
@@ -243,6 +248,8 @@ function TemplateForm({
   saving: boolean;
   onSubmit: (input: { name: string; purpose: string; fields: TemplateFields }) => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const start = initial?.fields ?? {};
 
   const [name, setName] = useState(initial?.name ?? "");
@@ -295,16 +302,16 @@ function TemplateForm({
   // disabled control with no reason is a dead end.
   const blocker =
     name.trim() === ""
-      ? "Give it a name first — it is what the picker shows."
+      ? t("tpl.needName")
       : Object.keys(fields).length === 0
-        ? "Fill in at least one field. A template that fills in nothing changes nothing."
+        ? t("tpl.needField")
         : null;
 
   return (
     <Panel
       id={id}
       title={title}
-      description="Everything here is a starting point: the person creating the work sees every field and can change any of them. Who does the work, and the project, are always chosen on the form."
+      description={t("tpl.formDesc")}
       footer={
         <div className="flex flex-wrap items-center gap-3">
           <Button
@@ -313,7 +320,7 @@ function TemplateForm({
             disabled={saving || blocker !== null}
             onClick={() => onSubmit({ name: name.trim(), purpose, fields })}
           >
-            {saving ? "Saving…" : submitLabel}
+            {saving ? t("common.saving") : submitLabel}
           </Button>
 
           {blocker !== null && (
@@ -326,18 +333,18 @@ function TemplateForm({
     >
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id={nameId} label="Name" hint="What the picker shows. Unique among this organization's templates, or this project's.">
+          <Field id={nameId} label={t("projects.col.name")} hint={t("tpl.nameHint")}>
             <input
               id={nameId}
               value={name}
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
-              placeholder="e.g. Bug report"
+              placeholder={t("tpl.namePlaceholder")}
               className={INPUT}
             />
           </Field>
 
-          <Field id={purposeId} label="What it is for" hint="Optional. One sentence, shown under the name.">
+          <Field id={purposeId} label={t("tpl.purpose")} hint={t("tpl.purposeHint")}>
             <input
               id={purposeId}
               value={purpose}
@@ -350,10 +357,10 @@ function TemplateForm({
 
         <div className="space-y-3 border-t border-n-100 pt-4">
           <h3 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-            Fills in
+            {t("tpl.col.fills")}
           </h3>
 
-          <Field id={titleId} label="Title" hint="Often the start of a title the person finishes, like “Access request for”. Spaces at either end are trimmed.">
+          <Field id={titleId} label={t("tpl.titleLabel")} hint={t("tpl.titleHint")}>
             <input
               id={titleId}
               value={itemTitle}
@@ -363,7 +370,7 @@ function TemplateForm({
             />
           </Field>
 
-          <Field id={descriptionId} label="Description" hint="Markdown. A checklist of what to include works well.">
+          <Field id={descriptionId} label={t("wi.description")} hint={t("tpl.descHint")}>
             <textarea
               id={descriptionId}
               rows={4}
@@ -375,14 +382,14 @@ function TemplateForm({
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field id={typeId} label="Type">
+            <Field id={typeId} label={t("tpl.type")}>
               <select
                 id={typeId}
                 value={type}
                 onChange={(event) => setType(event.target.value)}
                 className={INPUT}
               >
-                <option value="">Not set by the template</option>
+                <option value="">{t("tpl.notSet")}</option>
                 {vocabulary.types.map((value) => (
                   <option key={value} value={value}>
                     {humanize(value)}
@@ -391,23 +398,23 @@ function TemplateForm({
               </select>
             </Field>
 
-            <Field id={priorityId} label="Priority">
+            <Field id={priorityId} label={t("form.priority")}>
               <select
                 id={priorityId}
                 value={priority}
                 onChange={(event) => setPriority(event.target.value)}
                 className={INPUT}
               >
-                <option value="">Not set by the template</option>
+                <option value="">{t("tpl.notSet")}</option>
                 {vocabulary.priorities.map((value) => (
                   <option key={value} value={value}>
-                    {humanize(value)}
+                    {priorityName(value, t)}
                   </option>
                 ))}
               </select>
             </Field>
 
-            <Field id={estimateId} label="Estimate" hint="Hours.">
+            <Field id={estimateId} label={t("wi.field.estimate")} hint={t("tpl.estimateHint")}>
               <input
                 id={estimateId}
                 type="number"
@@ -423,8 +430,8 @@ function TemplateForm({
 
             <Field
               id={dueId}
-              label="Due in"
-              hint="Days after the form is opened. A calendar date would be the same date forever."
+              label={t("tpl.dueIn")}
+              hint={t("tpl.dueInHint")}
             >
               <input
                 id={dueId}
@@ -444,7 +451,7 @@ function TemplateForm({
         {customFields.length > 0 && (
           <div className="space-y-3 border-t border-n-100 pt-4">
             <h3 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-              Fields for this organization
+              {t("wi.customFields")}
             </h3>
 
             <CustomFieldInputs
@@ -455,14 +462,14 @@ function TemplateForm({
               values={custom}
               idPrefix={`${id}-cf`}
               onChange={(key, value) => setCustom((current) => ({ ...current, [key]: value }))}
+              locale={locale}
             />
           </div>
         )}
 
         {stale.length > 0 && (
           <p role="status" className="text-caption text-n-500">
-            No longer applies: {stale.join(", ")}. The field was retired or removed, or the option
-            it chose is gone. It is skipped when this template is used, and saving drops it.
+            {t("tpl.stale", { fields: stale.join(", ") })}
           </p>
         )}
       </div>

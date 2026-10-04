@@ -3,6 +3,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { NewProjectForm } from "@/features/project/NewProjectForm";
 import type { WorkVocabulary } from "@/features/work-item/templates";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -22,14 +24,16 @@ type Department = { id: string; name: string; code: string | null; depth: number
 
 export default async function NewProjectPage() {
   const me = await requireUser();
+  // Translated (ADR 0060).
+  const t = translator(asLocale(me.user.locale));
 
   if (!me.permissions.includes("project.create")) {
     return (
       <div className="space-y-5">
-        <PageHeader title="New project" />
+        <PageHeader title={t("projects.new")} />
         <EmptyState
-          title="You cannot create projects here"
-          description="Creating a project needs the project.create permission. Your administrator grants it with a role."
+          title={t("pnew.cannot.title")}
+          description={t("pnew.cannot.body")}
         />
       </div>
     );
@@ -49,8 +53,8 @@ export default async function NewProjectPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="New project"
-        description="You will own it, and be its first member."
+        title={t("projects.new")}
+        description={t("pnew.description")}
       />
 
       <NewProjectForm

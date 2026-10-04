@@ -235,9 +235,13 @@ last entry is deliberately last.
                         The project list, a project's overview (health,
                         milestones, the items behind each signal) and its
                         board, including the whole-column page.
-                        Next, one screen at a time: project settings and
-                        the new-project form, new/edit work item, then the
-                        rest of Settings.
+                        Project settings (details, archive, templates,
+                        access) and the new-project form, with Settings →
+                        Templates because it shares the template editor.
+                        Next, one screen at a time: new/edit work item and
+                        the Work browse screen, then Calendar, Timesheet,
+                        Recurring, Reports, People, Teams, Departments and
+                        the rest of Settings.
 ```
 
 ---
