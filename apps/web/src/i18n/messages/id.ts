@@ -253,6 +253,9 @@ export const id: Messages = {
   "inbox.reviews.title": "Menunggu Anda",
   "inbox.reviews.description":
     "Yang terlama lebih dulu — tinjauan yang paling lama menunggu adalah yang sedang menahan seseorang.",
+  "inbox.page.partOf": "{shown} dari {total} di sini, terlama lebih dulu. Sisanya ada di halaman berikutnya.",
+  "inbox.page.later": "Lebih jauh di antrean — {shown} dari {total}.",
+  "inbox.page.backToStart": "Kembali ke yang terlama",
   "inbox.reviews.emptyLabel": "Tidak ada yang menunggu Anda.",
   "inbox.waiting.empty.title": "Anda tidak sedang menunggu siapa pun",
   "inbox.waiting.empty.body":

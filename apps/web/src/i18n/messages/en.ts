@@ -244,6 +244,9 @@ export const en = {
   "inbox.reviews.title": "Waiting on you",
   "inbox.reviews.description":
     "Oldest first — a review that has been waiting longest is the one holding somebody up.",
+  "inbox.page.partOf": "{shown} of {total} here, oldest first. The rest are on the next page.",
+  "inbox.page.later": "Further along the queue — {shown} of {total}.",
+  "inbox.page.backToStart": "Back to the oldest",
   "inbox.reviews.emptyLabel": "Nothing is waiting on you.",
   "inbox.waiting.empty.title": "You are not waiting on anyone",
   "inbox.waiting.empty.body":

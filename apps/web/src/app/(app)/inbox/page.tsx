@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
@@ -8,7 +9,7 @@ import { NotificationList } from "@/features/inbox/NotificationList";
 import { ReviewQueue } from "@/features/inbox/ReviewQueue";
 import type { Approval, Notification } from "@/features/work-item/types";
 import { asLocale } from "@/i18n/config";
-import { translator } from "@/i18n/translate";
+import { translator, type Translator } from "@/i18n/translate";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { clsx } from "@/lib/clsx";
@@ -31,7 +32,7 @@ const TABS = ["reviews", "waiting", "activity"] as const;
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; cursor?: string }>;
 }) {
   const [me, params] = await Promise.all([requireUser(), searchParams]);
   const tab = TABS.find((key) => key === params.tab) ?? "reviews";
@@ -39,6 +40,12 @@ export default async function InboxPage({
   // the server and stay English until the API speaks the language too.
   const locale = asLocale(me.user.locale);
   const t = translator(locale);
+
+  // A page further along whichever queue is open. Only that tab's request
+  // carries it: the other tab's count is a fact about its whole queue.
+  const cursor = typeof params.cursor === "string" && params.cursor !== "" ? params.cursor : null;
+  const after = (forTab: (typeof TABS)[number]) =>
+    cursor !== null && tab === forTab ? `&cursor=${encodeURIComponent(cursor)}` : "";
 
   // Every list here is a PAGE, and every count beside it is a total the server
   // counted before paging. They are different questions and this screen used to
@@ -48,12 +55,12 @@ export default async function InboxPage({
   // its count from the server (ADR 0008: a count is a fact about the queue, the
   // rows are a page of it).
   const [reviews, waiting, notifications, unread] = await Promise.all([
-    api<Approval[]>("/approvals?role=reviewer&status=pending")
-      .then((r) => ({ rows: r.data, total: totalIn(r.meta, r.data.length) }))
-      .catch(() => ({ rows: [] as Approval[], total: 0 })),
-    api<Approval[]>("/me/approvals?role=requester&status=pending")
-      .then((r) => ({ rows: r.data, total: totalIn(r.meta, r.data.length) }))
-      .catch(() => ({ rows: [] as Approval[], total: 0 })),
+    api<Approval[]>(`/approvals?role=reviewer&status=pending${after("reviews")}`)
+      .then((r) => ({ rows: r.data, total: totalIn(r.meta, r.data.length), next: nextIn(r.meta) }))
+      .catch(() => ({ rows: [] as Approval[], total: 0, next: null })),
+    api<Approval[]>(`/me/approvals?role=requester&status=pending${after("waiting")}`)
+      .then((r) => ({ rows: r.data, total: totalIn(r.meta, r.data.length), next: nextIn(r.meta) }))
+      .catch(() => ({ rows: [] as Approval[], total: 0, next: null })),
     api<Notification[]>("/notifications")
       .then((r) => r.data).catch(() => [] as Notification[]),
     api<{ unread: number }>("/notifications/unread-count")
@@ -130,7 +137,8 @@ export default async function InboxPage({
             <Panel
               id="reviews"
               title={t("inbox.reviews.title")}
-              description={t("inbox.reviews.description")}
+              description={pageNote(t("inbox.reviews.description"), reviews, cursor !== null, t)}
+              footer={<QueuePager tab="reviews" next={reviews.next} paged={cursor !== null} t={t} />}
               bleed
             >
               <ReviewQueue
@@ -153,7 +161,8 @@ export default async function InboxPage({
             <Panel
               id="waiting"
               title={t("inbox.waiting.title")}
-              description={t("inbox.waiting.description")}
+              description={pageNote(t("inbox.waiting.description"), waiting, cursor !== null, t)}
+              footer={<QueuePager tab="waiting" next={waiting.next} paged={cursor !== null} t={t} />}
               bleed
             >
               <ReviewQueue
@@ -196,6 +205,67 @@ export default async function InboxPage({
  * length is exactly what this function exists to stop — but only where a total
  * was never sent.
  */
+/**
+ * Where this page sits in the queue, when it is not the whole of it.
+ *
+ * The queue is oldest-first on purpose, and the API serves it a page at a
+ * time. This page used to render the first page and stop, so a reviewer with
+ * more than fifty pending never saw the newest ones at all — nothing said they
+ * existed beyond a count in the tab.
+ */
+function pageNote(
+  base: string,
+  queue: { rows: unknown[]; total: number; next: string | null },
+  paged: boolean,
+  t: Translator,
+): string {
+  if (paged) return t("inbox.page.later", { shown: queue.rows.length, total: queue.total });
+  if (queue.next !== null) {
+    return `${base} ${t("inbox.page.partOf", { shown: queue.rows.length, total: queue.total })}`;
+  }
+
+  return base;
+}
+
+function QueuePager({
+  tab,
+  next,
+  paged,
+  t,
+}: {
+  tab: string;
+  next: string | null;
+  paged: boolean;
+  t: Translator;
+}) {
+  if (next === null && !paged) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {paged && (
+        <ButtonLink href={`/inbox?tab=${tab}`} size="sm" variant="ghost">
+          {t("inbox.page.backToStart")}
+        </ButtonLink>
+      )}
+      {next !== null && (
+        <ButtonLink
+          href={`/inbox?${new URLSearchParams({ tab, cursor: next })}`}
+          size="sm"
+          variant="secondary"
+        >
+          {t("browse.next")}
+        </ButtonLink>
+      )}
+    </div>
+  );
+}
+
+function nextIn(meta: unknown): string | null {
+  const pagination = (meta as { pagination?: { next_cursor?: unknown } } | null)?.pagination;
+
+  return typeof pagination?.next_cursor === "string" ? pagination.next_cursor : null;
+}
+
 function totalIn(meta: unknown, fallback: number): number {
   const total = (meta as { total?: unknown } | null)?.total;
 
