@@ -32,13 +32,8 @@ export type FieldVocabulary = {
   types: FieldType[];
 };
 
-/** What each type is for, in the words the person declaring one would use. */
-export const TYPE_DESCRIPTIONS: Record<FieldType, string> = {
-  text: "A short line — a client name, a ticket reference.",
-  number: "An amount or a quantity. Filters and sorts as a number.",
-  date: "A calendar date, separate from the item's own dates.",
-  select: "One of a list you write. The list is the point.",
-};
+// What each type is for lives in the dictionaries now (`fld.typeHint.*`), so
+// it reads in the declaring person's language (ADR 0060).
 
 /**
  * One declared field as it appears ON a record, answer included (ADR 0038).

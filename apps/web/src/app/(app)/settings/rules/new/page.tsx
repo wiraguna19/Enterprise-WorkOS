@@ -4,6 +4,8 @@ import { RuleForm } from "@/features/workflow/RuleForm";
 import type { Vocabulary } from "@/features/workflow/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Authoring a rule.
@@ -21,13 +23,15 @@ export default async function NewRulePage() {
 
   if (!me.permissions.includes("workflow.manage")) notFound();
 
+  const t = translator(asLocale(me.user.locale));
+
   const { data: vocabulary } = await api<Vocabulary>("/workflow-vocabulary");
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="New rule"
-        description="It runs on every change that matches, for everybody."
+        title={t("rules.new")}
+        description={t("rule.new.description")}
       />
 
       <RuleForm vocabulary={vocabulary} />

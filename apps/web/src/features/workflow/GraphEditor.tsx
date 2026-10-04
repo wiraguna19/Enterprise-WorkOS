@@ -12,6 +12,8 @@ import {
   renameState,
 } from "./actions";
 import type { Workflow, Vocabulary } from "./types";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * Editing the graph work moves through (ADR 0015).
@@ -34,6 +36,7 @@ export function GraphEditor({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const t = useT();
 
   const run = (action: () => Promise<{ error: string | null }>) =>
     startAction(async () => {
@@ -57,7 +60,7 @@ export function GraphEditor({
 
       <section aria-labelledby="states-heading" className="space-y-3">
         <h2 id="states-heading" className="text-h2 font-semibold text-n-900">
-          Statuses
+          {t("graph.statuses")}
         </h2>
 
         <ul className="divide-y divide-n-100 border-y border-n-100">
@@ -78,7 +81,7 @@ export function GraphEditor({
 
       <section aria-labelledby="moves-heading" className="space-y-3">
         <h2 id="moves-heading" className="text-h2 font-semibold text-n-900">
-          Moves
+          {t("graph.moves")}
         </h2>
 
         <ul className="divide-y divide-n-100 border-y border-n-100">
@@ -92,14 +95,14 @@ export function GraphEditor({
                 <span className="text-n-500">
                   {transition.from_state_id
                     ? (byId.get(transition.from_state_id)?.label ?? "—")
-                    : "from any state"}{" "}
+                    : t("graph.fromAnyLower")}{" "}
                   → {byId.get(transition.to_state_id)?.label ?? transition.to_state_id}
                 </span>
                 {transition.requires_comment && (
-                  <span className="text-caption text-n-500"> · asks for a reason</span>
+                  <span className="text-caption text-n-500"> · {t("wf.asksReason")}</span>
                 )}
                 {transition.is_guarded && (
-                  <span className="text-caption text-n-500"> · not open to everyone</span>
+                  <span className="text-caption text-n-500"> · {t("wf.guarded")}</span>
                 )}
               </span>
 
@@ -109,7 +112,7 @@ export function GraphEditor({
                 disabled={busy}
                 onClick={() => run(() => removeTransition(workflow.id, transition.id))}
               >
-                Remove
+                {t("ms.remove")}
               </Button>
             </li>
           ))}
@@ -137,18 +140,22 @@ function StateRow({
   onRemove: () => void;
 }) {
   const [label, setLabel] = useState(state.label);
+  const t = useT();
 
   const renamed = label.trim() !== "" && label !== state.label;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
       <span className="w-44 shrink-0">
-        <StatusChip category={state.category as StateCategory} label={state.category} />
+        <StatusChip
+          category={state.category as StateCategory}
+          label={t(`stateCat.${state.category}` as MessageKey)}
+        />
         <span className="mt-0.5 block font-mono text-micro text-n-500">{state.key}</span>
       </span>
 
       <input
-        aria-label={`Name for ${state.key}`}
+        aria-label={t("graph.nameFor", { key: state.key })}
         className={`${INPUT} w-auto flex-1`}
         value={label}
         maxLength={60}
@@ -159,11 +166,11 @@ function StateRow({
           which is why renaming is free while the key and the category are
           refused (ADR 0015). */}
       <Button variant="secondary" size="sm" disabled={busy || !renamed} onClick={() => onRename(label)}>
-        Rename
+        {t("graph.rename")}
       </Button>
 
       <Button variant="ghost" size="sm" disabled={busy} onClick={onRemove}>
-        Remove
+        {t("ms.remove")}
       </Button>
     </div>
   );
@@ -181,6 +188,7 @@ function AddState({
   const [key, setKey] = useState("");
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState(vocabulary.state_categories[0] ?? "todo");
+  const t = useT();
 
   return (
     <form
@@ -192,7 +200,7 @@ function AddState({
         setLabel("");
       }}
     >
-      <Field id="state-label" label="Name" hint="What people will see.">
+      <Field id="state-label" label={t("projects.col.name")} hint={t("graph.state.name.hint")}>
         <input
           id="state-label"
           className={INPUT}
@@ -203,7 +211,7 @@ function AddState({
         />
       </Field>
 
-      <Field id="state-key" label="Key" hint="What rules match on. It cannot be changed later.">
+      <Field id="state-key" label={t("projects.col.key")} hint={t("graph.state.key.hint")}>
         <input
           id="state-key"
           className={INPUT}
@@ -215,7 +223,7 @@ function AddState({
         />
       </Field>
 
-      <Field id="state-category" label="Counts as" hint="What every report and board reasons about.">
+      <Field id="state-category" label={t("graph.countsAs")} hint={t("graph.countsAs.hint")}>
         <select
           id="state-category"
           className={INPUT}
@@ -224,14 +232,14 @@ function AddState({
         >
           {vocabulary.state_categories.map((value) => (
             <option key={value} value={value}>
-              {value.replace("_", " ")}
+              {t(`stateCat.${value}` as MessageKey)}
             </option>
           ))}
         </select>
       </Field>
 
       <Button type="submit" variant="secondary" size="sm" disabled={busy}>
-        Add status
+        {t("graph.addStatus")}
       </Button>
     </form>
   );
@@ -255,6 +263,7 @@ function AddTransition({
   const [to, setTo] = useState(workflow.states[0]?.id ?? "");
   const [label, setLabel] = useState("");
   const [requiresComment, setRequiresComment] = useState(false);
+  const t = useT();
 
   return (
     <form
@@ -273,7 +282,7 @@ function AddTransition({
         setLabel("");
       }}
     >
-      <Field id="move-label" label="Name" hint="Named for what it does, not for the state it lands in.">
+      <Field id="move-label" label={t("projects.col.name")} hint={t("graph.move.name.hint")}>
         <input
           id="move-label"
           className={INPUT}
@@ -284,14 +293,14 @@ function AddTransition({
         />
       </Field>
 
-      <Field id="move-from" label="From">
+      <Field id="move-from" label={t("graph.from")}>
         <select
           id="move-from"
           className={INPUT}
           value={from}
           onChange={(event) => setFrom(event.target.value)}
         >
-          <option value="">any state</option>
+          <option value="">{t("graph.anyState")}</option>
           {workflow.states.map((state) => (
             <option key={state.id} value={state.id}>
               {state.label}
@@ -300,7 +309,7 @@ function AddTransition({
         </select>
       </Field>
 
-      <Field id="move-to" label="To">
+      <Field id="move-to" label={t("graph.to")}>
         <select
           id="move-to"
           className={INPUT}
@@ -321,11 +330,11 @@ function AddTransition({
           checked={requiresComment}
           onChange={(event) => setRequiresComment(event.target.checked)}
         />
-        asks for a reason
+        {t("wf.asksReason")}
       </label>
 
       <Button type="submit" variant="secondary" size="sm" disabled={busy || to === ""}>
-        Add move
+        {t("graph.addMove")}
       </Button>
     </form>
   );

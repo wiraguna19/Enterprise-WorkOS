@@ -11,6 +11,8 @@ import { describeAction, describeCondition, describeTrigger } from "@/features/w
 import type { Rule, RuleAction } from "@/features/workflow/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator, type Translator } from "@/i18n/translate";
 
 /**
  * What the system does on its own (docs/02 §7).
@@ -46,20 +48,21 @@ export default async function RulesPage() {
   // different acts, and the catalogue has said so since Phase 3.
   const mayRun = me.permissions.includes("workflow.run_rule");
   const unhealthy = rules.filter((rule) => !rule.health.healthy).length;
+  const t = translator(asLocale(me.user.locale));
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Automation rules"
+        title={t("settings.rules.label")}
         description={
           unhealthy > 0
-            ? `${rules.length} rules · ${unhealthy} not running`
-            : `${rules.length} rules · all running`
+            ? t("rules.summary.unhealthy", { count: rules.length, unhealthy })
+            : t("rules.summary.healthy", { count: rules.length })
         }
         action={
           mayManage ? (
             <ButtonLink href="/settings/rules/new" variant="primary">
-              New rule
+              {t("rules.new")}
             </ButtonLink>
           ) : undefined
         }
@@ -68,12 +71,12 @@ export default async function RulesPage() {
       <PageBody>
         {rules.length === 0 ? (
           <EmptyState
-            title="Nothing is automated"
-            description="A rule watches for something happening — work entering review, an item going overdue — and acts on it."
+            title={t("rules.empty.title")}
+            description={t("rules.empty.body")}
             action={
               mayManage ? (
                 <ButtonLink href="/settings/rules/new" variant="primary">
-                  Write the first one
+                  {t("rules.empty.action")}
                 </ButtonLink>
               ) : undefined
             }
@@ -82,7 +85,7 @@ export default async function RulesPage() {
           <ul className="space-y-4">
             {rules.map((rule) => (
               <li key={rule.id}>
-                <RuleCard rule={rule} mayManage={mayManage} mayRun={mayRun} />
+                <RuleCard rule={rule} mayManage={mayManage} mayRun={mayRun} t={t} />
               </li>
             ))}
           </ul>
@@ -96,13 +99,15 @@ function RuleCard({
   rule,
   mayManage,
   mayRun,
+  t,
 }: {
   rule: Rule;
   mayManage: boolean;
   mayRun: boolean;
+  t: Translator;
 }) {
   const headingId = `rule-${rule.id}`;
-  const conditions = describeCondition(rule.conditions);
+  const conditions = describeCondition(rule.conditions, t);
 
   return (
     <Panel
@@ -112,12 +117,12 @@ function RuleCard({
       // Health sits in the header, where the eye lands first: a rule failing
       // silently is the thing an administrator most needs to see and the thing
       // least likely to announce itself (ADR 0024).
-      actions={<Health rule={rule} />}
+      actions={<Health rule={rule} t={t} />}
       footer={
         mayManage ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <ButtonLink href={`/settings/rules/${rule.id}`} variant="ghost" size="sm">
-              Why it did or did not fire
+              {t("rules.why")}
             </ButtonLink>
 
             {/* Absent, not disabled, for a rule this form cannot express: a
@@ -125,7 +130,7 @@ function RuleCard({
                 that was never offered. The edit page says why if reached. */}
             {isBuildable(rule) && (
               <ButtonLink href={`/settings/rules/${rule.id}/edit`} variant="ghost" size="sm">
-                Edit
+                {t("hook.edit")}
               </ButtonLink>
             )}
 
@@ -138,12 +143,12 @@ function RuleCard({
     >
       <dl className="space-y-2 text-body-sm">
         <div className="flex flex-wrap gap-x-3">
-          <dt className="w-24 shrink-0 text-caption text-n-500">Runs</dt>
-          <dd className="min-w-0 text-n-700">{describeTrigger(rule.trigger)}</dd>
+          <dt className="w-24 shrink-0 text-caption text-n-500">{t("rules.runs")}</dt>
+          <dd className="min-w-0 text-n-700">{describeTrigger(rule.trigger, t)}</dd>
         </div>
 
         <div className="flex flex-wrap gap-x-3">
-          <dt className="w-24 shrink-0 text-caption text-n-500">If</dt>
+          <dt className="w-24 shrink-0 text-caption text-n-500">{t("rules.if")}</dt>
           <dd className="min-w-0 text-n-700">
             {conditions ? (
               <ul className="space-y-0.5">
@@ -161,12 +166,12 @@ function RuleCard({
         </div>
 
         <div className="flex flex-wrap gap-x-3">
-          <dt className="w-24 shrink-0 text-caption text-n-500">Then</dt>
+          <dt className="w-24 shrink-0 text-caption text-n-500">{t("rules.then")}</dt>
           <dd className="min-w-0 text-n-700">
             <ul className="space-y-0.5">
               {rule.actions.map((action, index) => (
                 <li key={`${action.type}-${index}`}>
-                  <Action action={action} />
+                  <Action action={action} t={t} />
                 </li>
               ))}
             </ul>
@@ -180,7 +185,7 @@ function RuleCard({
       {mayRun && rule.is_active && (
         <div className="mt-4 border-t border-n-100 pt-4">
           <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-            Try it against one item
+            {t("rules.try")}
           </h3>
 
           <TryRule ruleId={rule.id} />
@@ -190,8 +195,8 @@ function RuleCard({
   );
 }
 
-function Action({ action }: { action: RuleAction }) {
-  const described = describeAction(action);
+function Action({ action, t }: { action: RuleAction; t: Translator }) {
+  const described = describeAction(action, t);
 
   // An action type this build does not register is a rule authored against a
   // newer vocabulary — or a rule that will throw when it next runs, which the
@@ -215,11 +220,11 @@ function Action({ action }: { action: RuleAction }) {
  * and a rule that has been failing silently is the single thing an
  * administrator most needs to see.
  */
-function Health({ rule }: { rule: Rule }) {
+function Health({ rule, t }: { rule: Rule; t: Translator }) {
   if (rule.health.healthy) {
     return (
       <Badge tone="success" icon="check">
-        running
+        {t("rules.running")}
       </Badge>
     );
   }
@@ -229,7 +234,7 @@ function Health({ rule }: { rule: Rule }) {
   // ignore the colour.
   if (!rule.is_active && rule.health.disabled_reason === null) {
     return (
-      <Badge icon="minus">switched off</Badge>
+      <Badge icon="minus">{t("rules.switchedOff")}</Badge>
     );
   }
 
@@ -237,7 +242,8 @@ function Health({ rule }: { rule: Rule }) {
     // Solid, and the only solid badge on this screen: a rule failing silently
     // is what an administrator came here to find (ADR 0027).
     <Badge tone="danger" icon="alert" solid>
-      {rule.health.disabled_reason ?? `${rule.health.failure_count} recent failures`}
+      {rule.health.disabled_reason ??
+        t("rules.failures", { count: rule.health.failure_count })}
     </Badge>
   );
 }

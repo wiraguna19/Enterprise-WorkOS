@@ -173,6 +173,25 @@ test.describe("interface language", () => {
         await expect(page.getByRole("heading", { name: "Webhook", level: 1 })).toBeVisible();
       }
 
+      // How work is configured. Workflows and rules are readable by anyone
+      // signed in; roles and fields are behind their own permissions.
+      await page.goto("/settings/workflows");
+      await expect(page.getByRole("heading", { name: "Workflow", level: 1 })).toBeVisible();
+
+      await page.goto("/settings/rules");
+      await expect(page.getByRole("heading", { name: "Aturan otomatisasi", level: 1 })).toBeVisible();
+      await expect(page.getByText("Saat status pekerjaan berubah").first()).toBeVisible();
+
+      if (permissions.includes("role.view")) {
+        await page.goto("/settings/roles");
+        await expect(page.getByRole("heading", { name: "Role", level: 1 })).toBeVisible();
+      }
+
+      if (permissions.includes("custom_field.manage")) {
+        await page.goto("/settings/fields");
+        await expect(page.getByRole("heading", { name: "Field kustom", level: 1 })).toBeVisible();
+      }
+
       // Reports: the Flow page, behind report.view.
       if (permissions.includes("report.view")) {
         await page.goto("/reports");

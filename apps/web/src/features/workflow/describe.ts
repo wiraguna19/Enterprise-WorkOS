@@ -1,3 +1,5 @@
+import type { MessageKey } from "@/i18n/messages/en";
+import type { Translator } from "@/i18n/translate";
 import type { RuleAction, RuleCondition } from "./types";
 
 /**
@@ -14,49 +16,59 @@ import type { RuleAction, RuleCondition } from "./types";
  * lists, the handlers `ActionExecutor` registers. Field names are printed
  * verbatim: `days_overdue` is already English, and inventing "days late" would
  * be this file translating something it was not given.
+ *
+ * The words come from the reader's dictionary (ADR 0060), so every function
+ * takes the translator. The sets below say only WHICH keys exist: a key absent
+ * from them still means "show the raw rule", in every language alike.
  */
 
 /** Mirrors ConditionEvaluator::OPERATORS. An operator missing here is a
  *  vocabulary this build does not have, and a reason to show the raw rule. */
-const OPERATORS: Record<string, (field: string, value: unknown) => string> = {
-  eq: (field, value) => `${field} is ${literal(value)}`,
-  neq: (field, value) => `${field} is not ${literal(value)}`,
-  in: (field, value) => `${field} is one of ${list(value)}`,
-  not_in: (field, value) => `${field} is none of ${list(value)}`,
-  gt: (field, value) => `${field} is more than ${literal(value)}`,
-  gte: (field, value) => `${field} is at least ${literal(value)}`,
-  lt: (field, value) => `${field} is less than ${literal(value)}`,
-  lte: (field, value) => `${field} is at most ${literal(value)}`,
-  contains: (field, value) => `${field} contains ${literal(value)}`,
-  is_null: (field) => `${field} is empty`,
-  is_not_null: (field) => `${field} is set`,
-  changed_to: (_field, value) => `it changes to ${literal(value)}`,
-  changed_from: (_field, value) => `it changes from ${literal(value)}`,
-};
+export const OPERATORS = new Set([
+  "eq",
+  "neq",
+  "in",
+  "not_in",
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+  "contains",
+  "is_null",
+  "is_not_null",
+  "changed_to",
+  "changed_from",
+]);
 
-const TRIGGERS: Record<string, string> = {
-  "work_item.status_changed": "work changes status",
-  "work_item.assigned": "work is assigned",
-  "work_item.created": "work is created",
-  "approval.decided": "an approval is decided",
-  "schedule.due_soon": "work is due soon",
-  "schedule.overdue": "work is overdue",
-};
+/** Operators whose value is a list, printed joined rather than as JSON. */
+const LISTED = new Set(["in", "not_in"]);
 
-const ACTIONS: Record<string, string> = {
-  notify: "Notify",
-  assign: "Assign",
-  transition: "Move",
-  create_approval: "Open an approval",
-  escalate: "Escalate",
-  webhook: "Send a webhook",
-};
+const TRIGGERS = new Set([
+  "work_item.status_changed",
+  "work_item.assigned",
+  "work_item.created",
+  "approval.decided",
+  "schedule.due_soon",
+  "schedule.overdue",
+]);
+
+export const ACTIONS = new Set([
+  "notify",
+  "assign",
+  "transition",
+  "create_approval",
+  "escalate",
+  "webhook",
+]);
 
 /** The trigger in words, or the key itself. */
-export function describeTrigger(trigger: string): string {
-  const phrase = TRIGGERS[trigger];
+export function describeTrigger(trigger: string, t: Translator): string {
+  return TRIGGERS.has(trigger) ? t(`trig.${trigger}` as MessageKey) : trigger;
+}
 
-  return phrase ? `When ${phrase}` : trigger;
+/** An action's name in words, or the key itself. */
+export function actionName(type: string, t: Translator): string {
+  return ACTIONS.has(type) ? t(`ract.${type}` as MessageKey) : type;
 }
 
 /**
@@ -69,48 +81,49 @@ export function describeTrigger(trigger: string): string {
  * printed as a list would read as "all", which is the exact error this file
  * exists to avoid.
  */
-export function describeCondition(condition: RuleCondition): string[] | null {
+export function describeCondition(condition: RuleCondition, t: Translator): string[] | null {
   // An empty predicate matches everything, and the evaluator says so.
-  if (Object.keys(condition).length === 0) return ["Every time it happens"];
+  if (Object.keys(condition).length === 0) return [t("desc.always")];
 
-  return lines(condition, 0);
+  return lines(condition, 0, t);
 }
 
-function lines(node: RuleCondition, depth: number): string[] | null {
+function lines(node: RuleCondition, depth: number, t: Translator): string[] | null {
   // The evaluator stops at depth 8; a predicate that deep is past the point
   // where a sentence helps anyone anyway.
   if (depth > 4) return null;
 
   if (Array.isArray(node.all)) {
-    return flatten(node.all.map((child) => lines(asNode(child), depth + 1)));
+    return flatten(node.all.map((child) => lines(asNode(child), depth + 1, t)));
   }
 
   if (Array.isArray(node.any)) {
-    const children = flatten(node.any.map((child) => lines(asNode(child), depth + 1)));
+    const children = flatten(node.any.map((child) => lines(asNode(child), depth + 1, t)));
 
     if (!children) return null;
 
     // One line, so the "or" cannot be misread as another "and" in a list.
-    return [`any of: ${children.join(" · or · ")}`];
+    return [t("desc.anyOf", { list: children.join(t("desc.or")) })];
   }
 
   if (node.not !== undefined) {
-    const child = lines(asNode(node.not), depth + 1);
+    const child = lines(asNode(node.not), depth + 1, t);
 
-    return child ? [`not: ${child.join(" and ")}`] : null;
+    return child ? [t("desc.not", { list: child.join(t("desc.and")) })] : null;
   }
 
-  return leaf(node);
+  return leaf(node, t);
 }
 
-function leaf(node: RuleCondition): string[] | null {
+function leaf(node: RuleCondition, t: Translator): string[] | null {
   const field = node.field;
   const operator = typeof node.op === "string" ? node.op : "eq";
-  const render = OPERATORS[operator];
 
-  if (typeof field !== "string" || !render) return null;
+  if (typeof field !== "string" || !OPERATORS.has(operator)) return null;
 
-  return [render(field, node.value)];
+  const value = LISTED.has(operator) ? list(node.value, t) : literal(node.value, t);
+
+  return [t(`desc.op.${operator}` as MessageKey, { field, value })];
 }
 
 /**
@@ -121,16 +134,17 @@ function leaf(node: RuleCondition): string[] | null {
  * this file has no list of, and a summary that quietly drops one would be a
  * description of a different action.
  */
-export function describeAction(action: RuleAction): { verb: string; config: string[] } | null {
-  const verb = ACTIONS[action.type];
-
-  if (!verb) return null;
+export function describeAction(
+  action: RuleAction,
+  t: Translator,
+): { verb: string; config: string[] } | null {
+  if (!ACTIONS.has(action.type)) return null;
 
   const config = Object.entries(action.with ?? {}).map(
-    ([key, value]) => `${key}: ${literal(value)}`,
+    ([key, value]) => `${key}: ${literal(value, t)}`,
   );
 
-  return { verb, config };
+  return { verb: actionName(action.type, t), config };
 }
 
 function asNode(value: unknown): RuleCondition {
@@ -150,13 +164,15 @@ function flatten(parts: Array<string[] | null>): string[] | null {
   return all;
 }
 
-function list(value: unknown): string {
-  return Array.isArray(value) ? value.map(literal).join(", ") : literal(value);
+function list(value: unknown, t: Translator): string {
+  return Array.isArray(value)
+    ? value.map((entry) => literal(entry, t)).join(", ")
+    : literal(value, t);
 }
 
-function literal(value: unknown): string {
-  if (value === null || value === undefined) return "nothing";
-  if (typeof value === "boolean") return value ? "yes" : "no";
+function literal(value: unknown, t: Translator): string {
+  if (value === null || value === undefined) return t("desc.nothing");
+  if (typeof value === "boolean") return value ? t("desc.yes") : t("desc.no");
   if (Array.isArray(value) || typeof value === "object") return JSON.stringify(value);
 
   return String(value);

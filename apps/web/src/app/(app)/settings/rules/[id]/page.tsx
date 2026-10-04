@@ -8,6 +8,8 @@ import { describeTrigger } from "@/features/workflow/describe";
 import type { Rule, RuleRun } from "@/features/workflow/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator, type Translator } from "@/i18n/translate";
 import { formatDateTime } from "@/lib/format";
 
 /**
@@ -51,6 +53,8 @@ export default async function RuleRunsPage({ params }: { params: Promise<{ id: s
 
   const matched = runs.filter((run) => run.matched).length;
   const failed = runs.filter((run) => run.outcome === "failed").length;
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   return (
     <div className="space-y-5">
@@ -60,39 +64,37 @@ export default async function RuleRunsPage({ params }: { params: Promise<{ id: s
           rule by way of the settings index. */}
       <Breadcrumb
         items={[
-          { label: "Automation rules", href: "/settings/rules" },
+          { label: t("settings.rules.label"), href: "/settings/rules" },
           { label: rule.name },
         ]}
+        locale={locale}
       />
 
       <PageHeader
         title={rule.name}
         description={
           runs.length === 0
-            ? describeTrigger(rule.trigger)
-            : `${runs.length} most recent · ${matched} matched · ${failed} failed`
+            ? describeTrigger(rule.trigger, t)
+            : t("rule.runs.summary", { count: runs.length, matched, failed })
         }
       />
 
       <PageBody>
         {runs.length === 0 ? (
           <EmptyState
-            title="It has not run yet"
-            description={`Nothing has happened that this rule watches for — ${describeTrigger(rule.trigger).toLowerCase()}. A rule with no runs is not evidence that it works.`}
+            title={t("rule.notRun.title")}
+            description={t("rule.notRun.body", {
+              trigger: describeTrigger(rule.trigger, t).toLocaleLowerCase(locale),
+            })}
           />
         ) : (
         <Panel
           id="runs"
-          title="Recent runs"
-          description={
-            'Newest first. Skipped runs are listed too — "did not match" is the commonest ' +
-            'answer to "why didn\'t it fire", and a log of only the matches cannot give it.'
-          }
+          title={t("rule.recent")}
+          description={t("rule.recent.description")}
           footer={
             <p className="text-caption text-n-500">
-              A run is written when the engine evaluates this rule. Nothing is written for a
-              preview, and a run the engine could not record is reported in the application log
-              rather than counted against the rule (ADR 0036).
+              {t("rule.recent.footer")}
             </p>
           }
           bleed
@@ -104,11 +106,11 @@ export default async function RuleRunsPage({ params }: { params: Promise<{ id: s
                 className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3"
               >
                 <span className="w-40 shrink-0 text-caption tabular-nums text-n-500">
-                  {formatDateTime(run.occurred_at, me.user.timezone)}
+                  {formatDateTime(run.occurred_at, me.user.timezone, locale)}
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <Outcome run={run} />
+                  <Outcome run={run} t={t} />
                   {run.error && (
                     // The error verbatim. A run log that summarises the failure
                     // is a run log that cannot be used to fix it.
@@ -142,20 +144,20 @@ export default async function RuleRunsPage({ params }: { params: Promise<{ id: s
  * commonest answer to "why didn't it fire" looking like the rule was never
  * reached at all.
  */
-function Outcome({ run }: { run: RuleRun }) {
+function Outcome({ run, t }: { run: RuleRun; t: Translator }) {
   if (run.outcome === "failed") {
-    return <span className="text-body-sm text-s-danger">failed</span>;
+    return <span className="text-body-sm text-s-danger">{t("rule.failed")}</span>;
   }
 
   if (!run.matched) {
-    return <span className="text-body-sm text-n-700">skipped — its conditions did not hold</span>;
+    return <span className="text-body-sm text-n-700">{t("rule.skipped")}</span>;
   }
 
   const count = run.actions_run ?? 0;
 
   return (
     <span className="text-body-sm text-n-700">
-      matched — {count} {count === 1 ? "action" : "actions"} run
+      {t.plural("rule.matched", count)}
     </span>
   );
 }

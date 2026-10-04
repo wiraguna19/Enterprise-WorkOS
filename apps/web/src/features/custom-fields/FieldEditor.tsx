@@ -13,7 +13,8 @@ import {
   saveField,
   setFieldLive,
 } from "./actions";
-import { TYPE_DESCRIPTIONS, type CustomField, type FieldScope, type FieldType } from "./types";
+import type { CustomField, FieldScope, FieldType } from "./types";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Declaring, editing and retiring the fields of one scope (ADR 0038).
@@ -42,6 +43,7 @@ export function FieldEditor({
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [saving, start] = useTransition();
+  const t = useT();
 
   const live = fields.filter((field) => field.live);
 
@@ -77,24 +79,26 @@ export function FieldEditor({
 
       <Panel
         id="fields"
-        title="Fields"
+        title={t("fld.fields")}
         description={
           fields.length === 0
-            ? "None yet. A field you declare here appears on every record of this kind."
-            : `${live.length} in use${fields.length > live.length ? `, ${fields.length - live.length} retired` : ""}.`
+            ? t("fld.none")
+            : fields.length > live.length
+              ? t("fld.inUseRetired", { live: live.length, retired: fields.length - live.length })
+              : t("fld.inUse", { live: live.length })
         }
         bleed
       >
         {fields.length > 0 && (
-          <DataTable caption="Custom fields, in the order they appear on the form">
+          <DataTable caption={t("fld.caption")}>
             <THead>
               <Tr>
-                <Th>Label</Th>
-                <Th>Filter</Th>
-                <Th>Type</Th>
-                <Th>Required</Th>
-                <Th align="right">Order</Th>
-                <Th align="right">Actions</Th>
+                <Th>{t("fld.col.label")}</Th>
+                <Th>{t("fld.col.filter")}</Th>
+                <Th>{t("fld.col.type")}</Th>
+                <Th>{t("fld.col.required")}</Th>
+                <Th align="right">{t("fld.col.order")}</Th>
+                <Th align="right">{t("tok.col.actions")}</Th>
               </Tr>
             </THead>
             <TBody>
@@ -105,7 +109,7 @@ export function FieldEditor({
                     {!field.live && (
                       <span className="ml-2">
                         <Badge tone="neutral" icon="minus">
-                          retired
+                          {t("fld.retired")}
                         </Badge>
                       </span>
                     )}
@@ -116,8 +120,8 @@ export function FieldEditor({
                   <Td muted>
                     <code className="font-mono text-micro">{field.filter_key}</code>
                   </Td>
-                  <Td muted>{field.type}</Td>
-                  <Td muted>{field.required ? "Yes" : "—"}</Td>
+                  <Td muted>{typeName(field.type, t)}</Td>
+                  <Td muted>{field.required ? t("fld.yes") : "—"}</Td>
                   <Td align="right">
                     {field.live && (
                       <span className="inline-flex gap-1">
@@ -126,7 +130,7 @@ export function FieldEditor({
                           variant="ghost"
                           disabled={saving || live[0]?.id === field.id}
                           onClick={() => move(field, -1)}
-                          aria-label={`Move ${field.label} up`}
+                          aria-label={t("fld.moveUp", { label: field.label })}
                         >
                           ↑
                         </Button>
@@ -135,7 +139,7 @@ export function FieldEditor({
                           variant="ghost"
                           disabled={saving || live.at(-1)?.id === field.id}
                           onClick={() => move(field, 1)}
-                          aria-label={`Move ${field.label} down`}
+                          aria-label={t("fld.moveDown", { label: field.label })}
                         >
                           ↓
                         </Button>
@@ -150,7 +154,7 @@ export function FieldEditor({
                         disabled={saving}
                         onClick={() => setEditing(editing === field.id ? null : field.id)}
                       >
-                        {editing === field.id ? "Close" : "Edit"}
+                        {editing === field.id ? t("hook.close") : t("hook.edit")}
                       </Button>
 
                       {field.live ? (
@@ -160,7 +164,7 @@ export function FieldEditor({
                           disabled={saving}
                           onClick={() => run(() => setFieldLive(scope, field.id, false))}
                         >
-                          Retire
+                          {t("fld.retire")}
                         </Button>
                       ) : (
                         <Button
@@ -169,7 +173,7 @@ export function FieldEditor({
                           disabled={saving}
                           onClick={() => run(() => setFieldLive(scope, field.id, true))}
                         >
-                          Bring back
+                          {t("fld.bringBack")}
                         </Button>
                       )}
 
@@ -226,11 +230,12 @@ function DeleteField({
   onConfirm: () => void;
 }) {
   const [armed, setArmed] = useState(false);
+  const t = useT();
 
   if (!armed) {
     return (
       <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setArmed(true)}>
-        Delete
+        {t("hook.delete")}
       </Button>
     );
   }
@@ -246,10 +251,10 @@ function DeleteField({
           onConfirm();
         }}
       >
-        Delete {label} and its answers
+        {t("fld.deleteConfirm", { label })}
       </Button>
       <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setArmed(false)}>
-        Cancel
+        {t("common.cancel")}
       </Button>
     </span>
   );
@@ -267,16 +272,31 @@ function EditOne({
   const [label, setLabel] = useState(field.label);
   const [required, setRequired] = useState(field.required);
   const [options, setOptions] = useState(field.options.join("\n"));
+  const t = useT();
+
+  // Two pieces of the sentence are code; it is cut at its placeholders so each
+  // language keeps its own order around them.
+  const frozen = t("fld.frozen").split(/\{(key|filter)\}/);
 
   return (
     <Panel
       id={`edit-${field.id}`}
-      title={`Edit ${field.label}`}
+      title={t("fld.editTitle", { label: field.label })}
       description={
         <>
-          The key <code className="font-mono">{field.key}</code> cannot change — it is what{" "}
-          <code className="font-mono">{field.filter_key}</code> filters on, and every saved link
-          uses it. Neither can the type.
+          {frozen.map((part, index) =>
+            part === "key" ? (
+              <code key={index} className="font-mono">
+                {field.key}
+              </code>
+            ) : part === "filter" ? (
+              <code key={index} className="font-mono">
+                {field.filter_key}
+              </code>
+            ) : (
+              part
+            ),
+          )}
         </>
       }
       footer={
@@ -293,19 +313,19 @@ function EditOne({
             })
           }
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("common.saving") : t("common.save")}
         </Button>
 
         {label.trim() === "" && (
           <p role="status" className="text-caption text-n-500">
-            A field cannot lose its label.
+            {t("fld.noLabel")}
           </p>
         )}
         </div>
       }
     >
       <div className="space-y-3">
-        <Field id={`label-${field.id}`} label="Label">
+        <Field id={`label-${field.id}`} label={t("fld.col.label")}>
           <input
             id={`label-${field.id}`}
             value={label}
@@ -317,8 +337,8 @@ function EditOne({
         {field.type === "select" && (
           <Field
             id={`options-${field.id}`}
-            label="Options"
-            hint="One per line. Removing one does not remove it from records that already chose it."
+            label={t("fld.options")}
+            hint={t("fld.options.editHint")}
           >
             <textarea
               id={`options-${field.id}`}
@@ -368,6 +388,7 @@ function DeclareOne({
   // worse than no suggestion — and this one is frozen the moment it is saved,
   // so it has to be theirs.
   const [keyTouched, setKeyTouched] = useState(false);
+  const t = useT();
   const suggested = keyTouched ? key : slug(label);
 
   // Why the button is off, in the words of the thing that is missing.
@@ -379,18 +400,18 @@ function DeclareOne({
   // filled in and a greyed-out button looked broken.
   const blocker =
     label.trim() === ""
-      ? "Give it a label first."
+      ? t("fld.blocker.label")
       : suggested === ""
-        ? "That label has no letters to make a key from — type one in the key field."
+        ? t("fld.blocker.key")
         : type === "select" && splitOptions(options).length === 0
-          ? "A select needs at least one option."
+          ? t("fld.blocker.options")
           : null;
 
   return (
     <Panel
       id="declare"
-      title="Declare a field"
-      description={`It appears on every ${scope === "work_item" ? "work item" : "project"} in this organization.`}
+      title={t("fld.declare.title")}
+      description={scope === "work_item" ? t("fld.declare.workItem") : t("fld.declare.project")}
       footer={
         <div className="flex flex-wrap items-center gap-3">
         <Button
@@ -412,7 +433,7 @@ function DeclareOne({
             setRequired(false);
           }}
         >
-          {saving ? "Declaring…" : "Declare"}
+          {saving ? t("fld.declaring") : t("fld.declare")}
         </Button>
 
         {blocker !== null && (
@@ -427,22 +448,22 @@ function DeclareOne({
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="new-label" label="Label" hint="What people see on the form.">
+        <Field id="new-label" label={t("fld.col.label")} hint={t("fld.label.hint")}>
           <input
             id="new-label"
             value={label}
             onChange={(event) => setLabel(event.target.value)}
             // "e.g." because the old placeholder was the exact word somebody
             // would type here, so an empty field read as a filled one.
-            placeholder="e.g. Client"
+            placeholder={t("fld.label.placeholder")}
             className={INPUT}
           />
         </Field>
 
         <Field
           id="new-key"
-          label="Key"
-          hint={`Frozen once declared. Filters as cf_${suggested || "…"}.`}
+          label={t("projects.col.key")}
+          hint={t("fld.key.hint", { key: suggested || "…" })}
         >
           <input
             id="new-key"
@@ -451,12 +472,12 @@ function DeclareOne({
               setKeyTouched(true);
               setKey(slug(event.target.value));
             }}
-            placeholder="e.g. client"
+            placeholder={t("fld.key.placeholder")}
             className={`${INPUT} font-mono`}
           />
         </Field>
 
-        <Field id="new-type" label="Type" hint={TYPE_DESCRIPTIONS[type]}>
+        <Field id="new-type" label={t("fld.col.type")} hint={t(`fld.typeHint.${type}`)}>
           <select
             id="new-type"
             value={type}
@@ -465,7 +486,7 @@ function DeclareOne({
           >
             {types.map((candidate) => (
               <option key={candidate} value={candidate}>
-                {candidate}
+                {typeName(candidate, t)}
               </option>
             ))}
           </select>
@@ -479,15 +500,15 @@ function DeclareOne({
           <div className="sm:col-span-2">
             <Field
               id="new-options"
-              label="Options"
-              hint="One per line. A select with no options is a field nobody can answer, so it is refused."
+              label={t("fld.options")}
+              hint={t("fld.options.newHint")}
             >
               <textarea
                 id="new-options"
                 rows={4}
                 value={options}
                 onChange={(event) => setOptions(event.target.value)}
-                placeholder={"e.g. Acme\nGlobex"}
+                placeholder={t("fld.options.placeholder")}
                 className={`${INPUT} resize-y`}
               />
             </Field>
@@ -515,6 +536,8 @@ function RequiredToggle({
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const t = useT();
+
   return (
     <label htmlFor={id} className="flex items-start gap-2 text-body-sm text-n-700">
       <input
@@ -525,16 +548,19 @@ function RequiredToggle({
         className="mt-0.5 size-4 rounded-sm border-n-300"
       />
       <span>
-        Required
-        <span className="block text-caption text-n-500">
-          Asked of records saved from now on. Existing ones are left alone.
-        </span>
+        {t("fld.col.required")}
+        <span className="block text-caption text-n-500">{t("fld.required.hint")}</span>
       </span>
     </label>
   );
 }
 
 /** A label as a key: lower-case, underscores, no leading digit. */
+/** A type's name in the reader's language; the value sent stays the API's. */
+function typeName(type: FieldType, t: ReturnType<typeof useT>): string {
+  return t(`fld.type.${type}`);
+}
+
 function slug(value: string): string {
   return value
     .toLowerCase()

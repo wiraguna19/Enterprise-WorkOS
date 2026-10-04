@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { setRuleActive } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Switching a rule off, and back on.
@@ -29,6 +30,7 @@ export function ActiveSwitch({
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+  const t = useT();
 
   const apply = (next: boolean) =>
     startAction(async () => {
@@ -46,8 +48,8 @@ export function ActiveSwitch({
         toast({
           tone: next ? "done" : "removed",
           message: next
-            ? `“${name}” is running again.`
-            : `“${name}” is switched off. Nothing it does will happen until it is switched back on.`,
+            ? t("rule.on.toast", { name })
+            : t("rule.off.toast", { name }),
         });
       }
     });
@@ -61,7 +63,7 @@ export function ActiveSwitch({
           </span>
         )}
         <Button variant="affirmative" size="sm" disabled={busy} onClick={() => apply(true)}>
-          {busy ? "Starting…" : "Switch on"}
+          {busy ? t("rule.starting") : t("hook.switchOn")}
         </Button>
       </span>
     );
@@ -70,7 +72,7 @@ export function ActiveSwitch({
   if (!confirming) {
     return (
       <Button variant="destructive" size="sm" onClick={() => setConfirming(true)}>
-        Switch off
+        {t("hook.switchOff")}
       </Button>
     );
   }
@@ -84,15 +86,15 @@ export function ActiveSwitch({
       )}
 
       <span className="text-caption text-n-500">
-        Stop “{name}” running? Nothing it does will happen until it is switched back on.
+        {t("rule.off.confirm", { name })}
       </span>
 
       <Button variant="secondary" size="sm" disabled={busy} onClick={() => apply(false)}>
-        {busy ? "Stopping…" : "Switch it off"}
+        {busy ? t("rule.stopping") : t("rule.switchItOff")}
       </Button>
 
       <Button variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming(false)}>
-        Leave it running
+        {t("rule.leaveRunning")}
       </Button>
     </span>
   );

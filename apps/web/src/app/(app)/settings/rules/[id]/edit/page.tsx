@@ -6,6 +6,8 @@ import { isBuildable } from "@/features/workflow/composable";
 import type { Rule, Vocabulary } from "@/features/workflow/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Editing a rule the builder can express.
@@ -34,18 +36,22 @@ export default async function EditRulePage({ params }: { params: Promise<{ id: s
 
   if (!rule) notFound();
 
+  const t = translator(asLocale(me.user.locale));
+
+  // The link sits inside the sentence, so the sentence is cut at its
+  // placeholder rather than assembled from fragments here.
+  const [tailBefore, tailAfter] = t("rule.unbuildable.tail").split("{list}");
+
   return (
     <div className="space-y-5">
-      <PageHeader title={rule.name} description="Changes apply to the next matching change." />
+      <PageHeader title={rule.name} description={t("rule.edit.description")} />
 
       {isBuildable(rule) ? (
         <RuleForm vocabulary={vocabulary} rule={rule} />
       ) : (
         <div className="max-w-prose space-y-3">
           <p className="text-body text-n-700">
-            This rule says something this form cannot draw — a nested condition, or an action
-            with no controls here. Opening it would mean saving back less than it says, so it
-            stays as it is.
+            {t("rule.unbuildable")}
           </p>
 
           <pre className="overflow-x-auto whitespace-pre-wrap break-words border border-n-100 bg-n-50 p-3 font-mono text-micro text-n-700 rounded-md">
@@ -53,11 +59,11 @@ export default async function EditRulePage({ params }: { params: Promise<{ id: s
           </pre>
 
           <p className="text-body-sm text-n-500">
-            It can still be switched off from{" "}
+            {tailBefore}
             <Link href="/settings/rules" className="text-a-700 underline">
-              the rules list
+              {t("rule.unbuildable.list")}
             </Link>
-            , and edited through the API.
+            {tailAfter}
           </p>
         </div>
       )}

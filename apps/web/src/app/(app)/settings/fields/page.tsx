@@ -5,6 +5,8 @@ import { FieldEditor } from "@/features/custom-fields/FieldEditor";
 import type { CustomField, FieldVocabulary } from "@/features/custom-fields/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * The fields an organization declared for itself (ADR 0038).
@@ -24,6 +26,8 @@ export default async function FieldsPage() {
 
   if (!me.permissions.includes("custom_field.manage")) notFound();
 
+  const t = translator(asLocale(me.user.locale));
+
   const [fields, vocabulary] = await Promise.all([
     api<CustomField[]>("/custom-fields/work_item").then((r) => r.data),
     api<FieldVocabulary>("/custom-fields/vocabulary").then((r) => r.data),
@@ -32,8 +36,8 @@ export default async function FieldsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Custom fields"
-        description="What this organization asks about a work item, on top of the fields every organization has."
+        title={t("settings.fields.label")}
+        description={t("fld.page.description")}
       />
 
       <PageBody>

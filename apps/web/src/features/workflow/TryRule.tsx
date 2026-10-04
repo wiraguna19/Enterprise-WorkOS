@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/Toast";
 import { previewRule, runRuleNow, type RulePreview } from "./actions";
 import { describeAction } from "./describe";
 import type { RuleAction } from "./types";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * "Try this rule against one item" (ADR 0035).
@@ -28,6 +29,7 @@ export function TryRule({ ruleId }: { ruleId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+  const t = useT();
 
   // Not matched, and part of the condition could not be evaluated: the honest
   // answer is "I cannot tell", and it is a different answer from "no".
@@ -38,8 +40,8 @@ export function TryRule({ ruleId }: { ruleId: string }) {
       <div className="flex flex-wrap items-end gap-2">
         <Field
           id={`try-${ruleId}`}
-          label="Work item"
-          hint="The reference as it is printed — ENG-142."
+          label={t("try.item")}
+          hint={t("try.item.hint")}
         >
           <input
             id={`try-${ruleId}`}
@@ -70,7 +72,7 @@ export function TryRule({ ruleId }: { ruleId: string }) {
             })
           }
         >
-          {busy ? "Checking…" : "What would it do?"}
+          {busy ? t("tfa.checking") : t("try.ask")}
         </Button>
       </div>
 
@@ -89,24 +91,21 @@ export function TryRule({ ruleId }: { ruleId: string }) {
                 answered is two sentences that cannot both be true, and the
                 confident one is the one people read (ADR 0035). */}
             {preview.matched ? (
-              <Badge tone="success" icon="check">conditions match</Badge>
+              <Badge tone="success" icon="check">{t("try.match")}</Badge>
             ) : inconclusive ? (
-              <Badge tone="warning" icon="alert">cannot be judged by hand</Badge>
+              <Badge tone="warning" icon="alert">{t("try.cannotJudge")}</Badge>
             ) : (
-              <Badge tone="neutral" icon="minus">conditions do not match</Badge>
+              <Badge tone="neutral" icon="minus">{t("try.noMatch")}</Badge>
             )}
             <span className="text-body-sm text-n-700">
-              on {reference.trim().toUpperCase()}
+              {t("try.on", { reference: reference.trim().toUpperCase() })}
             </span>
           </div>
 
           {preview.unavailableFacts.length > 0 && (
             <p className="mt-2 max-w-prose text-caption text-s-active">
-              This rule asks about {preview.unavailableFacts.join(", ")} — facts that exist only at
-              the moment something happens, and an item sitting still has no such moment.
-              {preview.matched
-                ? " What matched here is the rest of the condition; the event itself still has to arrive."
-                : " So this is not a verdict on the rule: it may match perfectly well when the event arrives."}
+              {t("try.momentFacts", { facts: preview.unavailableFacts.join(", ") })}
+              {preview.matched ? t("try.momentMatched") : t("try.momentNoMatch")}
             </p>
           )}
 
@@ -114,7 +113,7 @@ export function TryRule({ ruleId }: { ruleId: string }) {
             <>
               <ul className="mt-2 space-y-1">
                 {preview.actions.map((action, index) => {
-                  const described = describeAction(action as unknown as RuleAction);
+                  const described = describeAction(action as unknown as RuleAction, t);
 
                   return (
                     <li key={index} className="text-body-sm text-n-900">
@@ -142,13 +141,16 @@ export function TryRule({ ruleId }: { ruleId: string }) {
                         setPreview(null);
                         toast({
                           tone: "done",
-                          message: `Rule run on ${reference.trim().toUpperCase()} — ${result.outcome ?? "done"}.`,
+                          message: t("try.ran", {
+                            reference: reference.trim().toUpperCase(),
+                            outcome: result.outcome ?? t("try.done"),
+                          }),
                         });
                       }
                     })
                   }
                 >
-                  {busy ? "Running…" : "Run it for real"}
+                  {busy ? t("try.running") : t("try.runForReal")}
                 </Button>
               </div>
             </>

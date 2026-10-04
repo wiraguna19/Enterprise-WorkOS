@@ -264,8 +264,16 @@ last entry is deliberately last.
                         (endpoints, deliveries, the signing-secret panel).
                         Audit event names and webhook event keys are shown
                         as the API writes them.
-                        Next, one screen at a time: Roles, Fields,
-                        Workflows and Rules.
+                        Roles, custom fields, workflows (the catalogue and
+                        the graph editor) and automation rules (the list,
+                        each rule's runs, the rule form, the preview), with
+                        rule sentences built from the reader's dictionary.
+                        Every signed-in screen now reads in Indonesian.
+                        Left: the two signed-out pages besides the login
+                        form — accepting an invitation and signing in
+                        through SSO. Still English by design: messages the
+                        API writes (refusals, notification sentences,
+                        email), and what an organization names for itself.
 ```
 
 ---

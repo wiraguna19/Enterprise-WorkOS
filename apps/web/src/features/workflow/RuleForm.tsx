@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { createRule, saveRule, type RuleInput } from "./actions";
 import { BUILDABLE_ACTIONS, leaves, type Leaf } from "./composable";
-import { describeTrigger } from "./describe";
+import { OPERATORS, actionName, describeTrigger } from "./describe";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 import type { Rule, Vocabulary } from "./types";
 
 /**
@@ -28,32 +30,16 @@ import type { Rule, Vocabulary } from "./types";
  * does not have falls back to the operator key — the same rule `describe.ts`
  * follows, because a wrong phrase is believed and never checked again.
  */
-const OPERATOR_PHRASES: Record<string, string> = {
-  eq: "is",
-  neq: "is not",
-  in: "is one of",
-  not_in: "is none of",
-  gt: "is more than",
-  gte: "is at least",
-  lt: "is less than",
-  lte: "is at most",
-  contains: "contains",
-  is_null: "is empty",
-  is_not_null: "is set",
-  changed_to: "changes to",
-  changed_from: "changes from",
-};
+// Operator phrases live in the dictionaries (`op.*`); an operator the API
+// offers before they know it is shown by its key.
 
 /** Operators that take no value, and the ones that take several. */
 const VALUELESS = ["is_null", "is_not_null"];
 const MULTI = ["in", "not_in"];
 
 /** What the action picker says. A type this file has no word for prints as itself. */
-const ACTION_LABELS: Record<string, string> = {
-  notify: "Notify",
-  escalate: "Escalate",
-  webhook: "Send a webhook",
-};
+// Action names come from `actionName` in describe.ts, the same words the
+// rules list uses for the same action.
 
 type ActionDraft = {
   type: string;
@@ -69,6 +55,7 @@ type ActionDraft = {
 export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: Rule }) {
   const router = useRouter();
   const [busy, startAction] = useTransition();
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState(rule?.name ?? "");
@@ -126,7 +113,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
         </p>
       )}
 
-      <Field id="name" label="Name" hint="What an administrator will look for in the list.">
+      <Field id="name" label={t("projects.col.name")} hint={t("rform.name.hint")}>
         <input
           id="name"
           className={INPUT}
@@ -139,8 +126,8 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
 
       <Field
         id="description"
-        label="Description"
-        hint="What it does, in one sentence, for whoever reads it in a year."
+        label={t("rolesed.description")}
+        hint={t("rform.description.hint")}
       >
         <input
           id="description"
@@ -151,7 +138,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
         />
       </Field>
 
-      <Field id="trigger" label="Runs when" hint="The moment the engine considers this rule.">
+      <Field id="trigger" label={t("rform.trigger")} hint={t("rform.trigger.hint")}>
         <select
           id="trigger"
           className={INPUT}
@@ -166,7 +153,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
         >
           {vocabulary.triggers.map((value) => (
             <option key={value} value={value}>
-              {describeTrigger(value)}
+              {describeTrigger(value, t)}
             </option>
           ))}
         </select>
@@ -174,12 +161,12 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
 
       <section aria-labelledby="conditions-heading" className="space-y-2">
         <h2 id="conditions-heading" className="text-body-sm font-medium text-n-700">
-          Only if — all of these hold
+          {t("rform.conditions")}
         </h2>
 
         {rows.length === 0 && (
           <p className="text-caption text-n-500">
-            No conditions: the rule acts every time it is triggered.
+            {t("rform.noConditions")}
           </p>
         )}
 
@@ -189,7 +176,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
           return (
             <div key={index} className="flex flex-wrap items-center gap-2">
               <select
-                aria-label={`Condition ${index + 1} field`}
+                aria-label={t("rform.condField", { n: index + 1 })}
                 className={`${INPUT} w-auto`}
                 value={row.field}
                 onChange={(event) => update(setRows, index, { field: event.target.value })}
@@ -202,14 +189,14 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
               </select>
 
               <select
-                aria-label={`Condition ${index + 1} comparison`}
+                aria-label={t("rform.condOp", { n: index + 1 })}
                 className={`${INPUT} w-auto`}
                 value={row.op}
                 onChange={(event) => update(setRows, index, { op: event.target.value })}
               >
                 {vocabulary.operators.map((op) => (
                   <option key={op} value={op}>
-                    {OPERATOR_PHRASES[op] ?? op}
+                    {OPERATORS.has(op) ? t(`op.${op}` as MessageKey) : op}
                   </option>
                 ))}
               </select>
@@ -217,12 +204,12 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
               {!VALUELESS.includes(row.op) &&
                 (field?.values && !MULTI.includes(row.op) ? (
                   <select
-                    aria-label={`Condition ${index + 1} value`}
+                    aria-label={t("rform.condValue", { n: index + 1 })}
                     className={`${INPUT} w-auto`}
                     value={String(row.value ?? "")}
                     onChange={(event) => update(setRows, index, { value: event.target.value })}
                   >
-                    <option value="">Choose…</option>
+                    <option value="">{t("rform.choose")}</option>
                     {field.values.map((value) => (
                       <option key={value} value={value}>
                         {value}
@@ -231,7 +218,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
                   </select>
                 ) : (
                   <input
-                    aria-label={`Condition ${index + 1} value`}
+                    aria-label={t("rform.condValue", { n: index + 1 })}
                     className={`${INPUT} w-auto`}
                     value={valueText(row.value)}
                     placeholder={MULTI.includes(row.op) ? "high, urgent" : ""}
@@ -245,7 +232,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
                 type="button"
                 onClick={() => setRows((current) => current.filter((_, at) => at !== index))}
               >
-                Remove
+                {t("ms.remove")}
               </Button>
             </div>
           );
@@ -263,27 +250,27 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
             ])
           }
         >
-          Add a condition
+          {t("rform.addCondition")}
         </Button>
       </section>
 
       <section aria-labelledby="actions-heading" className="space-y-3">
         <h2 id="actions-heading" className="text-body-sm font-medium text-n-700">
-          Then
+          {t("rules.then")}
         </h2>
 
         {actions.map((action, index) => (
           <div key={index} className="space-y-2 rounded-lg border border-n-300 p-3">
             <div className="flex items-center gap-2">
               <select
-                aria-label={`Action ${index + 1}`}
+                aria-label={t("rform.action", { n: index + 1 })}
                 className={`${INPUT} w-auto`}
                 value={action.type}
                 onChange={(event) => update(setActions, index, { type: event.target.value })}
               >
                 {buildable.map((type) => (
                   <option key={type} value={type}>
-                    {ACTION_LABELS[type] ?? type}
+                    {actionName(type, t)}
                   </option>
                 ))}
               </select>
@@ -295,7 +282,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
                   type="button"
                   onClick={() => setActions((current) => current.filter((_, at) => at !== index))}
                 >
-                  Remove
+                  {t("ms.remove")}
                 </Button>
               )}
             </div>
@@ -303,8 +290,8 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
             {action.type === "webhook" ? (
               <Field
                 id={`endpoint-${index}`}
-                label="To"
-                hint="Endpoints are registered by an administrator in Settings → Webhooks. What is sent is the work item's facts as this rule sees them, signed."
+                label={t("graph.to")}
+                hint={t("rform.endpoint.hint")}
               >
                 <select
                   id={`endpoint-${index}`}
@@ -312,13 +299,15 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
                   value={action.endpoint_id}
                   onChange={(event) => update(setActions, index, { endpoint_id: event.target.value })}
                 >
-                  <option value="">Choose an endpoint</option>
+                  <option value="">{t("rform.chooseEndpoint")}</option>
                   {vocabulary.webhook_endpoints.map((endpoint) => (
                     <option key={endpoint.id} value={endpoint.id}>
                       {/* Said in the option, not hidden: a rule may point at
                           a switched-off endpoint, and its deliveries will be
                           refused until somebody switches it back on. */}
-                      {endpoint.is_active ? endpoint.name : `${endpoint.name} (switched off)`}
+                      {endpoint.is_active
+                        ? endpoint.name
+                        : t("rform.endpointOff", { name: endpoint.name })}
                     </option>
                   ))}
                 </select>
@@ -327,7 +316,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
               <>
                 <fieldset className="flex flex-wrap gap-3">
                   <legend className="mb-1 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-                    Who
+                    {t("rform.who")}
                   </legend>
                   {/* Roles relative to the work, never a person: a rule that
                       hardcodes somebody breaks the day they change teams. */}
@@ -349,7 +338,11 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
                   ))}
                 </fieldset>
 
-                <Field id={`message-${index}`} label="Message" hint="Optional, shown with the notification.">
+                <Field
+                  id={`message-${index}`}
+                  label={t("rform.message")}
+                  hint={t("rform.message.hint")}
+                >
                   <input
                     id={`message-${index}`}
                     className={INPUT}
@@ -362,8 +355,8 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
               <>
                 <Field
                   id={`levels-${index}`}
-                  label="How far up"
-                  hint="Levels of the reporting line to notify. Escalation notifies; it never reassigns."
+                  label={t("rform.levels")}
+                  hint={t("rform.levels.hint")}
                 >
                   <input
                     id={`levels-${index}`}
@@ -378,7 +371,11 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
                   />
                 </Field>
 
-                <Field id={`reason-${index}`} label="Reason" hint="What the manager is being told.">
+                <Field
+                  id={`reason-${index}`}
+                  label={t("rform.reason")}
+                  hint={t("rform.reason.hint")}
+                >
                   <input
                     id={`reason-${index}`}
                     className={INPUT}
@@ -397,7 +394,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
           type="button"
           onClick={() => setActions((current) => [...current, emptyAction(vocabulary)])}
         >
-          Add an action
+          {t("rform.addAction")}
         </Button>
       </section>
 
@@ -406,7 +403,7 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
           only one who can notice it says something they did not mean. */}
       <section aria-labelledby="preview-heading" className="space-y-1">
         <h2 id="preview-heading" className="text-body-sm font-medium text-n-700">
-          What gets stored
+          {t("rform.stored")}
         </h2>
         <pre className="overflow-x-auto whitespace-pre-wrap break-words border border-n-100 bg-n-50 p-3 font-mono text-micro text-n-700 rounded-md">
           {JSON.stringify({ conditions: body.conditions, actions: body.actions }, null, 2)}
@@ -415,10 +412,10 @@ export function RuleForm({ vocabulary, rule }: { vocabulary: Vocabulary; rule?: 
 
       <div className="flex items-center gap-2">
         <Button type="submit" variant="primary" disabled={busy || name === ""}>
-          {busy ? "Saving…" : rule ? "Save the rule" : "Create the rule"}
+          {busy ? t("common.saving") : rule ? t("rform.save") : t("rform.create")}
         </Button>
         <Button type="button" variant="ghost" onClick={() => router.push("/settings/rules")}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>

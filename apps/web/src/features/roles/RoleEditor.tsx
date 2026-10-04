@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { createRole, deleteRole, saveRole } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * A role, and what is in it (ADR 0018).
@@ -47,6 +48,7 @@ export function RoleEditor({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const t = useT();
 
   const byResource = new Map<string, Permission[]>();
 
@@ -77,12 +79,12 @@ export function RoleEditor({
             <Panel
               id={`role-${role.key}`}
               title={role.name}
-              description={role.description || "No description."}
+              description={role.description || t("rolesed.noDescription")}
               actions={
                 <>
                   {role.is_system && (
                     <Badge tone="info" icon="shield">
-                      system
+                      {t("rolesed.system")}
                     </Badge>
                   )}
                   <Badge>{role.key}</Badge>
@@ -90,8 +92,8 @@ export function RoleEditor({
               }
             >
               <p className="text-body-sm text-n-700">
-                {role.permissions.length} permissions ·{" "}
-                {role.held_by === 1 ? "1 person holds it" : `${role.held_by} people hold it`}
+                {t.plural("rolesed.permissions", role.permissions.length)} ·{" "}
+                {t.plural("rolesed.holders", role.held_by)}
               </p>
 
               {editing === role.key ? (
@@ -99,7 +101,7 @@ export function RoleEditor({
                   byResource={byResource}
                   initial={role.permissions}
                   busy={busy}
-                  submitLabel="Save the role"
+                  submitLabel={t("rolesed.save")}
                   onCancel={() => setEditing(null)}
                   onSubmit={(chosen) =>
                     startAction(async () => {
@@ -119,12 +121,12 @@ export function RoleEditor({
                       // disabled: every permission test, the seed and docs/06
                       // assume these four mean what they say.
                       <p className="text-caption text-n-500">
-                        One of the roles this product ships with — it cannot be changed or removed.
+                        {t("rolesed.systemNote")}
                       </p>
                     ) : (
                       <>
                         <Button variant="secondary" size="sm" onClick={() => setEditing(role.key)}>
-                          Edit permissions
+                          {t("rolesed.edit")}
                         </Button>
 
                         <Button
@@ -139,7 +141,7 @@ export function RoleEditor({
                             })
                           }
                         >
-                          Delete
+                          {t("hook.delete")}
                         </Button>
                       </>
                     )}
@@ -169,7 +171,7 @@ export function RoleEditor({
           />
         ) : (
           <Button variant="primary" onClick={() => setCreating(true)}>
-            New role
+            {t("rolesed.new")}
           </Button>
         ))}
     </div>
@@ -190,10 +192,11 @@ function NewRole({
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const t = useT();
 
   return (
     <div className="space-y-4 rounded-lg border border-n-300 p-4">
-      <Field id="role-name" label="Name" hint="What an administrator picks from a list.">
+      <Field id="role-name" label={t("projects.col.name")} hint={t("rolesed.name.hint")}>
         <input
           id="role-name"
           className={INPUT}
@@ -203,7 +206,7 @@ function NewRole({
         />
       </Field>
 
-      <Field id="role-key" label="Key" hint="What a grant names and an audit log records. It cannot be changed later.">
+      <Field id="role-key" label={t("projects.col.key")} hint={t("rolesed.key.hint")}>
         <input
           id="role-key"
           className={INPUT}
@@ -214,7 +217,11 @@ function NewRole({
         />
       </Field>
 
-      <Field id="role-description" label="Description" hint="What it is for, for whoever reads it in a year.">
+      <Field
+        id="role-description"
+        label={t("rolesed.description")}
+        hint={t("rolesed.description.hint")}
+      >
         <input
           id="role-description"
           className={INPUT}
@@ -228,7 +235,7 @@ function NewRole({
         byResource={byResource}
         initial={[]}
         busy={busy || key === "" || name === ""}
-        submitLabel="Create the role"
+        submitLabel={t("rolesed.create")}
         onCancel={onCancel}
         onSubmit={(permissions) => onSubmit({ key, name, description, permissions })}
       />
@@ -259,6 +266,7 @@ function PermissionForm({
   onSubmit: (permissions: string[]) => void;
 }) {
   const [chosen, setChosen] = useState<string[]>(initial);
+  const t = useT();
 
   const toggle = (key: string, on: boolean) =>
     setChosen((current) => (on ? [...current, key] : current.filter((entry) => entry !== key)));
@@ -305,7 +313,7 @@ function PermissionForm({
           {submitLabel}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>

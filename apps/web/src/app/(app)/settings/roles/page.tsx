@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { RoleEditor, type Permission, type Role } from "@/features/roles/RoleEditor";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Roles, and what is in them (ADR 0018).
@@ -18,6 +20,8 @@ export default async function RolesPage() {
 
   if (!me.permissions.includes("role.view")) notFound();
 
+  const t = translator(asLocale(me.user.locale));
+
   const { data: keys } = await api<Array<{ key: string }>>("/roles");
 
   const [roles, permissions] = await Promise.all([
@@ -30,8 +34,8 @@ export default async function RolesPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Roles"
-        description={`${roles.length} · a role can only contain permissions you hold yourself`}
+        title={t("settings.roles.label")}
+        description={t("rolesed.summary", { count: roles.length })}
       />
 
       <PageBody>

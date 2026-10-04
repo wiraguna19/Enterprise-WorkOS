@@ -5,6 +5,8 @@ import { GraphEditor } from "@/features/workflow/GraphEditor";
 import type { Vocabulary, Workflow } from "@/features/workflow/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Editing one workflow (ADR 0015).
@@ -29,16 +31,18 @@ export default async function EditWorkflowPage({ params }: { params: Promise<{ i
 
   if (!workflow) notFound();
 
+  const t = translator(asLocale(me.user.locale));
+
   return (
     <div className="space-y-5">
       <PageHeader
         title={workflow.name}
-        description={`${workflow.applies_to_type} · changes apply to work already in flight`}
+        description={t("wf.edit.description", { type: workflow.applies_to_type })}
       />
 
       <p className="text-body-sm text-n-500">
         <Link href="/settings/workflows" className="text-a-700 underline">
-          All workflows
+          {t("wf.all")}
         </Link>
       </p>
 

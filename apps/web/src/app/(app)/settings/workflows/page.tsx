@@ -8,6 +8,9 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import type { Workflow, WorkflowState, WorkflowTransition } from "@/features/workflow/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator, type Translator } from "@/i18n/translate";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * The workflow catalogue (docs/02 §7).
@@ -35,20 +38,24 @@ export default async function WorkflowsPage() {
   });
 
   const mayManage = me.permissions.includes("workflow.manage");
+  const t = translator(asLocale(me.user.locale));
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Workflows" description={`${workflows.length} active`} />
+      <PageHeader
+        title={t("settings.workflows.label")}
+        description={t("wf.active", { count: workflows.length })}
+      />
 
       <PageBody>
         {workflows.length === 0 ? (
           <EmptyState
-            title="No active workflow"
-            description="Every work item follows a workflow, so an empty list here means work has nowhere to move. This is a configuration problem rather than an empty screen."
+            title={t("wf.empty.title")}
+            description={t("wf.empty.body")}
           />
         ) : (
           workflows.map((workflow) => (
-            <WorkflowGraph key={workflow.id} workflow={workflow} mayManage={mayManage} />
+            <WorkflowGraph key={workflow.id} workflow={workflow} mayManage={mayManage} t={t} />
           ))
         )}
       </PageBody>
@@ -56,7 +63,15 @@ export default async function WorkflowsPage() {
   );
 }
 
-function WorkflowGraph({ workflow, mayManage }: { workflow: Workflow; mayManage: boolean }) {
+function WorkflowGraph({
+  workflow,
+  mayManage,
+  t,
+}: {
+  workflow: Workflow;
+  mayManage: boolean;
+  t: Translator;
+}) {
   const headingId = `workflow-${workflow.id}`;
 
   const byId = new Map(workflow.states.map((state) => [state.id, state]));
@@ -77,13 +92,13 @@ function WorkflowGraph({ workflow, mayManage }: { workflow: Workflow; mayManage:
     <Panel
       id={headingId.replace(/-heading$/, "")}
       title={workflow.name}
-      description={`${workflow.applies_to_type} · version ${workflow.version}`}
+      description={t("wf.version", { type: workflow.applies_to_type, version: workflow.version })}
       actions={
         <>
-          {workflow.is_default && <Badge tone="info">default</Badge>}
+          {workflow.is_default && <Badge tone="info">{t("wf.default")}</Badge>}
           {mayManage && (
             <ButtonLink href={`/settings/workflows/${workflow.id}/edit`} variant="ghost" size="sm">
-              Edit
+              {t("hook.edit")}
             </ButtonLink>
           )}
         </>
@@ -99,17 +114,14 @@ function WorkflowGraph({ workflow, mayManage }: { workflow: Workflow; mayManage:
             <div className="sm:w-56 sm:shrink-0">
               <StatusChip category={state.category} label={state.label} className="font-medium" />
               <p className="mt-0.5 font-mono text-micro text-n-500">{state.key}</p>
-              <Markers state={state} isReachable={reachable.has(state.id)} />
+              <Markers state={state} isReachable={reachable.has(state.id)} t={t} />
             </div>
 
             <Moves
               transitions={workflow.transitions.filter((t) => t.from_state_id === state.id)}
               byId={byId}
-              emptyLabel={
-                state.is_terminal
-                  ? "Nothing follows this — work ends here."
-                  : "No move leaves this state."
-              }
+              emptyLabel={state.is_terminal ? t("wf.endsHere") : t("wf.noMove")}
+              t={t}
             />
           </li>
         ))}
@@ -117,24 +129,36 @@ function WorkflowGraph({ workflow, mayManage }: { workflow: Workflow; mayManage:
 
       {fromAnywhere.length > 0 && (
         <div className="flex flex-col gap-1.5 border-t border-n-200 bg-n-25 px-4 py-3 sm:flex-row sm:gap-6">
-          <p className="text-body-sm font-medium text-n-700 sm:w-56 sm:shrink-0">From any state</p>
-          <Moves transitions={fromAnywhere} byId={byId} emptyLabel="" />
+          <p className="text-body-sm font-medium text-n-700 sm:w-56 sm:shrink-0">
+            {t("wf.fromAny")}
+          </p>
+          <Moves transitions={fromAnywhere} byId={byId} emptyLabel="" t={t} />
         </div>
       )}
     </Panel>
   );
 }
 
-function Markers({ state, isReachable }: { state: WorkflowState; isReachable: boolean }) {
+function Markers({
+  state,
+  isReachable,
+  t,
+}: {
+  state: WorkflowState;
+  isReachable: boolean;
+  t: Translator;
+}) {
   const notes = [
-    state.is_initial && "starts here",
-    state.is_terminal && "ends here",
-    state.requires_approval && "needs approval",
+    state.is_initial && "wf.marker.starts",
+    state.is_terminal && "wf.marker.ends",
+    state.requires_approval && "wf.marker.approval",
     // Deliberately worded as an observation, not a warning: a state reached
     // only by an admin override or by a workflow migration is legitimate, and
     // calling it an error would train everyone to ignore the line.
-    !state.is_initial && !isReachable && "nothing moves work here",
-  ].filter((note): note is string => typeof note === "string");
+    !state.is_initial && !isReachable && "wf.marker.unreachable",
+  ]
+    .filter((note): note is MessageKey => typeof note === "string")
+    .map((key) => t(key));
 
   if (notes.length === 0) return null;
 
@@ -145,10 +169,12 @@ function Moves({
   transitions,
   byId,
   emptyLabel,
+  t,
 }: {
   transitions: WorkflowTransition[];
   byId: Map<string, WorkflowState>;
   emptyLabel: string;
+  t: Translator;
 }) {
   if (transitions.length === 0) {
     return emptyLabel ? <p className="text-caption text-n-500">{emptyLabel}</p> : null;
@@ -169,18 +195,18 @@ function Moves({
               {/* A target the states list does not contain would mean an edge
                   into another workflow's state — impossible by construction,
                   and worth printing as itself rather than as a blank. */}
-              to {target ? target.label : transition.to_state_id}
+              {t("wf.to", { state: target ? target.label : transition.to_state_id })}
             </span>
 
             {transition.requires_comment && (
-              <span className="text-caption text-n-500">· asks for a reason</span>
+              <span className="text-caption text-n-500">· {t("wf.asksReason")}</span>
             )}
 
             {/* Whether a guard exists, never what it says. Who may make this
                 move depends on the item and the person, and this endpoint has
                 neither — the status picker on a work item is what answers it. */}
             {transition.is_guarded && (
-              <span className="text-caption text-n-500">· not open to everyone</span>
+              <span className="text-caption text-n-500">· {t("wf.guarded")}</span>
             )}
           </li>
         );
