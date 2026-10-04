@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { api, ApiRequestError } from "@/lib/api";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 import type { ReportExport } from "./types";
 
 export type ExportRequestState = { error: string | null; export?: ReportExport };
@@ -42,7 +44,7 @@ export async function requestExport(
       return { error: error.error.message };
     }
 
-    return { error: "We could not reach the server. Please try again." };
+    return { error: translator(await requestLocale())("common.unreachable") };
   }
 }
 
@@ -81,6 +83,6 @@ export async function downloadUrl(exportId: string): Promise<{ url: string | nul
       return { url: null, error: error.error.message };
     }
 
-    return { url: null, error: "We could not reach the server. Please try again." };
+    return { url: null, error: translator(await requestLocale())("common.unreachable") };
   }
 }

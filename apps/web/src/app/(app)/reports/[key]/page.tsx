@@ -6,6 +6,9 @@ import { ExportPanel } from "@/features/report/ExportPanel";
 import { listExports } from "@/features/report/actions";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale, type Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * Any of the four reports (ADR 0011).
@@ -21,12 +24,7 @@ import { requireUser } from "@/lib/auth";
  * columns come from the response; so does the list of parameters the report
  * cannot be built without.
  */
-const DESCRIPTIONS: Record<string, string> = {
-  project: "Everything in one project, with the health signals it is measured by.",
-  team: "One team's work, as its members hold it.",
-  personal: "The work you held in this window, finished or not.",
-  organization: "Completed work across the organization, with cycle time.",
-};
+const KNOWN = new Set(["project", "team", "personal", "organization"]);
 
 type Catalogue = Array<{ key: string; columns: string[]; requires: string[] }>;
 
@@ -39,7 +37,9 @@ export default async function ReportPage({
 }) {
   // Awaited for the redirect it performs, not for a value: this page renders
   // nothing per-person, and binding an unused `me` would suggest it did.
-  const [, { key }, rawQuery] = await Promise.all([requireUser(), params, searchParams]);
+  const [me, { key }, rawQuery] = await Promise.all([requireUser(), params, searchParams]);
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   // Only the single-valued parameters. A report takes named scalars; an array
   // in the URL is a client mistake, and silently using its first element would
@@ -60,10 +60,10 @@ export default async function ReportPage({
   if (missing.length > 0) {
     return (
       <div className="mx-auto max-w-4xl space-y-5">
-        <Heading reportKey={key} />
+        <Heading reportKey={key} locale={locale} />
         <EmptyState
-          title={`This report needs ${missing.join(" and ")}`}
-          description={`Open it from the ${missing[0]} it is about — a ${key} report is reached from its ${missing[0]}, not from a list of reports.`}
+          title={t("rep.needs.title", { params: missing.join(t("rep.and")) })}
+          description={t("rep.needs.body", { param: missing[0] ?? "", key })}
         />
       </div>
     );
@@ -90,12 +90,12 @@ export default async function ReportPage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <Heading reportKey={key} />
+      <Heading reportKey={key} locale={locale} />
 
       {rows.length === 0 ? (
         <EmptyState
-          title="Nothing in this report"
-          description="Either nothing matches its window, or nothing you can see does."
+          title={t("rep.empty.title")}
+          description={t("rep.empty.body")}
         />
       ) : (
         <div className="overflow-x-auto">
@@ -136,10 +136,7 @@ export default async function ReportPage({
 
       {meta.hidden_count > 0 && (
         <p className="max-w-[72ch] text-caption text-s-active">
-          {meta.hidden_count} further{" "}
-          {meta.hidden_count === 1 ? "row is" : "rows are"} counted in this report but not
-          listed — {meta.hidden_count === 1 ? "it is" : "they are"} work you do not have
-          access to. The same shortfall is stated inside anything you export.
+          {t.plural("rep.hidden", meta.hidden_count)}
         </p>
       )}
 
@@ -151,24 +148,29 @@ export default async function ReportPage({
       />
 
       <p className="max-w-[72ch] text-caption text-n-500">
-        A report composes figures defined elsewhere and computes none of its own
-        (ADR 0011). Every number here traces to the definition printed on the page it
-        came from.
+        {t("rep.footer")}
       </p>
     </div>
   );
 }
 
-function Heading({ reportKey }: { reportKey: string }) {
+function Heading({ reportKey, locale }: { reportKey: string; locale: Locale }) {
+  const t = translator(locale);
+  const known = KNOWN.has(reportKey);
+
   return (
     <div className="space-y-3">
       <Link href="/reports" className="text-body-sm text-n-500 hover:text-a-700">
-        ← Flow
+        {t("rep.back")}
       </Link>
 
       <PageHeader
-        title={`${reportKey.charAt(0).toUpperCase()}${reportKey.slice(1)} report`}
-        description={DESCRIPTIONS[reportKey] ?? ""}
+        title={
+          known
+            ? t(`rep.title.${reportKey}` as MessageKey)
+            : t("rep.title.other", { key: reportKey })
+        }
+        description={known ? t(`rep.desc.${reportKey}` as MessageKey) : ""}
       />
     </div>
   );

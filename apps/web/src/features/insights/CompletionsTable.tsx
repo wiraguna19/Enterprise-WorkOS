@@ -2,6 +2,8 @@ import Link from "next/link";
 import { formatDateTime } from "@/lib/format";
 import { formatCycleHours } from "./format";
 import type { FlowCompletion } from "./types";
+import { type Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * The records behind a throughput figure (docs/10, Phase 6 exit criteria).
@@ -17,21 +19,25 @@ import type { FlowCompletion } from "./types";
 export function CompletionsTable({
   completions,
   timeZone,
+  locale = "en",
 }: {
   completions: FlowCompletion[];
   timeZone: string;
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] border-collapse text-body-sm">
-        <caption className="sr-only">Completed work items, most recent first</caption>
+        <caption className="sr-only">{t("comp.caption")}</caption>
 
         <thead>
           <tr className="border-b border-n-200 text-left">
-            <Th>Item</Th>
-            <Th>Project</Th>
-            <Th className="text-right">Completed</Th>
-            <Th className="text-right">Cycle time</Th>
+            <Th>{t("comp.col.item")}</Th>
+            <Th>{t("wnew.project")}</Th>
+            <Th className="text-right">{t("flow.table.completed")}</Th>
+            <Th className="text-right">{t("comp.col.cycle")}</Th>
           </tr>
         </thead>
 
@@ -50,11 +56,11 @@ export function CompletionsTable({
               </Td>
               <Td className="whitespace-nowrap text-n-500">{item.project ?? "—"}</Td>
               <Td className="whitespace-nowrap text-right tabular-nums text-n-700">
-                {formatDateTime(item.completed_at, timeZone)}
+                {formatDateTime(item.completed_at, timeZone, locale)}
                 {item.late === true && (
                   // Which rows missed their date, so the list explains the late
                   // rate rather than merely being filtered by it.
-                  <span className="ml-1.5 text-caption text-s-active">late</span>
+                  <span className="ml-1.5 text-caption text-s-active">{t("comp.late")}</span>
                 )}
               </Td>
               <Td className="text-right tabular-nums">
@@ -62,9 +68,9 @@ export function CompletionsTable({
                   // Named rather than dashed away: this item is in the
                   // throughput and out of every percentile, and a reader adding
                   // the column up deserves to know which rows did not count.
-                  <span className="text-caption text-s-active">never started</span>
+                  <span className="text-caption text-s-active">{t("comp.neverStarted")}</span>
                 ) : (
-                  formatCycleHours(item.cycle_time_hours)
+                  formatCycleHours(item.cycle_time_hours, locale)
                 )}
               </Td>
             </tr>

@@ -8,6 +8,9 @@ import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * The work sitting in one state category right now (ADR 0010, docs/10).
@@ -21,13 +24,7 @@ import { requireUser } from "@/lib/auth";
  * count — the count is a fact about the organization and the list is a fact
  * about the reader, the same split as every other drill-through here.
  */
-const LABELS: Record<string, string> = {
-  backlog: "Backlog",
-  todo: "Todo",
-  in_progress: "In Progress",
-  in_review: "In Review",
-  blocked: "Blocked",
-};
+const CATEGORIES = new Set(["backlog", "todo", "in_progress", "in_review", "blocked"]);
 
 export default async function WaitingPage({
   searchParams,
@@ -37,11 +34,14 @@ export default async function WaitingPage({
   const [me, params] = await Promise.all([requireUser(), searchParams]);
 
   const category = params.category ?? "";
-  const label = LABELS[category];
 
   // Only categories work can WAIT in. `done` and `cancelled` are where work
   // stops, and a queue of finished work is not a queue.
-  if (!label) notFound();
+  if (!CATEGORIES.has(category)) notFound();
+
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+  const label = t(`stateCat.${category}` as MessageKey);
 
   const { data: items } = await api<WorkItem[]>(
     `/work-items?filter[state_category]=${category}&sort=due_at&limit=100`,
@@ -55,35 +55,40 @@ export default async function WaitingPage({
       <div className="space-y-3">
         {/* The same trail its sibling drill-through already had, instead of a
             hand-drawn back link (ADR 0026). */}
-        <Breadcrumb items={[{ label: "Flow", href: "/reports" }, { label: `Waiting in ${label}` }]} />
+        <Breadcrumb
+          items={[
+            { label: t("nav.flow"), href: "/reports" },
+            { label: t("wait.title", { category: label }) },
+          ]}
+          locale={locale}
+        />
 
         <PageHeader
-          title={`Waiting in ${label}`}
-          description={`${items.length} ${items.length === 1 ? "item" : "items"} you can see`}
+          title={t("wait.title", { category: label })}
+          description={t.plural("wait.summary", items.length)}
         />
       </div>
 
       <PageBody>
         {items.length === 0 ? (
           <EmptyState
-            title="Nothing here"
-            description={`No work you have access to is sitting in ${label} right now.`}
+            title={t("wait.empty.title")}
+            description={t("wait.empty.body", { category: label })}
           />
         ) : (
           <Panel
             id="waiting"
-            title={`In ${label}`}
-            description="Ordered by due date."
+            title={t("wait.panel", { category: label })}
+            description={t("wait.panel.description")}
             footer={
               <p className="max-w-prose text-caption text-n-500">
-                A snapshot. The count on the Flow page counts every item in this category; this
-                list is the part you have access to.
+                {t("wait.footer")}
               </p>
             }
             bleed
           >
             {items.map((item) => (
-              <WorkItemRow key={item.id} item={item} timeZone={me.user.timezone} />
+              <WorkItemRow key={item.id} item={item} timeZone={me.user.timezone} locale={locale} />
             ))}
           </Panel>
         )}

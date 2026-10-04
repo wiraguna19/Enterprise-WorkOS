@@ -249,8 +249,13 @@ last entry is deliberately last.
                         their workload page), Teams (list, new team, a
                         team's page and its members) and Departments (the
                         tree, rename and move, new department).
-                        Next, one screen at a time: Reports and the rest of
-                        Settings.
+                        Reports: Flow (headline figures, the weekly table,
+                        departments, where work waited), its completions
+                        and waiting drill-throughs, each report page and
+                        the export panel; durations print as "j"/"h" with
+                        the reader's decimal separator. Report column names
+                        come from the API and stay as served.
+                        Next, one screen at a time: the rest of Settings.
 ```
 
 ---

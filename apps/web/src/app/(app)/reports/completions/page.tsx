@@ -8,6 +8,8 @@ import type { FlowCompletion, FlowCompletionsMeta } from "@/features/insights/ty
 import { formatDate } from "@/lib/format";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * The completions behind a flow figure (docs/10, Phase 6 exit criteria).
@@ -26,7 +28,13 @@ import { requireUser } from "@/lib/auth";
 export default async function FlowCompletionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; project_id?: string }>;
+  searchParams: Promise<{
+    from?: string;
+    to?: string;
+    project_id?: string;
+    department_id?: string;
+    late?: string;
+  }>;
 }) {
   const [me, params] = await Promise.all([requireUser(), searchParams]);
 
@@ -34,6 +42,15 @@ export default async function FlowCompletionsPage({
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
   if (params.project_id) query.set("project_id", params.project_id);
+  // Both filters were linked to from the Flow page — the late rate and each
+  // department row — and dropped here, so either link opened the whole
+  // window's list under a figure that counted only part of it. The API has
+  // applied both since ADR 0010; this page now asks it to.
+  if (params.department_id) query.set("department_id", params.department_id);
+  if (params.late === "1") query.set("late", "1");
+
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   const { data: completions, meta } = await api<FlowCompletion[]>(
     `/insights/flow/items?${query}`,
@@ -46,14 +63,21 @@ export default async function FlowCompletionsPage({
     // and its drill-through moved the left edge of the product (ADR 0024).
     <div className="space-y-5">
       <div className="space-y-3">
-        <Breadcrumb items={[{ label: "Flow", href: "/reports" }, { label: "Completions" }]} />
+        <Breadcrumb
+          items={[
+            { label: t("nav.flow"), href: "/reports" },
+            { label: window.late_only ? t("comp.lateTitle") : t("comp.title") },
+          ]}
+          locale={locale}
+        />
 
         <PageHeader
-          title="Completions"
-          description={`${window.throughput} completed between ${formatDate(
-            window.from,
-            me.user.timezone,
-          )} and ${formatDate(window.to, me.user.timezone)}`}
+          title={window.late_only ? t("comp.lateTitle") : t("comp.title")}
+          description={t(window.late_only ? "comp.lateSummary" : "flow.summary", {
+            count: window.throughput,
+            from: formatDate(window.from, me.user.timezone, locale),
+            to: formatDate(window.to, me.user.timezone, locale),
+          })}
         />
       </div>
 
@@ -62,32 +86,28 @@ export default async function FlowCompletionsPage({
         <EmptyState
           title={
             window.hidden_count > 0
-              ? "Nothing here you can see"
-              : "Nothing completed in this window"
+              ? t("comp.hidden.title")
+              : t("flow.empty.title")
           }
           description={
             window.hidden_count > 0
-              ? `All ${window.hidden_count} of the completions in this window are in work you do not have access to. The figure on the Flow page counts them, because how much the organization delivered is not a fact about who is reading.`
-              : "Throughput counts items entering Done. Once work is completed in this window, it appears here."
+              ? t("comp.hidden.body", { count: window.hidden_count })
+              : t("comp.empty.body")
           }
         />
       ) : (
         <Panel
           id="completions"
-          title="Completed in this window"
-          description="Ordered by when each item reached Done."
+          title={t("comp.panel")}
+          description={t("comp.panel.description")}
           footer={
             <p className="max-w-prose text-caption text-n-500">
-              Cycle time is measured from the first time an item entered In Progress to the last
-              time it reached Done, over the whole of its history rather than only inside this
-              window — an item finished on Monday may have started last quarter. Items that never
-              entered In Progress are counted in the throughput and excluded from every
-              percentile.
+              {t("comp.footer")}
             </p>
           }
           bleed
         >
-          <CompletionsTable completions={completions} timeZone={me.user.timezone} />
+          <CompletionsTable completions={completions} timeZone={me.user.timezone} locale={locale} />
 
           {window.hidden_count > 0 && (
             // The list and the headline are answering two different questions,
@@ -96,10 +116,7 @@ export default async function FlowCompletionsPage({
             // about the organization, what may be READ is a fact about the
             // reader.
             <p className="border-t border-n-100 px-4 py-3 text-caption text-s-active">
-              {window.hidden_count} further{" "}
-              {window.hidden_count === 1 ? "completion is" : "completions are"} counted in the
-              figures on the Flow page but not listed here — {window.hidden_count === 1 ? "it is" : "they are"}{" "}
-              in work you do not have access to.
+              {t.plural("comp.hiddenTail", window.hidden_count)}
             </p>
           )}
         </Panel>

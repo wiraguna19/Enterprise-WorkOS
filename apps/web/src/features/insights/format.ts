@@ -1,3 +1,6 @@
+import { INTL_TAG, type Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
+
 /**
  * Cycle time, printed.
  *
@@ -7,11 +10,20 @@
  * table and the figure on the drill-through cannot drift into three formats of
  * the same duration.
  */
-export function formatCycleHours(value: number | null): string {
+export function formatCycleHours(value: number | null, locale: Locale = "en"): string {
   if (value === null) return "—";
-  if (value < 48) return `${Math.round(value)} h`;
 
-  return `${(value / 24).toFixed(1)} d`;
+  const t = translator(locale);
+
+  if (value < 48) return t("dur.hours", { n: Math.round(value) });
+
+  // The decimal separator is the reader's: "1,5 h" in Indonesian, "1.5 d" here.
+  const days = new Intl.NumberFormat(INTL_TAG[locale], {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value / 24);
+
+  return t("dur.days", { n: days });
 }
 
 /**

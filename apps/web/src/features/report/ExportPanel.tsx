@@ -7,6 +7,8 @@ import { INPUT } from "@/components/ui/Field";
 import { clsx } from "@/lib/clsx";
 import { downloadUrl, requestExport } from "./actions";
 import type { ReportExport } from "./types";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /** Thirty seconds of watching. Past that, say so instead of spinning. */
 const MAX_ATTEMPTS = 20;
@@ -36,6 +38,7 @@ export function ExportPanel({
   exports: ReportExport[];
   formats: string[];
 }) {
+  const t = useT();
   const [format, setFormat] = useState(formats[0] ?? "csv");
   const [error, setError] = useState<string | null>(null);
   const [busy, startRequest] = useTransition();
@@ -75,16 +78,16 @@ export function ExportPanel({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="export-heading" className="text-body font-semibold text-n-900">
-            Export
+            {t("exp.heading")}
           </h2>
           <p className="text-caption text-n-500">
-            Built from the same window this page is showing, with what you can see.
+            {t("exp.description")}
           </p>
         </div>
 
         <div className="flex items-end gap-2">
           <label className="flex flex-col gap-1 text-caption text-n-700">
-            Format
+            {t("exp.format")}
             <select
               value={format}
               onChange={(event) => setFormat(event.target.value)}
@@ -116,7 +119,7 @@ export function ExportPanel({
               });
             }}
           >
-            {busy ? "Requesting…" : "Export"}
+            {busy ? t("exp.requesting") : t("exp.heading")}
           </Button>
         </div>
       </div>
@@ -129,8 +132,7 @@ export function ExportPanel({
 
       {stalled && (
         <p role="status" className="rounded-sm border border-s-active/30 bg-s-active/5 px-3 py-2 text-caption text-n-700">
-          This export has been building for a while. Exports are made by a
-          background worker — if none is running, the file will never arrive.
+          {t("exp.stalled")}
         </p>
       )}
 
@@ -148,13 +150,14 @@ export function ExportPanel({
 function ExportRow({ row }: { row: ReportExport }) {
   const [error, setError] = useState<string | null>(null);
   const [opening, startOpening] = useTransition();
+  const t = useT();
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-body-sm">
       <span className="font-mono text-micro uppercase text-n-500">{row.format}</span>
 
       <span className="text-n-700">
-        {describe(row)}
+        {describe(row, t)}
       </span>
 
       {/* What the file does NOT contain, next to what it does. The count is a
@@ -162,7 +165,7 @@ function ExportRow({ row }: { row: ReportExport }) {
           export is the one place they cannot be compared against a screen. */}
       {row.hidden_count !== null && row.hidden_count > 0 && (
         <span className="text-caption text-n-500">
-          {row.hidden_count} row{row.hidden_count === 1 ? "" : "s"} you cannot see were left out
+          {t.plural("exp.hidden", row.hidden_count)}
         </span>
       )}
 
@@ -190,7 +193,7 @@ function ExportRow({ row }: { row: ReportExport }) {
             }}
             className="text-a-500 underline underline-offset-2 hover:text-a-700"
           >
-            {opening ? "Opening…" : "Download"}
+            {opening ? t("exp.opening") : t("exp.download")}
           </button>
         )}
 
@@ -200,7 +203,7 @@ function ExportRow({ row }: { row: ReportExport }) {
             row.status === "failed" ? "text-s-danger" : "text-n-500",
           )}
         >
-          {row.status}
+          {STATUSES.has(row.status) ? t(`exp.status.${row.status}` as MessageKey) : row.status}
         </span>
       </span>
 
@@ -220,18 +223,20 @@ function ExportRow({ row }: { row: ReportExport }) {
  * is asked by the person who requested it, and the reason was stored precisely
  * so they can be answered.
  */
-function describe(row: ReportExport): string {
+const STATUSES = new Set(["pending", "ready", "failed", "expired"]);
+
+function describe(row: ReportExport, t: ReturnType<typeof useT>): string {
   switch (row.status) {
     case "pending":
-      return "Building…";
+      return t("exp.building");
     case "ready":
       return row.row_count === null
-        ? (row.filename ?? "Ready")
-        : `${row.row_count} row${row.row_count === 1 ? "" : "s"}`;
+        ? (row.filename ?? t("exp.ready"))
+        : t.plural("exp.rows", row.row_count);
     case "failed":
-      return row.failure_reason ?? "This export failed.";
+      return row.failure_reason ?? t("exp.failed");
     case "expired":
-      return "Expired — the file has been deleted.";
+      return t("exp.expired");
     default:
       return row.status;
   }

@@ -69,6 +69,8 @@ export type FlowCompletionsMeta = {
   throughput: number;
   /** How many of those this reader may not see. Reconciles the list to the total. */
   hidden_count: number;
+  /** True when the list was narrowed to the completions that missed their date. */
+  late_only?: boolean;
 };
 
 /** Project health (ADR 0008). Five signals, no composite score. */

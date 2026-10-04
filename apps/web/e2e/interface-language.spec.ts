@@ -126,6 +126,12 @@ test.describe("interface language", () => {
         await page.goto("/departments");
         await expect(page.getByRole("heading", { name: "Departemen", level: 1 })).toBeVisible();
       }
+
+      // Reports: the Flow page, behind report.view.
+      if (permissions.includes("report.view")) {
+        await page.goto("/reports");
+        await expect(page.getByRole("heading", { name: "Alur", level: 1 })).toBeVisible();
+      }
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

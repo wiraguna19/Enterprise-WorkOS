@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { FlowDepartment } from "./types";
+import { type Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Which departments delivered the work (docs/08 §3, ADR 0010).
@@ -18,11 +20,15 @@ export function DepartmentSplit({
   departments,
   total,
   window,
+  locale = "en",
 }: {
   departments: FlowDepartment[];
   total: number;
   window: { from: string; to: string };
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   return (
     <ul className="space-y-1.5">
       {departments.map((row) => {
@@ -44,12 +50,12 @@ export function DepartmentSplit({
                 // to the people involved in it (ADR 0004). The count is a fact
                 // about the organization; a list of those items is not one this
                 // page can offer.
-                <span className="text-n-700">No department</span>
+                <span className="text-n-700">{t("teams.noDepartment")}</span>
               )}
 
               <span className="shrink-0 tabular-nums text-n-500">
                 {row.throughput}
-                {row.late > 0 && <span className="text-s-active"> · {row.late} late</span>}
+                {row.late > 0 && <span className="text-s-active"> · {t("flow.dept.late", { count: row.late })}</span>}
               </span>
             </div>
 

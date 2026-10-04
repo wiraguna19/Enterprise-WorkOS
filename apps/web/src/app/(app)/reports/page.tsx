@@ -13,6 +13,8 @@ import { listExports } from "@/features/report/actions";
 import type { Bottleneck, Flow } from "@/features/insights/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale, type Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Organization Home — "how is work flowing?" (docs/08 §3, ADR 0007).
@@ -43,6 +45,9 @@ export default async function ReportsPage({
   if (!me.permissions.includes("report.view")) notFound();
 
 
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
   const query = new URLSearchParams();
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
@@ -63,37 +68,39 @@ export default async function ReportsPage({
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Flow"
-        description={`${flow.throughput} completed between ${flow.from} and ${flow.to}`}
+        title={t("nav.flow")}
+        description={t("flow.summary", { count: flow.throughput, from: flow.from, to: flow.to })}
       />
 
       <PageBody>
         {flow.throughput === 0 ? (
           <EmptyState
-            title="Nothing completed in this window"
-            description="Cycle time is measured from work items moving through the workflow. Once work starts being completed, its throughput and cycle time appear here."
+            title={t("flow.empty.title")}
+            description={t("flow.empty.body")}
           />
         ) : (
           <>
           <Panel
             id="headline"
-            title="Headline figures"
-            description={`${flow.throughput} completed between ${flow.from} and ${flow.to}`}
+            title={t("flow.headline")}
+            description={t("flow.summary", { count: flow.throughput, from: flow.from, to: flow.to })}
           >
             <dl className="flex flex-wrap gap-x-10 gap-y-3">
               <Figure
-                term="Median cycle time"
+                term={t("flow.median")}
                 value={flow.cycle_time_p50_hours}
-                note="half of completed work took less"
+                note={t("flow.median.note")}
+                locale={locale}
               />
               <Figure
-                term="85th percentile"
+                term={t("flow.p85")}
                 value={flow.cycle_time_p85_hours}
-                note="the number to make a promise from"
+                note={t("flow.p85.note")}
+                locale={locale}
               />
               <div>
                 <dt className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-                  Finished late
+                  {t("flow.late")}
                 </dt>
                 <dd className="mt-0.5 text-h2 tabular-nums text-n-900">
                   {flow.late_rate === null ? (
@@ -109,41 +116,44 @@ export default async function ReportsPage({
                 </dd>
                 <dd className="text-caption text-n-500">
                   {flow.late_rate === null
-                    ? "nothing completed here carried a due date"
-                    : `${flow.completed_late} of ${flow.dated} that had a due date`}
+                    ? t("flow.late.undated")
+                    : t("flow.late.of", { late: flow.completed_late, dated: flow.dated })}
                 </dd>
               </div>
 
               <div>
                 <dt className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-                  Measured
+                  {t("flow.measured")}
                 </dt>
                 <dd className="mt-0.5 text-h2 tabular-nums text-n-900">
                   {flow.measured}
-                  <span className="ml-1 text-body text-n-500">of {flow.throughput}</span>
+                  <span className="ml-1 text-body text-n-500">
+                    {t("flow.of", { count: flow.throughput })}
+                  </span>
                 </dd>
                 {flow.unmeasurable > 0 && (
                   // Named rather than dropped: an item that went straight to
                   // done has no duration to measure, and inventing a zero for
                   // it would pull every percentile down.
                   <dd className="mt-0.5 text-caption text-s-active">
-                    {flow.unmeasurable} never entered In Progress
+                    {t("flow.unmeasurable", { count: flow.unmeasurable })}
                   </dd>
                 )}
               </div>
             </dl>
           </Panel>
 
-          <Panel id="by-week" title="By week" bleed>
-            <FlowTable flow={flow} timeZone={me.user.timezone} />
+          <Panel id="by-week" title={t("flow.byWeek")} bleed>
+            <FlowTable flow={flow} timeZone={me.user.timezone} locale={locale} />
           </Panel>
 
           {flow.departments.length > 0 && (
-            <Panel id="departments" title="Where it was delivered">
+            <Panel id="departments" title={t("flow.departments")}>
               <DepartmentSplit
                 departments={flow.departments}
                 total={flow.throughput}
                 window={{ from: flow.from, to: flow.to }}
+                locale={locale}
               />
             </Panel>
           )}
@@ -151,17 +161,14 @@ export default async function ReportsPage({
           {bottlenecks.length > 0 && (
             <Panel
               id="bottlenecks"
-              title="Where it waited"
-              description="Ordered by the wait, not by the queue: the backlog is where work is supposed to sit."
+              title={t("flow.waited")}
+              description={t("flow.waited.description")}
               bleed
             >
-              <BottleneckTable rows={bottlenecks} />
+              <BottleneckTable rows={bottlenecks} locale={locale} />
 
               <p className="max-w-[72ch] border-t border-n-100 px-4 py-3 text-caption text-n-500">
-                A wait is counted in the window it ENDED in, and a wait still going has no
-                duration yet — so the median describes waits that finished, and
-                &ldquo;sitting there now&rdquo; is a snapshot that changes when time passes
-                rather than when work happens.
+                {t("flow.waited.note")}
               </p>
             </Panel>
           )}
@@ -176,7 +183,7 @@ export default async function ReportsPage({
             href={`/reports/completions?from=${flow.from}&to=${flow.to}`}
             className="inline-block text-body-sm text-a-700 hover:underline"
           >
-            All {flow.throughput} completions in this window →
+            {t("flow.allCompletions", { count: flow.throughput })}
           </Link>
 
           {/* The window this page is showing, handed to the export verbatim: a
@@ -187,9 +194,9 @@ export default async function ReportsPage({
               href={`/reports/organization?from=${flow.from}&to=${flow.to}`}
               className="text-a-500 underline underline-offset-2"
             >
-              Organization report
+              {t("flow.orgReport")}
             </Link>{" "}
-            — the completions behind these figures, row by row.
+            {t("flow.orgReportTail")}
           </p>
 
           <ExportPanel
@@ -200,11 +207,7 @@ export default async function ReportsPage({
           />
 
           <p className="max-w-[72ch] text-caption text-n-500">
-            Cycle time is measured from the first time an item entered In Progress to the
-            last time it reached Done. Time spent blocked is included — waiting is part of
-            how long work took. Cancelled work is excluded, and an item that was reopened
-            is counted once across the whole span. Percentiles are nearest-rank, so every
-            figure above is a duration something actually took.
+            {t("flow.definition")}
           </p>
           </>
         )}
@@ -217,15 +220,17 @@ function Figure({
   term,
   value,
   note,
+  locale,
 }: {
   term: string;
   value: number | null;
   note: string;
+  locale: Locale;
 }) {
   return (
     <div>
       <dt className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">{term}</dt>
-      <dd className="mt-0.5 text-h2 tabular-nums text-n-900">{formatCycleHours(value)}</dd>
+      <dd className="mt-0.5 text-h2 tabular-nums text-n-900">{formatCycleHours(value, locale)}</dd>
       <dd className="text-caption text-n-500">{note}</dd>
     </div>
   );
