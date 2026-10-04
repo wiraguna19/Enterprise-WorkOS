@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Insights\Http\Controller\AtRiskController;
 use App\Modules\Insights\Http\Controller\FlowController;
+use App\Modules\Insights\Http\Controller\KpiController;
 use App\Modules\Insights\Http\Controller\ProjectHealthController;
 use App\Modules\Insights\Http\Controller\ReportController;
 use App\Modules\Insights\Http\Controller\WorkloadController;
@@ -99,3 +100,40 @@ Route::get('reports/{key}', [ReportController::class, 'show'])
 // available to it (see ReportController::withinRateLimit).
 Route::post('reports/{key}/export', [ReportController::class, 'export'])
     ->middleware('permission:report.export');
+
+/*
+ * Key performance indicators (ADR 0062). Reads behind `kpi.view`; writes are
+ * decided by KpiAuthority, because `kpi.manage` granted on one team is a way
+ * to be allowed and route middleware only knows organization-wide grants.
+ * Outside the replica group: a value just recorded must be read back at once.
+ */
+Route::get('kpis', [KpiController::class, 'index'])
+    ->middleware('permission:kpi.view')
+    ->name('kpis.index');
+
+Route::get('kpis/vocabulary', [KpiController::class, 'vocabulary'])
+    ->middleware('permission:kpi.view')
+    ->name('kpis.vocabulary');
+
+Route::post('kpis', [KpiController::class, 'store'])
+    ->middleware('throttle:writes')
+    ->name('kpis.store');
+
+Route::get('kpis/{id}', [KpiController::class, 'show'])
+    ->whereUuid('id')
+    ->middleware('permission:kpi.view')
+    ->name('kpis.show');
+
+Route::patch('kpis/{id}', [KpiController::class, 'update'])
+    ->whereUuid('id')
+    ->middleware('throttle:writes')
+    ->name('kpis.update');
+
+Route::delete('kpis/{id}', [KpiController::class, 'destroy'])
+    ->whereUuid('id')
+    ->name('kpis.destroy');
+
+Route::put('kpis/{id}/entries', [KpiController::class, 'record'])
+    ->whereUuid('id')
+    ->middleware('throttle:writes')
+    ->name('kpis.record');

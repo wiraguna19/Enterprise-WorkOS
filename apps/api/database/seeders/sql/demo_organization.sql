@@ -101,14 +101,18 @@ WHERE r.key = 'manager' AND p.key IN (
     -- before this seed creates the role.
     'api_token.create',
     -- ADR 0061, for the same reason.
-    'announcement.publish_own_group'
+    'announcement.publish_own_group',
+    -- ADR 0062, likewise.
+    'kpi.view','kpi.manage'
 );
 
 -- Employee: sees the org and its people, changes nothing structural.
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.key = 'employee' AND p.key IN (
-    'organization.view','department.view','team.view','person.view','activity.view'
+    'organization.view','department.view','team.view','person.view','activity.view',
+    -- ADR 0062, repeated here because its migration runs before this seed.
+    'kpi.view'
 );
 
 -- Viewer: the narrowest possible set.

@@ -118,6 +118,7 @@ comment.create / update_own / delete_any
 file.upload / file.delete_any
 workflow.manage            custom_field.manage        report.view / report.export
 announcement.publish       announcement.publish_own_group   (ADR 0061)
+kpi.view                   kpi.manage                       (ADR 0062)
 ```
 
 ### Default roles (seeded, editable per organization)

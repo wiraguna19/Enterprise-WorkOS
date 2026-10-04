@@ -29,6 +29,11 @@ use Illuminate\Support\Facades\DB;
  * Never broken down per person. `docs/02` §11 rules out reducing individual
  * performance to a ranked number, and per-assignee cycle time is that number
  * wearing a neutral name.
+ *
+ * The one exception is a KPI about one person (ADR 0062), which KpiMetrics
+ * computes with these same definitions and which only that person's reporting
+ * line can see. This report stays as it is: an organization's flow, never a
+ * table of people.
  */
 final class FlowQuery
 {

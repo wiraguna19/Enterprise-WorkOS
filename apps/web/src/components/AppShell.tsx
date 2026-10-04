@@ -77,6 +77,8 @@ const SECONDARY: FixedItem[] = [
   // refusal behind it.
   { href: "/recurring", labelKey: "nav.recurring", permission: "work_item.create" },
   { href: "/reports", labelKey: "nav.flow", permission: "report.view" },
+  // ADR 0062. Gated on the permission the list itself requires.
+  { href: "/kpis", labelKey: "nav.kpis", permission: "kpi.view" },
 ];
 
 const ADMIN: FixedItem[] = [
