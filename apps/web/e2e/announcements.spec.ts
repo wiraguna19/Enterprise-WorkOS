@@ -51,7 +51,11 @@ test.describe("announcements", () => {
       // ── A member of the team ───────────────────────────────────────────
       const member = await signedInPhone(browser, SARAH, viewport);
 
-      await member.page.goto("/announcements");
+      // Home says there is something new, and leads to it.
+      await member.page.goto("/");
+      const glance = member.page.getByRole("navigation", { name: "At a glance" });
+      await glance.getByRole("link", { name: /new announcements/ }).click();
+      await expect(member.page).toHaveURL(/\/announcements$/);
 
       const card = member.page.getByRole("article", { name: title });
       await expect(card).toContainText("New");

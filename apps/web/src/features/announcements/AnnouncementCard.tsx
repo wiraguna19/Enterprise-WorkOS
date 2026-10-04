@@ -24,12 +24,15 @@ export function AnnouncementCard({
   locale,
   timeZone,
   full = false,
+  compact = false,
 }: {
   announcement: Announcement;
   t: Translator;
   locale: Locale;
   timeZone?: string;
   full?: boolean;
+  /** On Home: two lines of the body, and no acknowledgement button — the title opens it. */
+  compact?: boolean;
 }) {
   const headingId = `announcement-${announcement.id}`;
 
@@ -61,11 +64,11 @@ export function AnnouncementCard({
         )}
       </p>
 
-      <p className={`whitespace-pre-line text-body-sm text-n-700 ${full ? "" : "line-clamp-4"}`}>
+      <p className={`whitespace-pre-line text-body-sm text-n-700 ${full ? "" : compact ? "line-clamp-2" : "line-clamp-4"}`}>
         {announcement.body}
       </p>
 
-      {announcement.requires_acknowledgement && (
+      {announcement.requires_acknowledgement && !compact && (
         <div className="pt-1">
           {announcement.acknowledged ? (
             <Badge tone="success" icon="check">{t("ann.acknowledged")}</Badge>

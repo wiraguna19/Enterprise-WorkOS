@@ -4,6 +4,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
+import { AnnouncementCard } from "@/features/announcements/AnnouncementCard";
+import type { Announcement } from "@/features/announcements/types";
+import { Glance } from "@/features/home/Glance";
+import { KpiList } from "@/features/kpi/KpiList";
+import type { Kpi } from "@/features/kpi/types";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import { AtRiskList } from "@/features/insights/AtRiskList";
 import { WorkloadPanel } from "@/features/people/WorkloadPanel";
@@ -27,10 +32,16 @@ type Attention = { unaccepted: WorkItem[]; overdue: WorkItem[] };
  * each, and a way through to the full list — because a home screen that repeats
  * a whole page is a page nobody scrolls twice.
  *
- * Deliberately NOT a grid of number cards: no manager has ever made a decision
- * from "Total tasks: 847". The numbers that do appear are in the sentence under
- * the greeting, where they say what today looks like rather than sitting in
- * boxes.
+ * Deliberately NOT a grid of vanity numbers: no manager has ever made a
+ * decision from "Total tasks: 847". The four numbers at the top are the
+ * opposite kind — each is something to act on today, each opens the list it
+ * counts, and each is read as a phrase ("3 overdue"). They replaced the
+ * "Waiting on your review" box, which was the same idea for one number.
+ *
+ * Short by design, for everyone who opens it: at most three rows per section
+ * (the section's own page has the rest), announcements only when one is pinned
+ * or new to the reader, and KPIs only when one needs attention. A home screen
+ * that repeats whole pages is a page nobody scrolls twice.
  *
  * Role-adaptive means adaptive to the DATA (ADR 0009). The manager half appears
  * because the risk query returned rows or the reader has reports — not because
@@ -59,7 +70,7 @@ export default async function HomePage() {
   // Each read falls back to empty rather than failing the page: Home is the
   // first screen after sign-in, and one unavailable section is not a reason to
   // show somebody an error instead of their work.
-  const [attention, today, upcoming, waiting, workload, counts, atRisk, capacity, reviews] =
+  const [attention, today, upcoming, waiting, workload, counts, atRisk, capacity, reviews, announcements, groupKpis, myKpis] =
     await Promise.all([
       api<Attention>("/me/work/needs-attention")
         .then((r) => r.data)
@@ -90,7 +101,31 @@ export default async function HomePage() {
       api<Approval[]>("/approvals?role=reviewer&status=pending")
         .then((r) => r.data)
         .catch(() => [] as Approval[]),
+      // ADR 0061: what was said to this reader's groups, and how much is new.
+      api<Announcement[]>("/announcements")
+        .then((r) => ({ list: r.data, unread: Number(r.meta?.unread ?? 0) }))
+        .catch(() => ({ list: [] as Announcement[], unread: 0 })),
+      // ADR 0062: group KPIs, only asked for when the reader may see them.
+      me.permissions.includes("kpi.view")
+        ? api<Kpi[]>("/kpis").then((r) => r.data).catch(() => [] as Kpi[])
+        : Promise.resolve([] as Kpi[]),
+      api<Kpi[]>(`/people/${me.membership.id}/kpis`)
+        .then((r) => r.data)
+        .catch(() => [] as Kpi[]),
     ]);
+
+  // Pinned or new to this reader, three at most. Read ones that are not
+  // pinned have had their moment; the announcements page keeps them.
+  const notices = announcements.list
+    .filter((announcement) => announcement.pinned || !announcement.read)
+    .slice(0, 3);
+
+  // Only the group KPIs that need someone's attention: a list of every KPI
+  // that is fine is the wall of numbers this screen avoids.
+  const kpisNeedingAttention = groupKpis
+    .filter((kpi) => kpi.current.status === "off_track" || kpi.current.status === "at_risk")
+    .sort((a, b) => (a.current.status === b.current.status ? 0 : a.current.status === "off_track" ? -1 : 1))
+    .slice(0, 5);
 
   // Overdue work is already an exception; anything that is ALSO overdue should
   // be named once, in the more urgent list.
@@ -131,6 +166,20 @@ export default async function HomePage() {
         description={summary(counts, me.user.timezone, t)}
       />
 
+      {/* The same width as the body under it (PageBody's max-w-6xl): the
+          numbers belong to the page's column, not to the window. */}
+      <div className="mx-auto w-full max-w-6xl">
+        <Glance
+          label={t("home.glance")}
+          items={[
+            { href: "/my-work?view=overdue", count: counts.overdue ?? 0, label: t("home.glance.overdue"), urgent: true },
+            { href: "/my-work?view=today", count: counts.due_today ?? 0, label: t("home.glance.dueToday") },
+            { href: "/inbox?tab=reviews", count: reviews.length, label: t("home.glance.reviews") },
+            { href: "/announcements", count: announcements.unread, label: t("home.glance.announcements") },
+          ]}
+        />
+      </div>
+
       <PageBody
         aside={
           <>
@@ -140,18 +189,34 @@ export default async function HomePage() {
               </Panel>
             )}
 
-            {reviews.length > 0 && (
-              // A count and a way through, rather than the queue itself: the
-              // Inbox already renders that queue, and two implementations of
-              // one list is how they start disagreeing about what is pending.
+            {myKpis.length > 0 && (
               <Panel
-                id="waiting-review"
-                title={t("home.waitingReview")}
-                actions={<Badge tone="warning">{reviews.length}</Badge>}
+                id="home-my-kpis"
+                title={t("home.myKpis")}
+                actions={
+                  <ButtonLink href={`/people/${me.membership.id}`} variant="ghost" size="sm">
+                    {t("home.seeAll")}
+                  </ButtonLink>
+                }
+                bleed
               >
-                <ButtonLink href="/inbox" variant="secondary" size="sm">
-                  {t("home.openInbox")}
-                </ButtonLink>
+                <KpiList kpis={myKpis.slice(0, 5)} t={t} locale={locale} />
+              </Panel>
+            )}
+
+            {kpisNeedingAttention.length > 0 && (
+              <Panel
+                id="home-kpis"
+                title={t("home.kpis")}
+                description={t("home.kpis.description")}
+                actions={
+                  <ButtonLink href="/kpis" variant="ghost" size="sm">
+                    {t("home.seeAll")}
+                  </ButtonLink>
+                }
+                bleed
+              >
+                <KpiList kpis={kpisNeedingAttention} t={t} locale={locale} />
               </Panel>
             )}
 
@@ -165,6 +230,32 @@ export default async function HomePage() {
           </>
         }
       >
+        {notices.length > 0 && (
+          <Panel
+            id="home-announcements"
+            title={t("home.announcements")}
+            actions={
+              <ButtonLink href="/announcements" variant="ghost" size="sm">
+                {t("home.seeAll")}
+              </ButtonLink>
+            }
+            bleed
+          >
+            <div className="divide-y divide-n-100">
+              {notices.map((announcement) => (
+                <AnnouncementCard
+                  key={announcement.id}
+                  announcement={announcement}
+                  t={t}
+                  locale={locale}
+                  timeZone={me.user.timezone}
+                  compact
+                />
+              ))}
+            </div>
+          </Panel>
+        )}
+
         {nothingToShow ? (
         <EmptyState
           title={t((counts.open ?? 0) > 0 ? "home.empty.quiet.title" : "home.empty.new.title")}
@@ -284,7 +375,9 @@ function Section({
       bleed
     >
       <div className="divide-y divide-n-100">
-        {items.slice(0, 5).map((item) => (
+        {/* Three, not five: Home is the short version, and "See all" is the
+            long one (the section's own view, sorted the same way). */}
+        {items.slice(0, 3).map((item) => (
           <WorkItemRow key={item.id} item={item} timeZone={timeZone} locale={t.locale} />
         ))}
       </div>

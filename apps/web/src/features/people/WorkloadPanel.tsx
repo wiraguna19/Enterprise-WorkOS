@@ -2,6 +2,7 @@ import Link from "next/link";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import type { Locale } from "@/i18n/config";
 import { translator } from "@/i18n/translate";
+import { formatDate } from "@/lib/format";
 import type { Workload } from "./types";
 
 /**
@@ -52,7 +53,12 @@ export function WorkloadPanel({
       </Link>
 
       <p className="text-caption text-n-500">
-        {t("workload.week", { week: workload.week_start, hours: workload.default_estimate_hours })}
+        {t("workload.week", {
+          // A date as people write it, not 2026-09-28. UTC: the week is a calendar
+          // date, and shifting it by the reader's offset could name the day before.
+          week: formatDate(workload.week_start, "UTC", locale),
+          hours: workload.default_estimate_hours,
+        })}
         {workload.undated_count > 0 && (
           <>
             {" "}
