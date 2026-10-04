@@ -241,6 +241,111 @@ INSERT INTO work_item_transitions
   '01900002-0000-7000-8000-000000000003','01900002-0000-7000-8000-000000000004','in_progress','in_review',
   '01900000-0000-7000-8000-000000000203','user','01900025-0000-7000-8000-000000000004',0, now() - interval '4 hours');
 
+-- ── the history behind finished work ─────────────────────────────────────────
+-- The generator marks items done and stamps `completed_at`, but cycle time,
+-- throughput and the bottleneck table are computed from TRANSITIONS, and until
+-- this block the only transitions in the seed were ENG-142's. So the Flow page
+-- on a fresh database said "nothing completed in this window" over a seed with
+-- dozens of finished items — the one screen whose whole job is those items.
+--
+-- Each generated done item gets the path the default workflow takes it along:
+-- backlog → todo → in progress → in review → completed. Deterministic like the
+-- generator above (derived from the item's sequence number, never random()),
+-- and walked BACKWARDS from `completed_at`, so the history ends exactly where
+-- the item already says it ended.
+--
+-- The generator creates every finished item exactly five days before it
+-- completes, which is too short for most of these paths. Clamping each path
+-- into those five days made every item take the same 118 hours — a median and
+-- an 85th percentile that agree describe a generator, not a team. So the
+-- creation date moves back to fit the history instead: it is the one date here
+-- that nothing else reads, while the completion and due dates are what the
+-- screens report. A transition that predates its own work item still never
+-- happens.
+--
+-- Roughly one in four finished items is also made late — its due date pulled
+-- to before the day it was completed — because a late rate computed over two
+-- accidental misses describes the generator, not a team.
+DO $history$
+DECLARE
+    acme     uuid := '01900000-0000-7000-8000-0000000000ac';
+    s_backlog     uuid := '01900002-0000-7000-8000-000000000001';
+    s_todo        uuid := '01900002-0000-7000-8000-000000000002';
+    s_in_progress uuid := '01900002-0000-7000-8000-000000000003';
+    s_in_review   uuid := '01900002-0000-7000-8000-000000000004';
+    s_completed   uuid := '01900002-0000-7000-8000-000000000006';
+
+    item      record;
+    n         integer;
+    actor     uuid;
+    done_at   timestamptz;
+    review_at timestamptz;
+    start_at  timestamptz;
+    todo_at   timestamptz;
+    born_at   timestamptz;
+    k         integer := 0;
+BEGIN
+    FOR item IN
+        SELECT wi.id, wi.created_at, wi.completed_at,
+               substring(wi.id::text from 25)::integer AS seq,
+               a.membership_id AS assignee
+          FROM work_items wi
+          LEFT JOIN work_item_assignments a
+            ON a.work_item_id = wi.id AND a.role = 'assignee' AND a.unassigned_at IS NULL
+         WHERE wi.organization_id = acme
+           AND wi.id::text LIKE '01900010-%'
+           AND wi.state_category = 'done'
+           AND wi.completed_at IS NOT NULL
+         ORDER BY wi.id
+    LOOP
+        n := item.seq;
+        actor := COALESCE(item.assignee, '01900000-0000-7000-8000-000000000202');
+        done_at := item.completed_at;
+
+        -- Review: half a day to two days. Work in progress: one to nine days,
+        -- with every thirteenth item taking three weeks — the tail the 85th
+        -- percentile exists to show, and that a median hides.
+        review_at := done_at - ((n % 4) * 12 + 12 || ' hours')::interval;
+        start_at := review_at - CASE
+            WHEN n % 13 = 0 THEN interval '21 days'
+            ELSE ((n % 9) + 1 || ' days')::interval + ((n % 5) * 3 || ' hours')::interval
+        END;
+        todo_at := start_at - ((n % 4) + 1 || ' days')::interval;
+        born_at := LEAST(item.created_at, todo_at - ((n % 3) + 1 || ' days')::interval);
+
+        IF born_at < item.created_at THEN
+            UPDATE work_items SET created_at = born_at WHERE id = item.id;
+        END IF;
+
+        INSERT INTO work_item_transitions
+         (id, organization_id, work_item_id, from_state_id, to_state_id, from_category, to_category,
+          actor_membership_id, cause, causation_id, causation_depth, occurred_at)
+        SELECT ('01900029-0000-7000-8000-' || lpad((k + step)::text, 12, '0'))::uuid,
+               acme, item.id, from_id, to_id, from_cat, to_cat,
+               actor, 'user', ('01900029-0000-7000-8000-' || lpad((k + step)::text, 12, '0'))::uuid, 0, at
+          FROM (VALUES
+                (1, NULL::uuid,     s_backlog,     NULL::text,    'backlog',     born_at),
+                (2, s_backlog,      s_todo,        'backlog',     'todo',        todo_at),
+                (3, s_todo,         s_in_progress, 'todo',        'in_progress', start_at),
+                (4, s_in_progress,  s_in_review,   'in_progress', 'in_review',   review_at),
+                (5, s_in_review,    s_completed,   'in_review',   'done',        done_at)
+          ) AS path(step, from_id, to_id, from_cat, to_cat, at);
+
+        k := k + 5;
+
+        -- One in four was late. The start date is clamped with it, for the
+        -- same CHECK the generator respects: a start after its due date is
+        -- refused, and takes the whole seed with it.
+        IF n % 4 = 0 THEN
+            UPDATE work_items SET
+                due_at = done_at - ((n % 3) + 1 || ' days')::interval,
+                start_date = LEAST(start_date, (done_at - ((n % 3) + 1 || ' days')::interval)::date)
+             WHERE id = item.id;
+        END IF;
+    END LOOP;
+END
+$history$;
+
 -- ── rule runs ────────────────────────────────────────────────────────────────
 -- Including a SKIPPED one, because "why didn''t my rule fire?" is the first
 -- question anyone asks and the answer is usually "the condition did not match".
