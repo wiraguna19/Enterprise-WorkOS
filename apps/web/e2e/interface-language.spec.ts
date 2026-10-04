@@ -222,7 +222,11 @@ test.describe("interface language", () => {
 
       // An invitation, accepted in Indonesian. The account it creates must
       // open in Indonesian too — before this it was always created in English.
-      const rina = await signIn("rina@acme.test");
+      // Rina's saved session, not a fresh sign-in: sign-in is limited to five
+      // a quarter hour per person, and a sign-in per run per project spent hers
+      // within an afternoon. The newcomer below signs in for real — that IS
+      // the claim — and is a new person every run.
+      const rina = (await signedInPhone(browser, "rina@acme.test", viewport)).session;
       const address = `e2e-bahasa-${Date.now()}@acme.test`;
       const { token } = await call<{ token: string }>(rina, "/people/invite", {
         method: "POST",
