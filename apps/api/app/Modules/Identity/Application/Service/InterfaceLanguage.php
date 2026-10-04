@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Application\Service;
 
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
+use App\Modules\Platform\Domain\Language\Locales;
 
 /**
  * A person's interface language (ADR 0060).
@@ -17,7 +18,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
 final class InterfaceLanguage
 {
     /** @var list<string> */
-    public const LOCALES = ['en', 'id'];
+    public const LOCALES = Locales::SUPPORTED;
 
     public function set(UserModel $user, string $locale): void
     {

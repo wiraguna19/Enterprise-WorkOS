@@ -38,7 +38,7 @@ final class ApiExceptionRenderer
         return match (true) {
             $e instanceof ValidationException => $this->envelope(
                 'validation.failed',
-                'The given data was invalid.',
+                __('The given data was invalid.'),
                 422,
                 $requestId,
                 $e->errors(),
@@ -46,14 +46,14 @@ final class ApiExceptionRenderer
 
             $e instanceof AuthenticationException => $this->envelope(
                 'auth.unauthenticated',
-                'Authentication is required.',
+                __('Authentication is required.'),
                 401,
                 $requestId,
             ),
 
             $e instanceof AuthorizationException => $this->envelope(
                 'auth.forbidden',
-                $e->getMessage() ?: 'You are not permitted to perform this action.',
+                __($e->getMessage() ?: 'You are not permitted to perform this action.'),
                 403,
                 $requestId,
             ),
@@ -64,21 +64,25 @@ final class ApiExceptionRenderer
             $e instanceof ModelNotFoundException,
             $e instanceof NotFoundHttpException => $this->envelope(
                 'resource.not_found',
-                'Resource not found.',
+                __('Resource not found.'),
                 404,
                 $requestId,
             ),
 
             $e instanceof TooManyRequestsHttpException => $this->envelope(
                 'rate_limit.exceeded',
-                'Too many requests. Try again shortly.',
+                __('Too many requests. Try again shortly.'),
                 429,
                 $requestId,
             ),
 
             $e instanceof DomainException => $this->envelope(
                 $e->errorCode(),
-                $e->getMessage(),
+                // Translated by its English text (lang/id.json). A message that
+                // carries a name or a count is translated where it is thrown,
+                // with placeholders, and arrives here already in the reader's
+                // language — which this lookup then leaves alone.
+                __($e->getMessage()),
                 $e->httpStatus(),
                 $requestId,
                 $e->details(),
@@ -122,7 +126,7 @@ final class ApiExceptionRenderer
 
         return $this->envelope(
             'server.error',
-            'Something went wrong. Quote the request ID when contacting support.',
+            __('Something went wrong. Quote the request ID when contacting support.'),
             500,
             $requestId,
         );

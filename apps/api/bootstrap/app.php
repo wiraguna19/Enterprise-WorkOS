@@ -21,6 +21,7 @@ use App\Modules\Platform\Http\ApiExceptionRenderer;
 use App\Modules\Platform\Http\Middleware\AnswersQuery;
 use App\Modules\Platform\Http\Middleware\AssignRequestId;
 use App\Modules\Platform\Http\Middleware\RefuseUnansweredQuery;
+use App\Modules\Platform\Http\Middleware\UseReadersLanguage;
 use App\Modules\Platform\Providers\PlatformServiceProvider;
 use App\Modules\Search\Providers\SearchServiceProvider;
 use App\Modules\Work\Providers\WorkServiceProvider;
@@ -69,6 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // and the tenant must be resolved before any tenant-scoped query runs.
         $middleware->api(prepend: [
             AssignRequestId::class,
+            UseReadersLanguage::class,
         ]);
 
         $middleware->api(append: [

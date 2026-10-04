@@ -1,4 +1,5 @@
 import { getSessionToken } from "./session";
+import { requestLocale } from "@/i18n/server";
 
 /**
  * Server-side API client.
@@ -103,6 +104,10 @@ export async function api<T>(
 
   const headers: Record<string, string> = {
     Accept: "application/json",
+    // The reader's language, so a refusal or a validation message comes back
+    // in it (ADR 0060). The cookie this reads follows the account's own choice
+    // once signed in, and the browser's before that.
+    "Accept-Language": await requestLocale(),
   };
 
   if (body !== undefined) headers["Content-Type"] = "application/json";

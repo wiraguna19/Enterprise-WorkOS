@@ -89,3 +89,31 @@ they are about a hundred sentences across forty exception classes, many
 carrying names and counts, and translating them is a decision of its own:
 the API localizing from `users.locale`/`Accept-Language` with Laravel's
 language files, or the web mapping error codes. Neither is taken here.
+
+## Addendum — the API answers in the reader's language (October 2026)
+
+Taken: the API localizes its own refusals, rather than the web mapping error
+codes. A code names a family of refusals, many of which carry a name or a
+count; a table of codes on the web would either lose those or grow a second
+copy of every sentence the API already composes.
+
+- **`Accept-Language` decides**, read by `UseReadersLanguage` at the front of
+  the API group, so a refusal raised anywhere after it — authentication,
+  validation, a domain rule — is rendered in that language. The response
+  says which in `Content-Language`. The web sends the reader's language on
+  every call; a client that sends nothing gets English, as before.
+- **The list of languages lives in Platform** (`Locales`), because Identity
+  stores a person's choice and the middleware must not depend on Identity.
+  `InterfaceLanguage::LOCALES` reads it.
+- **`lang/id.json` is keyed by the English sentence.** A sentence with no
+  entry falls back to English by itself, so modules move over one sentence
+  at a time and an untranslated refusal is never a broken one. Static
+  messages are translated where the exception is rendered; a message that
+  carries a name or a count is translated where it is thrown, with
+  placeholders.
+- **Validation lines** are in `lang/id/validation.php`, for the rules this
+  codebase uses, with field names as a person reads them. A rule without a
+  line falls back to English.
+- **Internal messages stay English** — a missing tenant context, a reference
+  generator called outside a transaction. They are for whoever reads the log,
+  and they never reach a person on purpose.

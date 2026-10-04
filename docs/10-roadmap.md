@@ -275,9 +275,13 @@ last entry is deliberately last.
                         Every screen of the web interface reads in
                         Indonesian, and so do inbox notifications (the API
                         names the sentence, the web words it; ADR 0060
-                        addendum). Still English: the API's refusals and
-                        validation messages, and what an organization names
-                        for itself. There is no email layer to translate.
+                        addendum). The API answers in the reader's language
+                        too (Accept-Language; ADR 0060 addendum): its fixed
+                        refusals and its validation messages so far. Next:
+                        the refusals that carry a name or a count, worded
+                        where they are thrown. Still English by design: what
+                        an organization names for itself. There is no email
+                        layer to translate.
 ```
 
 ---
