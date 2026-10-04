@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SessionList, type Session } from "@/features/sessions/SessionList";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDateTime } from "@/lib/format";
 
 /**
@@ -28,6 +30,8 @@ type Payload = {
 
 export default async function SessionsPage() {
   const me = await requireUser();
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   const { data } = await api<Payload[]>("/auth/sessions");
 
@@ -40,16 +44,16 @@ export default async function SessionsPage() {
     ip_address: session.ip_address,
     last_used:
       session.last_used_at === null
-        ? "not since it started"
-        : formatDateTime(session.last_used_at, me.user.timezone),
-    started: formatDateTime(session.created_at, me.user.timezone),
+        ? t("sess.notSince")
+        : formatDateTime(session.last_used_at, me.user.timezone, locale),
+    started: formatDateTime(session.created_at, me.user.timezone, locale),
   }));
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Signed in"
-        description="Every session that can act as you right now. Ending one signs that device out immediately — not when its token expires."
+        title={t("settings.sessions.label")}
+        description={t("sess.page.description")}
       />
 
       <PageBody>

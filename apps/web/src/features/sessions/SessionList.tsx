@@ -7,6 +7,7 @@ import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { endOtherSessions, endSession } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Everything signed in as you (ADR 0023).
@@ -39,14 +40,15 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+  const t = useT();
 
   const others = sessions.filter((session) => !session.current).length;
 
   return (
     <Panel
       id="sessions"
-      title="Sessions"
-      description="Ending one signs that device out on its next request, not when its token expires. Ending the others also ends your API tokens — make new ones afterwards if a script still needs one."
+      title={t("sess.panel")}
+      description={t("sess.panel.description")}
       actions={
         others > 0 ? (
           <Button
@@ -60,12 +62,12 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
                 setError(result.error);
 
                 if (result.error === null) {
-                  toast({ tone: "removed", message: `Ended ${others} other ${others === 1 ? "session" : "sessions"}.` });
+                  toast({ tone: "removed", message: t.plural("sess.endedOthers", others) });
                 }
               })
             }
           >
-            End the other {others === 1 ? "session" : `${others} sessions`}
+            {t.plural("sess.endOthers", others)}
           </Button>
         ) : undefined
       }
@@ -80,15 +82,15 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
         </p>
       )}
 
-      <DataTable caption="Sessions that can act as you">
+      <DataTable caption={t("sess.caption")}>
         <THead>
           <Tr>
-            <Th>Client</Th>
-            <Th>Address</Th>
-            <Th>Last used</Th>
-            <Th>Signed in</Th>
+            <Th>{t("sess.col.client")}</Th>
+            <Th>{t("sess.col.address")}</Th>
+            <Th>{t("sess.col.lastUsed")}</Th>
+            <Th>{t("sess.col.signedIn")}</Th>
             <Th width="w-28" align="right">
-              Action
+              {t("sess.col.action")}
             </Th>
           </Tr>
         </THead>
@@ -99,7 +101,7 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
                 <div className="flex items-center gap-2">
                   {session.current && (
                     <Badge tone="info" icon="check">
-                      this device
+                      {t("sess.thisDevice")}
                     </Badge>
                   )}
                   {/* The raw agent string, not a guess at a device name:
@@ -107,11 +109,11 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
                       derived wrongly is worse than the string somebody can read
                       themselves. */}
                   <span className="truncate font-mono text-micro text-n-500">
-                    {session.user_agent ?? "unknown client"}
+                    {session.user_agent ?? t("sess.unknownClient")}
                   </span>
                 </div>
               </Td>
-              <Td muted>{session.ip_address ?? "no address"}</Td>
+              <Td muted>{session.ip_address ?? t("sess.noAddress")}</Td>
               <Td muted>{session.last_used}</Td>
               <Td muted>{session.started}</Td>
               <Td align="right">
@@ -129,12 +131,12 @@ export function SessionList({ sessions }: { sessions: Session[] }) {
                       // unless it is — and then the sign-out is the
                       // confirmation (ADR 0025).
                       if (result.error === null && !session.current) {
-                        toast({ tone: "removed", message: "That device is signed out." });
+                        toast({ tone: "removed", message: t("sess.endedOne") });
                       }
                     })
                   }
                 >
-                  {session.current ? "Sign out here" : "End"}
+                  {session.current ? t("sess.signOutHere") : t("sess.end")}
                 </Button>
               </Td>
             </Tr>

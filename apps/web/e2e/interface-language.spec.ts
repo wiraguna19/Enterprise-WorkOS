@@ -127,6 +127,25 @@ test.describe("interface language", () => {
         await expect(page.getByRole("heading", { name: "Departemen", level: 1 })).toBeVisible();
       }
 
+      // Settings that belong to the person rather than the organization:
+      // every account has these four, so none is guarded.
+      await page.goto("/settings/notifications");
+      await expect(page.getByRole("heading", { name: "Notifikasi", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Keputusan" })).toBeVisible();
+
+      await page.goto("/settings/two-factor");
+      await expect(
+        page.getByRole("heading", { name: "Autentikasi dua faktor", level: 1 }),
+      ).toBeVisible();
+
+      await page.goto("/settings/sessions");
+      await expect(page.getByRole("heading", { name: "Perangkat yang masuk", level: 1 })).toBeVisible();
+      await expect(page.getByText("perangkat ini")).toBeVisible();
+
+      await page.goto("/settings/api-tokens");
+      await expect(page.getByRole("heading", { name: "Token API", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Token Anda" })).toBeVisible();
+
       // Reports: the Flow page, behind report.view.
       if (permissions.includes("report.view")) {
         await page.goto("/reports");

@@ -4,6 +4,8 @@ import { ApiTokenPanel, type ApiTokenRow } from "@/features/auth/ApiTokenPanel";
 import type { TokenAccess } from "@/features/auth/api-token-actions";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDateTime } from "@/lib/format";
 
 /**
@@ -29,6 +31,8 @@ type Payload = {
 
 export default async function ApiTokensPage() {
   const me = await requireUser();
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   const { data } = await api<Payload[]>("/me/api-tokens");
 
@@ -37,16 +41,19 @@ export default async function ApiTokensPage() {
     id: token.id,
     name: token.name,
     access: token.access,
-    created: formatDateTime(token.created_at, me.user.timezone),
-    lastUsed: token.last_used_at === null ? "Never" : formatDateTime(token.last_used_at, me.user.timezone),
-    expires: formatDateTime(token.expires_at, me.user.timezone),
+    created: formatDateTime(token.created_at, me.user.timezone, locale),
+    lastUsed:
+      token.last_used_at === null
+        ? t("tok.never")
+        : formatDateTime(token.last_used_at, me.user.timezone, locale),
+    expires: formatDateTime(token.expires_at, me.user.timezone, locale),
   }));
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="API tokens"
-        description="Let a script or an integration act as you, without your password."
+        title={t("settings.apiTokens.label")}
+        description={t("settings.apiTokens.description")}
       />
 
       <PageBody>

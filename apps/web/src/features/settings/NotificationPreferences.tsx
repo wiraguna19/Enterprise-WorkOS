@@ -5,6 +5,7 @@ import { DataTable, TBody, THead, Th, Tr } from "@/components/ui/DataTable";
 import { INPUT } from "@/components/ui/Field";
 import { saveNotificationPreference } from "./actions";
 import type { NotificationType, Preference } from "./types";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * One group of notification types, in two layouts (docs/08 §6, docs/09 §5).
@@ -35,6 +36,8 @@ export function PreferenceGroup({
   /** Each type with the preference already resolved for it. */
   entries: Array<{ type: NotificationType; saved: Preference }>;
 }) {
+  const t = useT();
+
   return (
     <>
       {/* ── Phone: one block per type ───────────────────────────────────── */}
@@ -53,18 +56,18 @@ export function PreferenceGroup({
           On the shared primitives (ADR 0024), so the padding and the row height
           are the product's rather than this file's fourth private opinion. */}
       <div className="hidden md:block">
-        <DataTable caption="Notification preferences">
+        <DataTable caption={t("nprefs.caption")}>
           <THead>
             <Tr>
-              <Th>Event</Th>
+              <Th>{t("nprefs.event")}</Th>
               <Th width="w-24" align="right">
-                In app
+                {t("nprefs.inApp")}
               </Th>
               <Th width="w-24" align="right">
-                Email
+                {t("nprefs.email")}
               </Th>
               <Th width="w-32" align="right">
-                Digest
+                {t("nprefs.digest")}
               </Th>
             </Tr>
           </THead>
@@ -103,6 +106,7 @@ function PreferenceRow({
   saved: Preference;
   layout: "block" | "row";
 }) {
+  const t = useT();
   const [preference, setPreference] = useState(saved);
   const [error, setError] = useState<string | null>(null);
   const [saving, startTransition] = useTransition();
@@ -141,29 +145,29 @@ function PreferenceRow({
         <div className="text-body-sm text-n-900">
           {type.label}
           {type.alwaysInApp && (
-            <span className="ml-1.5 text-caption text-n-500">· always in app</span>
+            <span className="ml-1.5 text-caption text-n-500">{t("nprefs.alwaysInApp")}</span>
           )}
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
           <Toggle
-            label="In app"
-            ariaLabel={`${type.label} in app`}
+            label={t("nprefs.inApp")}
+            ariaLabel={t("nprefs.aria.inApp", { label: type.label })}
             checked={inApp}
             disabled={type.alwaysInApp || saving}
             onChange={(value) => save({ in_app: value })}
           />
 
           <Toggle
-            label="Email"
-            ariaLabel={`${type.label} by email`}
+            label={t("nprefs.email")}
+            ariaLabel={t("nprefs.aria.email", { label: type.label })}
             checked={preference.email}
             disabled={preference.digest !== "off" || saving}
             onChange={(value) => save({ email: value })}
           />
 
           <label className="flex items-center gap-1.5 text-caption text-n-500">
-            Digest
+            {t("nprefs.digest")}
             <DigestSelect
               type={type}
               preference={preference}
@@ -190,7 +194,7 @@ function PreferenceRow({
       >
         {type.label}
         {type.alwaysInApp && (
-          <span className="ml-1.5 text-caption text-n-500">· always in app</span>
+          <span className="ml-1.5 text-caption text-n-500">{t("nprefs.alwaysInApp")}</span>
         )}
         {error !== null && (
           <span role="alert" className="ml-1.5 text-caption text-s-danger">
@@ -202,7 +206,7 @@ function PreferenceRow({
       <td className="px-[var(--cell-padding-x)] py-[var(--cell-padding-y)] text-right">
         <input
           type="checkbox"
-          aria-label={`${type.label} in app`}
+          aria-label={t("nprefs.aria.inApp", { label: type.label })}
           checked={inApp}
           disabled={type.alwaysInApp || saving}
           onChange={(event) => save({ in_app: event.target.checked })}
@@ -212,7 +216,7 @@ function PreferenceRow({
       <td className="px-[var(--cell-padding-x)] py-[var(--cell-padding-y)] text-right">
         <input
           type="checkbox"
-          aria-label={`${type.label} by email`}
+          aria-label={t("nprefs.aria.email", { label: type.label })}
           checked={preference.email}
           // Not a hidden rule: the checkbox is visibly unavailable while a
           // digest is on, which explains the constraint better than an error
@@ -273,17 +277,19 @@ function DigestSelect({
   disabled?: boolean;
   onChange: (digest: Preference["digest"]) => void;
 }) {
+  const t = useT();
+
   return (
     <select
-      aria-label={`${type.label} digest`}
+      aria-label={t("nprefs.aria.digest", { label: type.label })}
       value={preference.digest}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value as Preference["digest"])}
       className={INPUT.replace("w-full", "w-auto")}
     >
-      <option value="off">Off</option>
-      <option value="daily">Daily</option>
-      <option value="weekly">Weekly</option>
+      <option value="off">{t("nprefs.digest.off")}</option>
+      <option value="daily">{t("nprefs.digest.daily")}</option>
+      <option value="weekly">{t("nprefs.digest.weekly")}</option>
     </select>
   );
 }

@@ -255,7 +255,13 @@ last entry is deliberately last.
                         the export panel; durations print as "j"/"h" with
                         the reader's decimal separator. Report column names
                         come from the API and stay as served.
-                        Next, one screen at a time: the rest of Settings.
+                        The person's own settings: Notifications, two-factor
+                        (enrolment, recovery codes and the downloaded file),
+                        Signed in, and API tokens.
+                        Next, one screen at a time: the organization's
+                        settings (Organization and its policies, Service
+                        accounts, SSO, Webhooks, Audit), then Roles, Fields,
+                        Workflows and Rules.
 ```
 
 ---

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { api, ApiRequestError } from "@/lib/api";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 import type { Preference } from "./types";
 
 /**
@@ -37,7 +39,7 @@ export async function saveNotificationPreference(
       return { error: error.error.message };
     }
 
-    return { error: "We could not reach the server. Please try again." };
+    return { error: translator(await requestLocale())("common.unreachable") };
   }
 
   revalidatePath("/settings/notifications");

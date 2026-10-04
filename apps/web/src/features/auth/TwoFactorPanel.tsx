@@ -13,6 +13,7 @@ import {
   disableTwoFactor,
   regenerateRecoveryCodes,
 } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Enrolling, and un-enrolling, a second factor (ADR 0030).
@@ -40,13 +41,14 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+  const t = useT();
 
   if (stage === "codes") {
     return (
       <Panel
         id="two-factor"
-        title="Save your recovery codes"
-        description="Each one works once, in place of a code from your app. This is the only time they are shown."
+        title={t("tfa.codes.title")}
+        description={t("tfa.codes.description")}
       >
         <ul className="grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg border border-n-300 bg-n-25 p-4 font-mono text-body-sm text-n-900 sm:grid-cols-3">
           {codes.map((recovery) => (
@@ -55,9 +57,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
         </ul>
 
         <p className="mt-3 max-w-prose text-caption text-n-500">
-          Keep them somewhere that is not the phone running your authenticator app — the point of
-          them is the day that phone is gone. If you lose them, you can replace them below with
-          your password; the factor stays on.
+          {t("tfa.codes.keep")}
         </p>
 
         {/* Copy and download, because "this is the only time they are shown"
@@ -70,19 +70,19 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
             onClick={() => {
               navigator.clipboard
                 ?.writeText(codes.join("\n"))
-                .then(() => toast({ tone: "done", message: "Recovery codes copied." }))
-                .catch(() => setError("Your browser would not let the page copy. Select them and copy by hand."));
+                .then(() => toast({ tone: "done", message: t("tfa.codes.copied") }))
+                .catch(() => setError(t("tfa.codes.copyFailed")));
             }}
           >
-            Copy
+            {t("tfa.copy")}
           </Button>
 
-          <Button variant="secondary" size="sm" onClick={() => download(codes)}>
-            Download
+          <Button variant="secondary" size="sm" onClick={() => download(codes, t)}>
+            {t("tfa.download")}
           </Button>
 
           <Button variant="ghost" size="sm" onClick={() => setStage("idle")}>
-            I have saved them
+            {t("tfa.saved")}
           </Button>
         </div>
       </Panel>
@@ -93,8 +93,8 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
     return (
       <Panel
         id="two-factor"
-        title="Scan this with your authenticator app"
-        description="Then type the six digits it shows, to prove the app and this account agree."
+        title={t("tfa.scan.title")}
+        description={t("tfa.scan.description")}
       >
         {error && (
           <p role="alert" className="mb-3 rounded-md border border-s-danger/40 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
@@ -112,12 +112,12 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
           <div className="min-w-0 flex-1 space-y-3">
             <div>
               <p className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-                Or type the key
+                {t("tfa.scan.key")}
               </p>
               <p className="mt-1 break-all font-mono text-body-sm text-n-900">{secret}</p>
             </div>
 
-            <Field id="mfa-code" label="Code from the app" hint="Six digits.">
+            <Field id="mfa-code" label={t("tfa.scan.code")} hint={t("tfa.scan.codeHint")}>
               <input
                 id="mfa-code"
                 value={code}
@@ -147,17 +147,17 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
                       setStage("codes");
                       toast({
                         tone: "done",
-                        message: "Two-factor is on. Other devices signed in as you were signed out.",
+                        message: t("tfa.on.toast"),
                       });
                     }
                   })
                 }
               >
-                {busy ? "Checking…" : "Turn on"}
+                {busy ? t("tfa.checking") : t("tfa.turnOn")}
               </Button>
 
               <Button variant="ghost" size="sm" disabled={busy} onClick={() => setStage("idle")}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
@@ -170,9 +170,9 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
     return (
       <Panel
         id="two-factor"
-        title="Two-factor authentication"
-        description="Signing in asks for a code from your authenticator app as well as your password."
-        actions={<Badge tone="success" icon="check">on</Badge>}
+        title={t("settings.twoFactor.label")}
+        description={t("tfa.on.description")}
+        actions={<Badge tone="success" icon="check">{t("tfa.badge.on")}</Badge>}
       >
         {error && (
           <p role="alert" className="mb-3 rounded-md border border-s-danger/40 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
@@ -183,8 +183,8 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
         <div className="max-w-md space-y-3">
           <Field
             id="mfa-password"
-            label="Password"
-            hint="Replacing the codes or turning the factor off needs something you know, not only the session you are in."
+            label={t("tfa.password")}
+            hint={t("tfa.password.hint")}
           >
             <input
               id="mfa-password"
@@ -214,12 +214,12 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
                   if (result.error === null) {
                     setCodes(result.codes);
                     setStage("codes");
-                    toast({ tone: "removed", message: "Your old recovery codes no longer work." });
+                    toast({ tone: "removed", message: t("tfa.newCodes.toast") });
                   }
                 })
               }
             >
-              {busy ? "Working…" : "New recovery codes"}
+              {busy ? t("feed.working") : t("tfa.newCodes")}
             </Button>
 
             <Button
@@ -234,12 +234,12 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
                   setPassword("");
 
                   if (result.error === null) {
-                    toast({ tone: "removed", message: "Two-factor is off." });
+                    toast({ tone: "removed", message: t("tfa.off.toast") });
                   }
                 })
               }
             >
-              {busy ? "Turning off…" : "Turn off"}
+              {busy ? t("tfa.turningOff") : t("tfa.turnOff")}
             </Button>
           </div>
         </div>
@@ -250,9 +250,9 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
   return (
     <Panel
       id="two-factor"
-      title="Two-factor authentication"
-      description="A code from an app on your phone, on top of your password."
-      actions={<Badge tone="neutral" icon="minus">off</Badge>}
+      title={t("settings.twoFactor.label")}
+      description={t("tfa.off.description")}
+      actions={<Badge tone="neutral" icon="minus">{t("tfa.badge.off")}</Badge>}
     >
       {error && (
         <p role="alert" className="mb-3 rounded-md border border-s-danger/40 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
@@ -261,8 +261,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
       )}
 
       <p className="max-w-prose text-body-sm text-n-700">
-        A stolen password is enough to sign in as you. A stolen password and a code that changes
-        every thirty seconds is not. Turning this on signs out every other device signed in as you.
+        {t("tfa.off.why")}
       </p>
 
       <div className="mt-4">
@@ -284,7 +283,7 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
             })
           }
         >
-          {busy ? "Preparing…" : "Set up two-factor"}
+          {busy ? t("tfa.preparing") : t("tfa.setUp")}
         </Button>
       </div>
     </Panel>
@@ -313,9 +312,9 @@ function formDataWith(name: string, value: string): FormData {
  * back to a server to be sent down again as an attachment would put them
  * through one more place they do not need to be.
  */
-function download(codes: string[]) {
+function download(codes: string[], t: ReturnType<typeof useT>) {
   const blob = new Blob(
-    [`Work OS recovery codes\n\nEach code works once, in place of a code from your authenticator app.\n\n${codes.join("\n")}\n`],
+    [`${t("tfa.file.heading")}\n\n${t("tfa.file.body")}\n\n${codes.join("\n")}\n`],
     { type: "text/plain" },
   );
 

@@ -7,6 +7,7 @@ import { DataTable, TBody, Td, THead, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { createApiToken, revokeApiToken, type TokenAccess } from "./api-token-actions";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * A token, as the page hands it over: dates already formatted in the viewer's
@@ -43,6 +44,11 @@ export function ApiTokenPanel({
   const [error, setError] = useState<string | null>(null);
   const [issued, setIssued] = useState<{ name: string; value: string } | null>(null);
   const [busy, start] = useTransition();
+  const t = useT();
+
+  // The permission's name sits inside the sentence as code, so the sentence is
+  // cut at its placeholder rather than assembled from fragments in this file.
+  const [cannotBefore, cannotAfter] = t("tok.cannotMake").split("{permission}");
 
   return (
     <div className="space-y-4">
@@ -53,28 +59,27 @@ export function ApiTokenPanel({
       )}
 
       {issued && (
-        <Panel id="issued" title={`Token for ${issued.name}`} tone="danger">
+        <Panel id="issued" title={t("tok.issued", { name: issued.name })} tone="danger">
           <div className="space-y-3">
             <p className="text-body-sm text-n-700">
-              <strong>It is shown once.</strong> Only a digest of it is kept, so if it is lost, revoke
-              it and make another.
+              <strong>{t("tok.shownOnce")}</strong> {t("tok.shownOnceTail")}
             </p>
 
             <code className="block overflow-x-auto break-all rounded-lg border border-n-300 bg-n-50 p-3 font-mono text-micro text-n-900">
               {issued.value}
             </code>
 
-            <p className="text-caption text-n-500">Sent as a bearer token:</p>
+            <p className="text-caption text-n-500">{t("tok.bearer")}</p>
             <code className="block overflow-x-auto whitespace-pre rounded-lg border border-n-300 bg-n-50 p-3 font-mono text-micro text-n-700">
               {`curl -H "Authorization: Bearer ${issued.value}" \\\n     ${apiBase}/auth/me`}
             </code>
 
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(issued.value)}>
-                Copy the token
+                {t("tok.copy")}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setIssued(null)}>
-                I have saved it
+                {t("tok.saved")}
               </Button>
             </div>
           </div>
@@ -83,23 +88,21 @@ export function ApiTokenPanel({
 
       <Panel
         id="tokens"
-        title="Your tokens"
+        title={t("tok.yours")}
         description={
-          tokens.length === 0
-            ? "None. A token lets a script act as you in this organization, with your permissions and no more."
-            : `${tokens.length} active in this organization.`
+          tokens.length === 0 ? t("tok.none") : t("tok.active", { count: tokens.length })
         }
         bleed
       >
         {tokens.length > 0 && (
-          <DataTable caption="Your API tokens in this organization">
+          <DataTable caption={t("tok.caption")}>
             <THead>
               <Tr>
-                <Th>Name</Th>
-                <Th>Access</Th>
-                <Th>Last used</Th>
-                <Th>Expires</Th>
-                <Th align="right">Actions</Th>
+                <Th>{t("projects.col.name")}</Th>
+                <Th>{t("tok.col.access")}</Th>
+                <Th>{t("sess.col.lastUsed")}</Th>
+                <Th>{t("tok.col.expires")}</Th>
+                <Th align="right">{t("tok.col.actions")}</Th>
               </Tr>
             </THead>
             <TBody>
@@ -107,11 +110,13 @@ export function ApiTokenPanel({
                 <Tr key={token.id}>
                   <Td>
                     <span className="font-medium">{token.name}</span>
-                    <span className="block text-caption text-n-500">Made {token.created}</span>
+                    <span className="block text-caption text-n-500">
+                      {t("tok.made", { date: token.created })}
+                    </span>
                   </Td>
                   <Td>
                     <Badge tone={token.access === "read" ? "neutral" : "warning"}>
-                      {token.access === "read" ? "read only" : "read and write"}
+                      {token.access === "read" ? t("tok.readOnly") : t("tok.readWrite")}
                     </Badge>
                   </Td>
                   <Td muted>{token.lastUsed}</Td>
@@ -153,8 +158,9 @@ export function ApiTokenPanel({
         // Said, not hidden: somebody looking for the button needs to know it
         // is a role decision, not a missing feature.
         <p className="text-caption text-n-500">
-          Your role does not include making API tokens (the <code className="font-mono">api_token.create</code>{" "}
-          permission). An administrator can grant it.
+          {cannotBefore}
+          <code className="font-mono">api_token.create</code>
+          {cannotAfter}
         </p>
       )}
     </div>
@@ -171,11 +177,12 @@ function RevokeToken({
   onConfirm: () => void;
 }) {
   const [armed, setArmed] = useState(false);
+  const t = useT();
 
   if (!armed) {
     return (
       <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setArmed(true)}>
-        Revoke
+        {t("tok.revoke")}
       </Button>
     );
   }
@@ -191,10 +198,10 @@ function RevokeToken({
           onConfirm();
         }}
       >
-        Revoke {name} — anything using it stops now
+        {t("tok.revokeConfirm", { name })}
       </Button>
       <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setArmed(false)}>
-        Cancel
+        {t("common.cancel")}
       </Button>
     </span>
   );
@@ -207,6 +214,7 @@ function NewToken({
   busy: boolean;
   onCreate: (input: { name: string; access: TokenAccess; expiresInDays: number }) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [access, setAccess] = useState<TokenAccess>("read");
   const [days, setDays] = useState(90);
@@ -217,8 +225,8 @@ function NewToken({
   return (
     <Panel
       id="new-token"
-      title="Make a token"
-      description="It acts as you, in this organization, with your permissions. It cannot manage sign-ins, second factors or other tokens, and it never goes idle — but it does expire."
+      title={t("tok.make.title")}
+      description={t("tok.make.description")}
       footer={
         <div className="flex flex-wrap items-center gap-3">
           <Button
@@ -227,19 +235,19 @@ function NewToken({
             disabled={busy || name.trim() === ""}
             onClick={() => onCreate({ name: name.trim(), access, expiresInDays: days })}
           >
-            {busy ? "Making…" : "Make the token"}
+            {busy ? t("tok.making") : t("tok.make")}
           </Button>
 
           {name.trim() === "" && (
             <p role="status" className="text-caption text-n-500">
-              Name it after what will use it — that is how you will know which one to revoke.
+              {t("tok.nameIt")}
             </p>
           )}
         </div>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id={nameId} label="Name" hint="What will use it, e.g. “Nightly export”.">
+        <Field id={nameId} label={t("projects.col.name")} hint={t("tok.name.hint")}>
           <input
             id={nameId}
             value={name}
@@ -249,22 +257,24 @@ function NewToken({
           />
         </Field>
 
-        <Field id={daysId} label="Expires after">
+        <Field id={daysId} label={t("tok.expiresAfter")}>
           <select
             id={daysId}
             value={days}
             onChange={(event) => setDays(Number(event.target.value))}
             className={INPUT}
           >
-            <option value={30}>30 days</option>
-            <option value={90}>90 days</option>
-            <option value={365}>365 days</option>
+            {[30, 90, 365].map((count) => (
+              <option key={count} value={count}>
+                {t("tok.days", { count })}
+              </option>
+            ))}
           </select>
         </Field>
 
         <fieldset className="sm:col-span-2 space-y-1">
           <legend className="mb-1 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-            Access
+            {t("tok.col.access")}
           </legend>
           <label className="flex items-start gap-2 text-body-sm text-n-700">
             <input
@@ -275,8 +285,8 @@ function NewToken({
               className="mt-0.5"
             />
             <span>
-              Read only
-              <span className="block text-caption text-n-500">Anything that changes data is refused.</span>
+              {t("tok.access.read")}
+              <span className="block text-caption text-n-500">{t("tok.access.read.hint")}</span>
             </span>
           </label>
           <label className="flex items-start gap-2 text-body-sm text-n-700">
@@ -288,10 +298,8 @@ function NewToken({
               className="mt-0.5"
             />
             <span>
-              Read and write
-              <span className="block text-caption text-n-500">
-                Everything your role allows — create, edit, delete.
-              </span>
+              {t("tok.access.write")}
+              <span className="block text-caption text-n-500">{t("tok.access.write.hint")}</span>
             </span>
           </label>
         </fieldset>

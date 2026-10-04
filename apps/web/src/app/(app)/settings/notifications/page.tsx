@@ -5,6 +5,9 @@ import { PreferenceGroup } from "@/features/settings/NotificationPreferences";
 import type { NotificationType, Preference } from "@/features/settings/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * Notification preferences (docs/08 §7).
@@ -19,14 +22,18 @@ import { requireUser } from "@/lib/auth";
  * types exist and how they are grouped.
  */
 
+// Keys rather than words: the labels are resolved per reader in the page, so
+// the same three groups read in whichever language the reader chose.
 const GROUPS: Array<{
-  label: string;
-  description: string;
+  id: string;
+  label: MessageKey;
+  description: MessageKey;
   types: NotificationType[];
 }> = [
   {
-    label: "Decisions",
-    description: "Things that block someone until you act.",
+    id: "decisions",
+    label: "nprefs.group.decisions",
+    description: "nprefs.group.decisions.description",
     types: [
       { key: "approval.requested", label: "Someone asks for your review", alwaysInApp: true },
       { key: "approval.changes_requested", label: "Your work is sent back", alwaysInApp: true },
@@ -34,8 +41,9 @@ const GROUPS: Array<{
     ],
   },
   {
-    label: "Your work",
-    description: "Changes to what you are responsible for.",
+    id: "your-work",
+    label: "nprefs.group.yourWork",
+    description: "nprefs.group.yourWork.description",
     types: [
       { key: "work.assigned", label: "Work is assigned to you", alwaysInApp: true },
       // `comment.mentioned`, which is what the product sends. This said
@@ -48,8 +56,9 @@ const GROUPS: Array<{
     ],
   },
   {
-    label: "Work you follow",
-    description: "Items you watch but do not own. The usual first thing to turn down.",
+    id: "work-you-follow",
+    label: "nprefs.group.following",
+    description: "nprefs.group.following.description",
     types: [
       { key: "work.completed", label: "Work you watch is completed" },
       { key: "work.commented", label: "Work you watch gets a comment" },
@@ -58,7 +67,8 @@ const GROUPS: Array<{
 ];
 
 export default async function NotificationPreferencesPage() {
-  await requireUser();
+  const me = await requireUser();
+  const t = translator(asLocale(me.user.locale));
 
   // The endpoint answers with BOTH the saved rows and the defaults, in one
   // object — not a bare array. This page read it as an array and called
@@ -91,24 +101,24 @@ export default async function NotificationPreferencesPage() {
   // truths that only opening the screen can find.
   const entries = (types: NotificationType[]) =>
     types.map((type) => ({
-      type,
+      type: { ...type, label: t(`nprefs.type.${type.key}` as MessageKey) },
       saved: preferences.find((p) => p.type === type.key) ?? { type: type.key, ...defaults },
     }));
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Notifications"
-        description="What reaches you, and how. Anything not listed here does not notify anyone."
+        title={t("nav.notifications")}
+        description={t("nprefs.description")}
       />
 
       <PageBody>
         {GROUPS.map((group) => (
           <Panel
-            key={group.label}
-            id={`group-${group.label.toLowerCase().replace(/[^a-z]+/g, "-")}`}
-            title={group.label}
-            description={group.description}
+            key={group.id}
+            id={`group-${group.id}`}
+            title={t(group.label)}
+            description={t(group.description)}
             bleed
           >
             <PreferenceGroup entries={entries(group.types)} />
