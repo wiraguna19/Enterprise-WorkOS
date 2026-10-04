@@ -181,7 +181,7 @@ test.describe("the manager's dashboard", () => {
     // The item that pushed her over is named, with what it contributed — not
     // its estimate. An item spanning several weeks gives a slice to each, and a
     // list printing estimates would not add up to the bar above it.
-    const row = page.locator("li").filter({ hasText: loaded.reference });
+    const row = page.getByRole("row").filter({ hasText: loaded.reference });
 
     await expect(row).toBeVisible();
 

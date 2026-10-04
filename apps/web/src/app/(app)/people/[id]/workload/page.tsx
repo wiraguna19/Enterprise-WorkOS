@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { Badge } from "@/components/ui/Badge";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { ButtonLink } from "@/components/ui/Button";
+import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import type { PersonDetail, WorkloadItem, WorkloadItemsMeta } from "@/features/people/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { asLocale } from "@/i18n/config";
-import { translator } from "@/i18n/translate";
+import { translator, type Translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 /**
  * The work behind a person's committed hours.
@@ -34,6 +39,13 @@ import { formatDateTime } from "@/lib/format";
  *     bug in the product; a total that says why it does not reads as the truth
  *     (ADR 0008).
  *
+ * The page is split by what each row does to the figure. It used to be one
+ * list, and a person "with 1 item" showed eleven rows: ten of them committed
+ * to her but placing no hours in this week, most because their due date had
+ * already passed. Those rows are real — they are work she holds — but they are
+ * not the answer to "what makes up this number", so they sit in a second panel
+ * that says why they are there.
+ *
  * The bar is re-rendered from the same meta the API folded the list from, not
  * recomputed here. A second implementation of "committed" is how a figure and
  * its evidence end up arguing with each other.
@@ -47,9 +59,6 @@ export default async function WorkloadItemsPage({
 }) {
   const [me, { id }, query] = await Promise.all([requireUser(), params, searchParams]);
 
-  // The week travels as the API spells it and is not parsed here: it anchors a
-  // week rather than naming one, and the API's `startOfWeek` is the only
-  // definition of which week that is.
   const week = query.week ? `?week=${encodeURIComponent(query.week)}` : "";
 
   let items: WorkloadItem[];
@@ -66,9 +75,6 @@ export default async function WorkloadItemsPage({
     meta = breakdown.meta as unknown as WorkloadItemsMeta;
     person = profile.data;
   } catch (error) {
-    // 403 folded into 404 with it: whose workload you may read is a policy
-    // decision, and confirming that a person exists by refusing differently is
-    // the leak that separation is meant to prevent (docs/05 §3).
     if (error instanceof ApiRequestError && (error.status === 404 || error.status === 403)) {
       notFound();
     }
@@ -76,14 +82,23 @@ export default async function WorkloadItemsPage({
     throw error;
   }
 
-  // Summed from what is ON SCREEN, not read from the meta. The two differ by
-  // exactly the hidden and undated work described below, and showing the
-  // difference is the point — a footer that silently printed `committed_hours`
-  // would make the residue invisible again.
-  const listed = items.reduce((total, item) => total + (item.share_hours ?? 0), 0);
-  // Translated (ADR 0060).
   const locale = asLocale(me.user.locale);
   const t = translator(locale);
+
+  // Due date first, undated last, then by reference: the order a person reads
+  // a week in. The API returns these in no particular order.
+  const ordered = [...items].sort(
+    (a, b) =>
+      (a.due_at ?? "9999").localeCompare(b.due_at ?? "9999") || a.reference.localeCompare(b.reference),
+  );
+
+  const counted = ordered.filter((item) => (item.share_hours ?? 0) > 0);
+  const held = ordered.filter((item) => (item.share_hours ?? 0) <= 0);
+  const listed = counted.reduce((total, item) => total + (item.share_hours ?? 0), 0);
+
+  // A date-only string, so it is formatted in UTC: in a time zone behind UTC,
+  // midnight of the 28th is the evening of the 27th.
+  const weekLabel = formatDate(meta.week_start, "UTC", locale);
 
   return (
     <div className="space-y-5">
@@ -101,92 +116,159 @@ export default async function WorkloadItemsPage({
 
         <PageHeader
           title={t("wl.committed")}
-          description={t("wl.week", { week: meta.week_start })}
+          description={t("wl.weekOf", { name: person.name, week: weekLabel })}
+          action={
+            <div className="flex items-center gap-1">
+              <ButtonLink
+                href={`/people/${id}/workload?week=${shiftWeek(meta.week_start, -7)}`}
+                variant="ghost"
+                size="sm"
+              >
+                {t("wl.prevWeek")}
+              </ButtonLink>
+              <ButtonLink
+                href={`/people/${id}/workload?week=${shiftWeek(meta.week_start, 7)}`}
+                variant="ghost"
+                size="sm"
+              >
+                {t("wl.nextWeek")}
+              </ButtonLink>
+            </div>
+          }
         />
       </div>
 
-      <WorkloadBar
-        committedHours={meta.committed_hours}
-        capacityHours={meta.capacity_hours}
-        itemCount={meta.item_count}
-        unestimatedCount={meta.unestimated_count}
-        locale={locale}
-      />
+      <PageBody>
+        <Panel id="summary" title={t("wl.summary")}>
+          <div className="space-y-3">
+            <WorkloadBar
+              committedHours={meta.committed_hours}
+              capacityHours={meta.capacity_hours}
+              itemCount={meta.item_count}
+              unestimatedCount={meta.unestimated_count}
+              locale={locale}
+            />
 
-      {items.length === 0 ? (
-        <EmptyState
-          title={t("wl.empty.title")}
-          description={t("wl.empty.body")}
-        />
-      ) : (
-        <ul className="border-y border-n-100">
-          {items.map((item) => (
-            <li key={item.id}>
-              <Link
-                href={`/work/${item.reference}`}
-                className="flex items-baseline gap-3 border-b border-n-100 px-2 py-2 last:border-b-0 hover:bg-n-25"
-              >
-                <span className="w-16 shrink-0 font-mono text-caption text-n-500">
-                  {item.reference}
+            <ul className="space-y-1 text-caption">
+              <li className="tabular-nums text-n-700">
+                {t("wl.listed", { listed: Math.round(listed * 100) / 100, committed: meta.committed_hours })}
+              </li>
+
+              {meta.hidden_count > 0 && (
+                <li className="text-s-active">{t.plural("wl.hidden", meta.hidden_count)}</li>
+              )}
+
+              {meta.undated_count > 0 && (
+                <li className="text-s-active">{t.plural("wl.undated", meta.undated_count)}</li>
+              )}
+
+              {meta.time_off_hours === null && <li className="text-n-500">{t("workload.noLeave")}</li>}
+            </ul>
+          </div>
+        </Panel>
+
+        {counted.length === 0 ? (
+          <EmptyState title={t("wl.empty.title")} description={t("wl.empty.body")} />
+        ) : (
+          <Panel
+            id="counted"
+            title={t("wl.counted.title")}
+            description={t("wl.counted.description")}
+            footer={
+              counted.some((item) => item.counted_at_default) ? (
+                <p className="text-caption text-n-500">
+                  <span className="text-s-active">*</span> {t("wl.defaultEstimate")}{" "}
+                  {meta.unestimated_count > 0 && t.plural("wl.unestimated", meta.unestimated_count)}
+                </p>
+              ) : undefined
+            }
+            bleed
+          >
+            <WorkTable rows={counted} timeZone={me.user.timezone} t={t} locale={locale} weekStart={meta.week_start} />
+          </Panel>
+        )}
+
+        {held.length > 0 && (
+          <Panel id="held" title={t("wl.held.title")} description={t("wl.held.description")} bleed>
+            <WorkTable rows={held} timeZone={me.user.timezone} t={t} locale={locale} weekStart={meta.week_start} />
+          </Panel>
+        )}
+      </PageBody>
+    </div>
+  );
+}
+
+function WorkTable({
+  rows,
+  timeZone,
+  t,
+  locale,
+  weekStart,
+}: {
+  rows: WorkloadItem[];
+  timeZone: string;
+  t: Translator;
+  locale: ReturnType<typeof asLocale>;
+  weekStart: string;
+}) {
+  return (
+    <DataTable caption={t("wl.caption")}>
+      <THead>
+        <Tr>
+          <Th>{t("wl.col.item")}</Th>
+          <Th width="w-36">{t("wl.col.due")}</Th>
+          <Th width="w-20" align="right">
+            {t("wl.col.hours")}
+          </Th>
+        </Tr>
+      </THead>
+      <TBody>
+        {rows.map((item) => {
+          // Due before the week began and not finished: the reason a row sits
+          // in the second panel, named on the row.
+          const overdue = item.due_at !== null && item.due_at.slice(0, 10) < weekStart;
+
+          return (
+            <Tr key={item.id}>
+              <Td>
+                <Link href={`/work/${item.reference}`} className="group flex min-w-0 items-baseline gap-2">
+                  <span className="w-16 shrink-0 font-mono text-caption text-n-500">{item.reference}</span>
+                  <span className="min-w-0 truncate font-medium text-n-900 group-hover:underline">
+                    {item.title}
+                  </span>
+                </Link>
+              </Td>
+              <Td muted>
+                <span className="flex items-center gap-1.5 whitespace-nowrap">
+                  {item.due_at ? formatDate(item.due_at, timeZone, locale) : t("items.noDue")}
+                  {overdue && <Badge tone="danger">{t("wl.overdue")}</Badge>}
                 </span>
-
-                <span className="min-w-0 flex-1 truncate font-medium text-n-900">
-                  {item.title}
-                </span>
-
-                <span className="shrink-0 text-caption tabular-nums text-n-500">
-                  {item.due_at ? formatDateTime(item.due_at, me.user.timezone, locale) : t("items.noDue")}
-                </span>
-
+              </Td>
+              <Td align="right">
                 {/* The contribution, flagged where it is the organization's
                     default rather than anyone's estimate. Marking it on the ROW
                     is what lets a manager tell "this person has 32 committed
                     hours" from "six items nobody has estimated". */}
                 <span
-                  className="w-20 shrink-0 text-right text-caption tabular-nums text-n-700"
-                  title={
-                    item.counted_at_default
-                      ? t("wl.defaultEstimate")
-                      : undefined
-                  }
+                  className="tabular-nums text-n-700"
+                  title={item.counted_at_default ? t("wl.defaultEstimate") : undefined}
                 >
                   {item.share_hours === null ? "—" : t("time.hours", { hours: item.share_hours })}
                   {item.counted_at_default && <span className="ml-1 text-s-active">*</span>}
                 </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="max-w-[72ch] space-y-1.5 text-caption">
-        <p className="tabular-nums text-n-700">
-          {t("wl.listed", { listed: Math.round(listed * 100) / 100, committed: meta.committed_hours })}
-        </p>
-
-        {meta.hidden_count > 0 && (
-          <p className="text-s-active">
-            {t.plural("wl.hidden", meta.hidden_count)}
-          </p>
-        )}
-
-        {meta.undated_count > 0 && (
-          <p className="text-s-active">
-            {t.plural("wl.undated", meta.undated_count)}
-          </p>
-        )}
-
-        {meta.unestimated_count > 0 && (
-          <p className="text-n-500">
-            * Counted at the organization&rsquo;s default of {meta.default_estimate_hours} h.{" "}
-            {t.plural("wl.unestimated", meta.unestimated_count)}
-          </p>
-        )}
-
-        {meta.time_off_hours === null && (
-          <p className="text-n-500">{t("workload.noLeave")}</p>
-        )}
-      </div>
-    </div>
+              </Td>
+            </Tr>
+          );
+        })}
+      </TBody>
+    </DataTable>
   );
+}
+
+/** The Monday `days` away from a week's Monday, as the API's `?week=` reads it. */
+function shiftWeek(weekStart: string, days: number): string {
+  const date = new Date(`${weekStart}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
 }
