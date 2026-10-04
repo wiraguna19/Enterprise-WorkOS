@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageBody } from "@/components/ui/PageBody";
+import { PersonKpis } from "@/features/kpi/PersonKpis";
+import type { Kpi } from "@/features/kpi/types";
 import { ErasePerson } from "@/features/people/ErasePerson";
 import { PersonDenials, type Denial } from "@/features/people/PersonDenials";
 import {
@@ -49,6 +51,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         .then((r) => r.data)
         .catch(() => null)
     : null;
+
+  // Their KPIs (ADR 0062): answered for them and for the people above them in
+  // the reporting line, and a 404 to anyone else — which hides the panel.
+  const kpis = await api<Kpi[]>(`/people/${id}/kpis`)
+    .then((r) => ({ list: r.data, canManage: r.meta?.can_manage === true }))
+    .catch(() => null);
 
   const { data: openWork } = await api<WorkItem[]>(
     `/work-items?filter[assignee_id]=${id}` +
@@ -110,6 +118,18 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           page had two left edges and a ragged right one (ADR 0024). */}
       <PageBody aside={<PersonAside person={person} workload={workload} locale={locale} />}>
         <PersonWork openWork={openWork} timeZone={me.user.timezone} locale={locale} />
+
+        {kpis && (
+          <PersonKpis
+            membershipId={id}
+            name={person.name}
+            kpis={kpis.list}
+            canManage={kpis.canManage}
+            self={me.membership.id === id}
+            t={t}
+            locale={locale}
+          />
+        )}
 
         <PersonEmployment person={person} timeZone={me.user.timezone} locale={locale} />
 

@@ -6,6 +6,7 @@ namespace App\Modules\Insights\Application\Kpi;
 
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
+use App\Modules\Organization\Application\Query\ReportingLine;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use Illuminate\Database\Query\Builder;
@@ -18,6 +19,13 @@ use Illuminate\Support\Facades\DB;
  * Group KPIs:
  *   see    — `kpi.view`, and for a project, being able to see the project
  *   manage — `kpi.manage`, organization-wide or granted on the subject
+ *   record — the same as manage
+ *
+ * A KPI about one person (ADR 0062, "Per person") — governed by no
+ * permission, only by the reporting line:
+ *   see    — the person, and anyone above them in it
+ *   manage — anyone above them; never the person
+ *   record — the person; never anyone else
  */
 final class KpiAuthority
 {
@@ -28,13 +36,21 @@ final class KpiAuthority
     /** @var array<string, bool> */
     private array $projects = [];
 
+    /** @var list<string>|null */
+    private ?array $below = null;
+
     public function __construct(
         private readonly PermissionResolver $permissions,
         private readonly TenantContext $tenant,
+        private readonly ReportingLine $reportingLine,
     ) {}
 
     public function maySee(string $subjectType, string $subjectId): bool
     {
+        if ($subjectType === 'person') {
+            return $subjectId === $this->tenant->membershipId() || $this->isAbove($subjectId);
+        }
+
         $actor = $this->actor();
 
         if ($actor === null || ! $this->permissions->has($actor, 'kpi.view')) {
@@ -46,6 +62,10 @@ final class KpiAuthority
 
     public function mayManage(string $subjectType, string $subjectId): bool
     {
+        if ($subjectType === 'person') {
+            return $this->isAbove($subjectId);
+        }
+
         $actor = $this->actor();
 
         if ($actor === null || ! in_array($subjectType, ['team', 'department', 'project'], true)) {
@@ -87,6 +107,23 @@ final class KpiAuthority
         return $subjects;
     }
 
+    /** May this person enter a manual KPI's values? */
+    public function mayRecord(string $subjectType, string $subjectId): bool
+    {
+        return $subjectType === 'person'
+            ? $subjectId === $this->tenant->membershipId()
+            : $this->mayManage($subjectType, $subjectId);
+    }
+
+    /** Somewhere above them in the reporting line, at any depth. */
+    private function isAbove(string $membershipId): bool
+    {
+        $this->actor();
+        $this->below ??= $this->reportingLine->below($this->tenant->membershipId());
+
+        return in_array($membershipId, $this->below, true);
+    }
+
     private function canSeeProject(string $projectId): bool
     {
         $actor = $this->actor();
@@ -110,6 +147,7 @@ final class KpiAuthority
             $this->actor = MembershipModel::query()->find($membershipId);
             $this->actorFor = $membershipId;
             $this->projects = [];
+            $this->below = null;
         }
 
         return $this->actor;

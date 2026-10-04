@@ -60,6 +60,32 @@ final class Kpis
         return $kpis;
     }
 
+    /**
+     * One person's KPIs, for them and for the people above them (ADR 0062).
+     * Anyone else is told there is nothing here — not that it is hidden.
+     *
+     * @return array{kpis: list<array<string, mixed>>, can_manage: bool}
+     */
+    public function forPerson(string $membershipId): array
+    {
+        if (! $this->authority->maySee('person', $membershipId)) {
+            throw new ModelNotFoundException;
+        }
+
+        $rows = DB::table('kpis')
+            ->where('organization_id', $this->tenant->organizationId())
+            ->whereNull('archived_at')
+            ->where('subject_type', 'person')
+            ->where('subject_id', $membershipId)
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'kpis' => array_values($rows->map(fn (stdClass $row): array => $this->present($row, self::LIST_PERIODS))->all()),
+            'can_manage' => $this->authority->mayManage('person', $membershipId),
+        ];
+    }
+
     /** @return array<string, mixed> */
     public function show(string $id): array
     {
@@ -75,7 +101,9 @@ final class Kpis
         $subjectId = $input['subject_id'];
 
         if (! $this->subjectExists($type, $subjectId) || ! $this->authority->mayManage($type, $subjectId)) {
-            throw new AuthorizationException('You cannot keep KPIs for this team, department or project.');
+            throw new AuthorizationException($type === 'person'
+                ? 'Only someone above this person in the reporting line can set their KPIs.'
+                : 'You cannot keep KPIs for this team, department or project.');
         }
 
         $source = $input['source'];
@@ -163,7 +191,17 @@ final class Kpis
     /** Record (or correct) the value of a manual KPI for one period. */
     public function record(string $id, string $date, float $value, ?string $note): void
     {
-        $row = $this->managed($id);
+        $row = $this->visible($id);
+
+        if (! $this->authority->mayRecord((string) $row->subject_type, (string) $row->subject_id)) {
+            throw new AuthorizationException((string) $row->subject_type === 'person'
+                ? 'Only the person a KPI is about can enter its values.'
+                : 'You cannot change the KPIs of this team, department or project.');
+        }
+
+        if ($row->archived_at !== null) {
+            throw new KpiRefused('This KPI is archived.', ['refusal' => 'archived']);
+        }
 
         if ($row->source !== 'manual') {
             throw new KpiRefused(
@@ -248,6 +286,7 @@ final class Kpis
             'current' => $history[count($history) - 1],
             'history' => $history,
             'can_manage' => $this->authority->mayManage($subjectType, $subjectId),
+            'can_record' => $source === 'manual' && $this->authority->mayRecord($subjectType, $subjectId),
         ];
     }
 
@@ -286,7 +325,7 @@ final class Kpis
     {
         $row = $this->find($id);
 
-        if ($row->subject_type === 'person' || ! $this->authority->maySee((string) $row->subject_type, (string) $row->subject_id)) {
+        if (! $this->authority->maySee((string) $row->subject_type, (string) $row->subject_id)) {
             throw new ModelNotFoundException;
         }
 
@@ -298,7 +337,9 @@ final class Kpis
         $row = $this->visible($id);
 
         if (! $this->authority->mayManage((string) $row->subject_type, (string) $row->subject_id)) {
-            throw new AuthorizationException('You cannot change the KPIs of this team, department or project.');
+            throw new AuthorizationException((string) $row->subject_type === 'person'
+                ? 'Only someone above this person in the reporting line can set their KPIs.'
+                : 'You cannot change the KPIs of this team, department or project.');
         }
 
         if ($row->archived_at !== null) {
@@ -311,6 +352,16 @@ final class Kpis
     /** @return array{type: string, id: string, name: string|null, key: string|null} */
     private function subject(string $type, string $id): array
     {
+        if ($type === 'person') {
+            $name = DB::table('memberships')
+                ->join('users', 'users.id', '=', 'memberships.user_id')
+                ->where('memberships.organization_id', $this->tenant->organizationId())
+                ->where('memberships.id', $id)
+                ->value('users.name');
+
+            return ['type' => $type, 'id' => $id, 'name' => $name === null ? null : (string) $name, 'key' => null];
+        }
+
         $table = match ($type) {
             'team' => 'teams',
             'department' => 'departments',
@@ -333,6 +384,17 @@ final class Kpis
 
     private function subjectExists(string $type, string $id): bool
     {
+        if ($type === 'person') {
+            // A person, not a service account (ADR 0059), and still here.
+            return DB::table('memberships')
+                ->join('users', 'users.id', '=', 'memberships.user_id')
+                ->where('memberships.organization_id', $this->tenant->organizationId())
+                ->where('memberships.id', $id)
+                ->where('memberships.status', 'active')
+                ->where('users.kind', 'person')
+                ->exists();
+        }
+
         $table = match ($type) {
             'team' => 'teams',
             'department' => 'departments',

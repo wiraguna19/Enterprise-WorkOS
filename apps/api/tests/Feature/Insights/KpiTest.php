@@ -186,11 +186,6 @@ it('archives rather than deletes, and an archived KPI leaves the list', function
         ->assertJsonPath('error.details.refusal', 'archived');
 });
 
-it('does not take a KPI about one person yet', function (): void {
-    keepKpi($this->ahmad, ['subject_type' => 'person', 'subject_id' => '01900000-0000-7000-8000-000000000204'])
-        ->assertStatus(422);
-});
-
 it('words the status against the target, in either direction', function (): void {
     expect(Kpis::status(null, 10, 'higher'))->toBe('no_data')
         ->and(Kpis::status(10, 10, 'higher'))->toBe('on_track')

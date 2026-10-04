@@ -72,7 +72,8 @@ person", so the reasons and the limits are written here:
   report.
 - **The manager sets it, and the person reports it.** Only someone above the
   person in the reporting line may create, change or archive a person KPI. The
-  person records the values of a manual one, and the manager may add a note.
+  person, and only the person, records the values of a manual one, with a
+  note if they want. What they report is theirs to say.
 - **Never a comparison.**
   - No endpoint lists person KPIs across people.
   - No screen ranks or sorts people by one.
@@ -84,8 +85,14 @@ person", so the reasons and the limits are written here:
   person can be traced item by item, like every other number in the product
   (Phase 6, house rule 1).
 
-This ships in a second slice, after the group KPIs, so the visibility rule gets
-its own tests.
+- **Where a person KPI is read.** It appears on the person's own page and at
+  `GET /people/{membership}/kpis`. Anyone who is neither the person nor above
+  them gets a 404, the same as for a KPI that does not exist. `GET /kpis/{id}`
+  is therefore not gated on `kpi.view`. The check happens per KPI, so a person
+  with no KPI permission can still read their own.
+
+This shipped in a second slice, after the group KPIs, so the visibility rule
+has its own tests.
 
 ## Consequences
 

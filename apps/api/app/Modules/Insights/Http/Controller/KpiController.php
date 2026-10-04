@@ -23,7 +23,7 @@ use Illuminate\Validation\Rule;
  */
 final class KpiController extends ApiController
 {
-    /** The subjects a group KPI can be about. Person KPIs are ADR 0062's second slice. */
+    /** What the shared list can be filtered by: groups only, never people (ADR 0062). */
     private const SUBJECTS = ['team', 'department', 'project'];
 
     public function __construct(
@@ -69,6 +69,17 @@ final class KpiController extends ApiController
         ]);
     }
 
+    /**
+     * One person's KPIs (ADR 0062, "Per person"). Their own, or someone's
+     * below them in the reporting line; 404 to anybody else.
+     */
+    public function person(string $membership): ApiResponse
+    {
+        $result = $this->kpis->forPerson($membership);
+
+        return ApiResponse::collection($result['kpis'], ['can_manage' => $result['can_manage']]);
+    }
+
     public function show(string $id): ApiResponse
     {
         return ApiResponse::item($this->kpis->show($id));
@@ -80,7 +91,7 @@ final class KpiController extends ApiController
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'subject_type' => ['required', 'string', Rule::in(self::SUBJECTS)],
+            'subject_type' => ['required', 'string', Rule::in([...self::SUBJECTS, 'person'])],
             'subject_id' => ['required', 'uuid'],
             'source' => ['required', 'string', Rule::in(['manual', ...KpiMetrics::SOURCES])],
             'unit' => ['sometimes', 'nullable', 'string', 'max:20'],

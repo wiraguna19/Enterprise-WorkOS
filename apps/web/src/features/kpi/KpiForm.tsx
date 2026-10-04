@@ -17,7 +17,16 @@ import type { Kpi, KpiVocabulary } from "./types";
  * shows them as text. A computed KPI's unit and direction come from what it
  * measures, so the form does not ask for them.
  */
-export function KpiForm({ vocabulary, existing }: { vocabulary?: KpiVocabulary; existing?: Kpi }) {
+export function KpiForm({
+  vocabulary,
+  existing,
+  person,
+}: {
+  vocabulary?: KpiVocabulary;
+  existing?: Kpi;
+  /** For a KPI about one person: set from their page, the subject fixed. */
+  person?: { id: string; name: string };
+}) {
   const t = useT();
   const router = useRouter();
   const id = useId();
@@ -25,7 +34,9 @@ export function KpiForm({ vocabulary, existing }: { vocabulary?: KpiVocabulary; 
   const [error, setError] = useState<string | null>(null);
 
   const subjects = vocabulary?.subjects ?? [];
-  const [subject, setSubject] = useState(subjects.length > 0 ? `${subjects[0].type}:${subjects[0].id}` : "");
+  const [subject, setSubject] = useState(
+    person ? `person:${person.id}` : subjects.length > 0 ? `${subjects[0].type}:${subjects[0].id}` : "",
+  );
   const [source, setSource] = useState(existing?.source ?? "manual");
   const [period, setPeriod] = useState<string>(existing?.period ?? "month");
   const [name, setName] = useState(existing?.name ?? "");
@@ -84,23 +95,29 @@ export function KpiForm({ vocabulary, existing }: { vocabulary?: KpiVocabulary; 
 
       {!existing && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id={`${id}-subject`} label={t("kpi.form.subject")}>
-            <select id={`${id}-subject`} className={INPUT} value={subject} onChange={(event) => setSubject(event.target.value)}>
-              {(["department", "team", "project"] as const).map((type) => {
-                const options = subjects.filter((option) => option.type === type);
+          {person ? (
+            <p className="text-body-sm text-n-700 sm:col-span-1">
+              {t("kpi.form.forPerson", { name: person.name })}
+            </p>
+          ) : (
+            <Field id={`${id}-subject`} label={t("kpi.form.subject")}>
+              <select id={`${id}-subject`} className={INPUT} value={subject} onChange={(event) => setSubject(event.target.value)}>
+                {(["department", "team", "project"] as const).map((type) => {
+                  const options = subjects.filter((option) => option.type === type);
 
-                return options.length === 0 ? null : (
-                  <optgroup key={type} label={t(`kpi.form.group.${type}` as MessageKey)}>
-                    {options.map((option) => (
-                      <option key={option.id} value={`${option.type}:${option.id}`}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </Field>
+                  return options.length === 0 ? null : (
+                    <optgroup key={type} label={t(`kpi.form.group.${type}` as MessageKey)}>
+                      {options.map((option) => (
+                        <option key={option.id} value={`${option.type}:${option.id}`}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+            </Field>
+          )}
 
           <Field id={`${id}-period`} label={t("kpi.form.period")}>
             <select id={`${id}-period`} className={INPUT} value={period} onChange={(event) => setPeriod(event.target.value)}>

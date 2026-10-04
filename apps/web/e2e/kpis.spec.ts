@@ -10,6 +10,8 @@ import { test, signedInPhone } from "./support/auth";
  */
 const AHMAD = "ahmad@acme.test";
 const SARAH = "sarah@acme.test";
+const LISA = "lisa@acme.test";
+const SARAH_MEMBERSHIP = "01900000-0000-7000-8000-000000000203";
 
 test.describe("kpis", () => {
   test("is defined for a team, given a value, and read by someone who cannot keep it", async ({
@@ -69,6 +71,57 @@ test.describe("kpis", () => {
       await manager.page.getByRole("button", { name: "Yes, archive" }).click();
       await expect(manager.page).toHaveURL(/\/kpis$/);
       await expect(manager.page.getByText(name)).toHaveCount(0);
+    }
+  });
+
+  test("a personal KPI is set by the manager, reported by the person, and hidden from everyone else", async ({
+    browser,
+    viewport,
+  }) => {
+    const manager = await signedInPhone(browser, AHMAD, viewport);
+    const name = `Reviews given ${Date.now().toString(36)}`;
+
+    await manager.page.goto(`/people/${SARAH_MEMBERSHIP}`);
+    await manager.page.getByRole("region", { name: "KPIs" }).getByRole("link", { name: "Set a KPI" }).click();
+
+    await expect(manager.page.getByText("For Sarah Chen.")).toBeVisible();
+    await manager.page.getByLabel("Name", { exact: true }).fill(name);
+    await manager.page.getByLabel("Target", { exact: true }).fill("8");
+    await manager.page.getByLabel("Unit", { exact: true }).fill("reviews");
+    await manager.page.getByRole("button", { name: "Create KPI" }).click();
+
+    await expect(manager.page).toHaveURL(/\/kpis\/[0-9a-f-]{36}$/);
+    const id = manager.page.url().split("/").pop() ?? "";
+
+    try {
+      // The manager set it; only Sarah enters its values.
+      await expect(manager.page.getByRole("region", { name: "Record a value" })).toHaveCount(0);
+
+      const person = await signedInPhone(browser, SARAH, viewport);
+
+      await person.page.goto("/kpis");
+      const mine = person.page.getByRole("region", { name: "Yours" }).getByRole("article", { name });
+      await mine.getByRole("link", { name }).click();
+
+      const record = person.page.getByRole("region", { name: "Record a value" });
+      await record.getByLabel("Value").fill("9");
+      await record.getByRole("button", { name: "Save value" }).click();
+      await expect(person.page.getByRole("article", { name })).toContainText("On track");
+
+      // A colleague with every KPI permission an employee has sees nothing of it.
+      const colleague = await signedInPhone(browser, LISA, viewport);
+
+      await colleague.page.goto(`/people/${SARAH_MEMBERSHIP}`);
+      await expect(colleague.page.getByRole("heading", { name: "Sarah Chen" })).toBeVisible();
+      await expect(colleague.page.getByRole("region", { name: "KPIs" })).toHaveCount(0);
+
+      await colleague.page.goto(`/kpis/${id}`);
+      await expect(colleague.page.getByText(name)).toHaveCount(0);
+    } finally {
+      await manager.page.goto(`/kpis/${id}`);
+      await manager.page.getByRole("button", { name: "Archive", exact: true }).click();
+      await manager.page.getByRole("button", { name: "Yes, archive" }).click();
+      await expect(manager.page).toHaveURL(new RegExp(`/people/${SARAH_MEMBERSHIP}$`));
     }
   });
 });

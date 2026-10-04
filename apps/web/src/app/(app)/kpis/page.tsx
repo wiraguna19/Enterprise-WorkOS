@@ -25,9 +25,14 @@ export default async function KpisPage() {
   // like every other refusal: whether the page exists is not this one's to say.
   if (!me.permissions.includes("kpi.view")) notFound();
 
-  const [kpis, vocabulary] = await Promise.all([
+  const [kpis, vocabulary, mine] = await Promise.all([
     api<Kpi[]>("/kpis").then((r) => r.data),
     api<KpiVocabulary>("/kpis/vocabulary").then((r) => r.data),
+    // The reader's OWN KPIs, if anyone has set them — the one person KPI
+    // list this page may show, because it is about the person reading it.
+    api<Kpi[]>(`/people/${me.membership.id}/kpis`)
+      .then((r) => r.data)
+      .catch(() => [] as Kpi[]),
   ]);
 
   const groups = (["department", "team", "project"] as KpiSubjectType[])
@@ -47,6 +52,16 @@ export default async function KpisPage() {
           ) : undefined
         }
       />
+
+      {mine.length > 0 && (
+        <Panel id="kpis-mine" title={t("kpi.mine.title")} description={t("kpi.mine.description")}>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {mine.map((kpi) => (
+              <KpiTile key={kpi.id} kpi={kpi} t={t} locale={locale} />
+            ))}
+          </div>
+        </Panel>
+      )}
 
       {groups.length === 0 ? (
         <EmptyState

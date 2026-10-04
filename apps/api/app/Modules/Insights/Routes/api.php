@@ -119,10 +119,15 @@ Route::post('kpis', [KpiController::class, 'store'])
     ->middleware('throttle:writes')
     ->name('kpis.store');
 
+// Not behind kpi.view: a KPI about one person is governed by the reporting
+// line alone (ADR 0062), and the person may hold no KPI permission at all.
 Route::get('kpis/{id}', [KpiController::class, 'show'])
     ->whereUuid('id')
-    ->middleware('permission:kpi.view')
     ->name('kpis.show');
+
+Route::get('people/{membership}/kpis', [KpiController::class, 'person'])
+    ->whereUuid('membership')
+    ->name('kpis.person');
 
 Route::patch('kpis/{id}', [KpiController::class, 'update'])
     ->whereUuid('id')

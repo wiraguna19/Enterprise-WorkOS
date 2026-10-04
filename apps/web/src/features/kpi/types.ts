@@ -1,4 +1,5 @@
-export type KpiSubjectType = "team" | "department" | "project";
+/** A person KPI is reached only through that person (ADR 0062). */
+export type KpiSubjectType = "team" | "department" | "project" | "person";
 
 export type KpiStatus = "on_track" | "at_risk" | "off_track" | "no_data";
 
@@ -30,10 +31,13 @@ export type Kpi = {
   /** Oldest first, ending with the current period. */
   history: KpiPeriodValue[];
   can_manage: boolean;
+  /** A manual KPI this reader may enter values for: its keeper, or for a person KPI the person. */
+  can_record: boolean;
 };
 
 export type KpiVocabulary = {
   sources: Array<{ key: string; unit: string | null; direction: "higher" | "lower" | null }>;
   periods: Array<"week" | "month" | "quarter">;
-  subjects: Array<{ type: KpiSubjectType; id: string; name: string }>;
+  /** Groups only; a person KPI is set from that person's page. */
+  subjects: Array<{ type: Exclude<KpiSubjectType, "person">; id: string; name: string }>;
 };

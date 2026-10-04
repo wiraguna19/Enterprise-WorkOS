@@ -43,11 +43,24 @@ export default async function KpiPage({ params }: { params: Promise<{ id: string
       ? `/projects/${kpi.subject.key}/overview`
       : kpi.subject.type === "team"
         ? `/teams/${kpi.subject.id}`
-        : `/departments`;
+        : kpi.subject.type === "person"
+          ? `/people/${kpi.subject.id}`
+          : `/departments`;
+
+  // A person KPI is reached through the person, never through a list of KPIs
+  // across people (ADR 0062), so that is where its breadcrumb leads.
+  const crumbs =
+    kpi.subject.type === "person"
+      ? [
+          { label: t("nav.people"), href: "/people" },
+          { label: kpi.subject.name ?? "—", href: subjectHref },
+          { label: kpi.name },
+        ]
+      : [{ label: t("kpi.title"), href: "/kpis" }, { label: kpi.name }];
 
   return (
     <div className="space-y-5">
-      <Breadcrumb locale={locale} items={[{ label: t("kpi.title"), href: "/kpis" }, { label: kpi.name }]} />
+      <Breadcrumb locale={locale} items={crumbs} />
 
       <PageHeader title={kpi.name} description={kpi.description || undefined} />
 
@@ -106,7 +119,7 @@ export default async function KpiPage({ params }: { params: Promise<{ id: string
           </DataTable>
         </Panel>
 
-        {kpi.can_manage && kpi.source === "manual" && (
+        {kpi.can_record && (
           <Panel id="record" title={t("kpi.record.title")} description={t("kpi.record.description")}>
             <RecordValue
               kpiId={kpi.id}
@@ -116,7 +129,7 @@ export default async function KpiPage({ params }: { params: Promise<{ id: string
         )}
 
         {kpi.can_manage && (
-          <Panel id="edit" title={t("kpi.edit")} actions={<ArchiveKpi id={kpi.id} />}>
+          <Panel id="edit" title={t("kpi.edit")} actions={<ArchiveKpi id={kpi.id} after={kpi.subject.type === "person" ? subjectHref : "/kpis"} />}>
             <KpiForm existing={kpi} />
           </Panel>
         )}

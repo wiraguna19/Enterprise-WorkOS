@@ -7,7 +7,7 @@ import { useT } from "@/i18n/I18nProvider";
 import { archiveKpi } from "./actions";
 
 /** Archiving, in two steps. The history is kept; the KPI leaves the list. */
-export function ArchiveKpi({ id }: { id: string }) {
+export function ArchiveKpi({ id, after = "/kpis" }: { id: string; after?: string }) {
   const t = useT();
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -36,7 +36,7 @@ export function ArchiveKpi({ id }: { id: string }) {
             setError(result.error);
 
             if (result.error === null) {
-              router.push("/kpis");
+              router.push(after);
               router.refresh();
             }
           })
