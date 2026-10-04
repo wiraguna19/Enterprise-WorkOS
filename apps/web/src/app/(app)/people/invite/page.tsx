@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { InviteForm } from "@/features/people/InviteForm";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -15,6 +17,9 @@ export default async function InvitePersonPage() {
 
   if (!me.permissions.includes("person.invite")) notFound();
 
+  // Translated (ADR 0060).
+  const t = translator(asLocale(me.user.locale));
+
   // The roles this organization has, not the four this file could have listed.
   const roles = me.permissions.includes("role.view")
     ? await api<Array<{ key: string; name: string }>>("/roles")
@@ -25,8 +30,8 @@ export default async function InvitePersonPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Invite someone"
-        description="They choose their own password when they accept."
+        title={t("people.invite")}
+        description={t("invite.desc")}
       />
 
       <InviteForm roles={roles} />

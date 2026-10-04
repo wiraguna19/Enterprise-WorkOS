@@ -244,8 +244,13 @@ last entry is deliberately last.
                         Calendar (month grid, agenda, the day dialog and
                         the feed subscription), Timesheet, and Recurring
                         (list, form, and the schedule sentence itself).
-                        Next, one screen at a time: Reports, People, Teams,
-                        Departments and the rest of Settings.
+                        People (directory, invitations, a person's profile
+                        with roles, denials, 2FA reset and erasure, and
+                        their workload page), Teams (list, new team, a
+                        team's page and its members) and Departments (the
+                        tree, rename and move, new department).
+                        Next, one screen at a time: Reports and the rest of
+                        Settings.
 ```
 
 ---

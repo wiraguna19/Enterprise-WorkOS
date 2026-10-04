@@ -4,6 +4,7 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
 import { moveDepartment, renameDepartment } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 export type DepartmentNode = {
   id: string;
@@ -34,6 +35,7 @@ export function DepartmentRow({
   /** Every other department, as a possible parent. */
   options: Array<{ id: string; label: string }>;
 }) {
+  const t = useT();
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(department.name);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export function DepartmentRow({
             }}
           >
             <label htmlFor={nameId} className="sr-only">
-              Name of {department.name}
+              {t("drow.nameOf", { name: department.name })}
             </label>
             <input
               id={nameId}
@@ -87,7 +89,7 @@ export function DepartmentRow({
               className={`${INPUT} max-w-xs`}
             />
             <Button type="submit" variant="primary" size="sm" disabled={busy}>
-              {busy ? "Saving…" : "Save"}
+              {busy ? t("common.saving") : t("common.save")}
             </Button>
             <Button
               type="button"
@@ -103,7 +105,7 @@ export function DepartmentRow({
                 setError(null);
               }}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
           </form>
         ) : (
@@ -118,13 +120,13 @@ export function DepartmentRow({
             </span>
 
             <Button type="button" variant="ghost" size="sm" onClick={() => setRenaming(true)}>
-              Rename
+              {t("drow.rename")}
             </Button>
           </>
         )}
 
         <label htmlFor={parentId} className="sr-only">
-          Reports into, for {department.name}
+          {t("drow.reportsIntoFor", { name: department.name })}
         </label>
         <select
           id={parentId}
@@ -137,7 +139,7 @@ export function DepartmentRow({
           // which is the misalignment this layout had just been fixed for.
           className={`${INPUT.replace("w-full", "w-56")} shrink-0 text-caption`}
         >
-          <option value="">A top-level department</option>
+          <option value="">{t("dnew.topLevel")}</option>
           {options.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}

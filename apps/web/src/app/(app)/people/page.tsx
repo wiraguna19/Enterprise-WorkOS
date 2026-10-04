@@ -9,6 +9,8 @@ import { PendingInvitations, type Pending } from "@/features/people/PendingInvit
 import { PersonList } from "@/features/people/PersonList";
 import type { Person } from "@/features/people/types";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -35,6 +37,9 @@ export default async function PeoplePage({
 
 
   const query = (params.q ?? "").trim();
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
   const search = query.length >= 2 ? `&q=${encodeURIComponent(query)}` : "";
 
   const { data: people } = await api<Person[]>(`/people?limit=100${search}`);
@@ -53,18 +58,18 @@ export default async function PeoplePage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="People"
+        title={t("nav.people")}
         description={
           query
-            ? `${people.length} matching "${query}"`
-            : `${people.length} active in ${me.organization.name}`
+            ? t("people.matching", { count: people.length, query })
+            : t("projects.summary", { count: people.length, org: me.organization.name })
         }
         action={
           <div className="flex items-center gap-2">
             <PeopleSearch initialQuery={query} />
             {mayInvite && (
               <ButtonLink href="/people/invite" variant="primary">
-                Invite someone
+                {t("people.invite")}
               </ButtonLink>
             )}
           </div>
@@ -80,17 +85,17 @@ export default async function PeoplePage({
             // dead end the user can back out of, and offering to invite someone
             // here would answer a question they did not ask.
             <EmptyState
-              title="No one matched"
-              description={`Nobody in ${me.organization.name} matches "${query}".`}
+              title={t("people.noMatch.title")}
+              description={t("people.noMatch.body", { org: me.organization.name, query })}
             />
           ) : (
             <EmptyState
-              title="No one here yet"
-              description="Invite colleagues to give them access to work, projects, and their own workspace."
+              title={t("people.empty.title")}
+              description={t("people.empty.body")}
               action={
                 mayInvite ? (
                   <ButtonLink href="/people/invite" variant="primary">
-                    Invite someone
+                    {t("people.invite")}
                   </ButtonLink>
                 ) : undefined
               }
@@ -99,11 +104,11 @@ export default async function PeoplePage({
         ) : (
           <Panel
             id="directory"
-            title="Directory"
-            description={`${people.length} ${people.length === 1 ? "person" : "people"}, newest first`}
+            title={t("people.directory")}
+            description={t.plural("people.count", people.length)}
             bleed
           >
-            <PersonList people={people} timeZone={me.user.timezone} />
+            <PersonList people={people} timeZone={me.user.timezone} locale={locale} />
           </Panel>
         )}
       </PageBody>

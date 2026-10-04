@@ -14,6 +14,8 @@ import { RevokeMfa } from "@/features/people/RevokeMfa";
 import type { PersonDetail, Workload } from "@/features/people/types";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -90,22 +92,26 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   // like every other vocabulary here: a form holding its own copy of the keys
   // is a form that cannot deny the one added last week (ADR 0020).
   const permissions = roles ? await permissionCatalogue() : [];
+  // Translated (ADR 0060). Role names and permission keys are the
+  // organization's and the API's own, and are shown as written.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   return (
     <div className="space-y-3">
       {/* Replaces a bare "← People" link: the same navigation, plus where
           this page actually sits (ADR 0026). */}
-      <Breadcrumb items={[{ label: "People", href: "/people" }, { label: person.name }]} />
+      <Breadcrumb locale={locale} items={[{ label: t("nav.people"), href: "/people" }, { label: person.name }]} />
 
-      <PersonIdentity person={person} />
+      <PersonIdentity person={person} locale={locale} />
 
       {/* Main and aside, from one place. The profile used to centre itself at
           `max-w-4xl` while the sections under it ran the full window, so this
           page had two left edges and a ragged right one (ADR 0024). */}
-      <PageBody aside={<PersonAside person={person} workload={workload} />}>
-        <PersonWork openWork={openWork} timeZone={me.user.timezone} />
+      <PageBody aside={<PersonAside person={person} workload={workload} locale={locale} />}>
+        <PersonWork openWork={openWork} timeZone={me.user.timezone} locale={locale} />
 
-        <PersonEmployment person={person} timeZone={me.user.timezone} />
+        <PersonEmployment person={person} timeZone={me.user.timezone} locale={locale} />
 
         {roles && (
           <PersonRoles

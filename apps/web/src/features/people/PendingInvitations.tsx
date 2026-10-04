@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
+import { useT } from "@/i18n/I18nProvider";
 import { revokeInvitation } from "./invitations";
 
 /**
@@ -25,6 +26,7 @@ export type Pending = {
 };
 
 export function PendingInvitations({ invitations }: { invitations: Pending[] }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
@@ -36,12 +38,12 @@ export function PendingInvitations({ invitations }: { invitations: Pending[] }) 
   return (
     <Panel
       id="invitations"
-      title="Waiting to accept"
-      description="Revoking is also the answer to “they lost the link”: the token is a digest and cannot be shown again."
+      title={t("inv.title")}
+      description={t("inv.desc")}
       actions={
         expired > 0 ? (
           <Badge tone="warning" icon="clock">
-            {expired} expired
+            {t("inv.expiredCount", { count: expired })}
           </Badge>
         ) : undefined
       }
@@ -56,14 +58,14 @@ export function PendingInvitations({ invitations }: { invitations: Pending[] }) 
         </p>
       )}
 
-      <DataTable caption="Invitations that have not been accepted">
+      <DataTable caption={t("inv.caption")}>
         <THead>
           <Tr>
-            <Th>Address</Th>
-            <Th>Role</Th>
-            <Th>State</Th>
+            <Th>{t("inv.col.address")}</Th>
+            <Th>{t("members.col.role")}</Th>
+            <Th>{t("inv.col.state")}</Th>
             <Th width="w-24" align="right">
-              Action
+              {t("inv.col.action")}
             </Th>
           </Tr>
         </THead>
@@ -71,14 +73,14 @@ export function PendingInvitations({ invitations }: { invitations: Pending[] }) 
           {invitations.map((invitation) => (
             <Tr key={invitation.id}>
               <Td>{invitation.email}</Td>
-              <Td muted>{invitation.role_name ?? "no role yet"}</Td>
+              <Td muted>{invitation.role_name ?? t("inv.noRole")}</Td>
               <Td>
                 {invitation.has_expired ? (
                   <Badge tone="warning" icon="clock">
-                    expired
+                    {t("inv.expired")}
                   </Badge>
                 ) : (
-                  <Badge>waiting</Badge>
+                  <Badge>{t("inv.waiting")}</Badge>
                 )}
               </Td>
               <Td align="right">
@@ -93,12 +95,12 @@ export function PendingInvitations({ invitations }: { invitations: Pending[] }) 
                       setError(result.error);
 
                       if (result.error === null) {
-                        toast({ tone: "removed", message: "Revoked. That link no longer opens anything." });
+                        toast({ tone: "removed", message: t("inv.revoked") });
                       }
                     })
                   }
                 >
-                  Revoke
+                  {t("feed.revoke")}
                 </Button>
               </Td>
             </Tr>

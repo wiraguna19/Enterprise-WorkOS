@@ -7,6 +7,8 @@ import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
+import { scopeName } from "@/i18n/labels";
+import { useT } from "@/i18n/I18nProvider";
 import { grantRole, revokeRole } from "./roles";
 
 /**
@@ -55,6 +57,7 @@ export function PersonRoles({
   roles: Array<{ key: string; name: string }>;
   scopes: { team: Scope[]; department: Scope[]; project: Scope[] };
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
@@ -68,15 +71,15 @@ export function PersonRoles({
   return (
     <Panel
       id="roles"
-      title="Roles"
-      description="Authority here comes from a grant, never from leading a team or heading a department."
+      title={t("settings.roles.label")}
+      description={t("roles.desc")}
       actions={
         organizationWide.length === 0 ? (
-          <span className="text-body-sm text-n-500">None across the organization</span>
+          <span className="text-body-sm text-n-500">{t("roles.noneOrg")}</span>
         ) : (
           organizationWide.map((entry) => (
             <Badge key={entry.key} tone="info">
-              {entry.name} · everywhere
+              {t("roles.everywhere", { name: entry.name })}
             </Badge>
           ))
         )
@@ -100,15 +103,15 @@ export function PersonRoles({
 
                 if (result.error === null) {
                   setScopeId("");
-                  toast({ message: "Granted. It applies on their next request." });
+                  toast({ message: t("roles.granted") });
                 }
               });
             }}
           >
             <Field
               id="grant-role"
-              label="Give them"
-              hint="Everything that role can do — here only."
+              label={t("roles.give")}
+              hint={t("roles.giveHint")}
             >
               <select
                 id="grant-role"
@@ -124,7 +127,7 @@ export function PersonRoles({
               </select>
             </Field>
 
-            <Field id="grant-scope-type" label="On a">
+            <Field id="grant-scope-type" label={t("roles.onA")}>
               <select
                 id="grant-scope-type"
                 className={INPUT}
@@ -137,13 +140,13 @@ export function PersonRoles({
                   setScopeId("");
                 }}
               >
-                <option value="team">team</option>
-                <option value="department">department</option>
-                <option value="project">project</option>
+                <option value="team">{t("scope.team")}</option>
+                <option value="department">{t("scope.department")}</option>
+                <option value="project">{t("scope.project")}</option>
               </select>
             </Field>
 
-            <Field id="grant-scope" label="Which one">
+            <Field id="grant-scope" label={t("roles.which")}>
               <select
                 id="grant-scope"
                 className={INPUT}
@@ -151,7 +154,7 @@ export function PersonRoles({
                 required
                 onChange={(event) => setScopeId(event.target.value)}
               >
-                <option value="">Choose…</option>
+                <option value="">{t("roles.choose")}</option>
                 {options.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.name}
@@ -161,7 +164,7 @@ export function PersonRoles({
             </Field>
 
             <Button type="submit" variant="affirmative" size="sm" disabled={busy || scopeId === ""}>
-              Grant
+              {t("roles.grant")}
             </Button>
           </form>
         ) : undefined
@@ -178,15 +181,15 @@ export function PersonRoles({
 
       {scoped.length === 0 ? (
         <p className="px-4 py-3 text-body-sm text-n-500">
-          No grants on any one project, team or department.
+          {t("roles.noScoped")}
         </p>
       ) : (
-        <DataTable caption="Roles granted on one project, team or department">
+        <DataTable caption={t("roles.caption")}>
           <THead>
             <Tr>
-              <Th>Role</Th>
-              <Th>On</Th>
-              {mayManage && <Th width="w-24" align="right">Action</Th>}
+              <Th>{t("members.col.role")}</Th>
+              <Th>{t("roles.col.on")}</Th>
+              {mayManage && <Th width="w-24" align="right">{t("inv.col.action")}</Th>}
             </Tr>
           </THead>
           <TBody>
@@ -194,7 +197,7 @@ export function PersonRoles({
               <Tr key={grant.id}>
                 <Td>{grant.name}</Td>
                 <Td muted>
-                  on {grant.scope_type} {grant.scope_name ?? grant.scope_id}
+                  {t("roles.onScope", { scope: scopeName(grant.scope_type, t), name: grant.scope_name ?? grant.scope_id })}
                 </Td>
                 {mayManage && (
                   <Td align="right">
@@ -209,12 +212,12 @@ export function PersonRoles({
                           setError(result.error);
 
                           if (result.error === null) {
-                            toast({ tone: "removed", message: "Revoked. It stops applying immediately." });
+                            toast({ tone: "removed", message: t("roles.revoked") });
                           }
                         })
                       }
                     >
-                      Revoke
+                      {t("feed.revoke")}
                     </Button>
                   </Td>
                 )}

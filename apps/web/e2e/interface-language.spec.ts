@@ -109,6 +109,23 @@ test.describe("interface language", () => {
         await page.goto("/recurring");
         await expect(page.getByRole("heading", { name: "Pekerjaan berulang", level: 1 })).toBeVisible();
       }
+
+      // People, Teams and Departments. Each page 404s without its read
+      // permission, so each is visited only when Budi's role carries it.
+      if (permissions.includes("person.view")) {
+        await page.goto("/people");
+        await expect(page.getByRole("heading", { name: "Orang", level: 1 })).toBeVisible();
+      }
+
+      if (permissions.includes("team.view")) {
+        await page.goto("/teams");
+        await expect(page.getByRole("heading", { name: "Tim", level: 1 })).toBeVisible();
+      }
+
+      if (permissions.includes("department.view")) {
+        await page.goto("/departments");
+        await expect(page.getByRole("heading", { name: "Departemen", level: 1 })).toBeVisible();
+      }
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

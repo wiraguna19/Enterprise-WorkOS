@@ -5,6 +5,7 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { createTeam } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 type Option = { id: string; label: string };
 
@@ -25,6 +26,7 @@ export function NewTeamForm({
   people: Option[];
 }) {
   const router = useRouter();
+  const t = useT();
 
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
@@ -64,7 +66,7 @@ export function NewTeamForm({
       }}
     >
       <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
-        <Field id={keyId} label="Key" hint="Short, and how people will refer to it.">
+        <Field id={keyId} label={t("projects.col.key")} hint={t("tnew.key.hint")}>
           <input
             id={keyId}
             type="text"
@@ -74,12 +76,12 @@ export function NewTeamForm({
             maxLength={40}
             required
             autoFocus
-            placeholder="PLATFORM"
+            placeholder={t("tnew.key.placeholder")}
             className={`${INPUT} font-mono uppercase`}
           />
         </Field>
 
-        <Field id={nameId} label="Name">
+        <Field id={nameId} label={t("projects.col.name")}>
           <input
             id={nameId}
             type="text"
@@ -88,21 +90,21 @@ export function NewTeamForm({
             minLength={2}
             maxLength={120}
             required
-            placeholder="Platform"
+            placeholder={t("tnew.name.placeholder")}
             className={INPUT}
           />
         </Field>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id={departmentFieldId} label="Department" hint="Optional.">
+        <Field id={departmentFieldId} label={t("pnew.department")} hint={t("form.optional")}>
           <select
             id={departmentFieldId}
             value={departmentId}
             onChange={(event) => setDepartmentId(event.target.value)}
             className={INPUT}
           >
-            <option value="">No department</option>
+            <option value="">{t("teams.noDepartment")}</option>
             {departments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.label}
@@ -111,14 +113,14 @@ export function NewTeamForm({
           </select>
         </Field>
 
-        <Field id={leadFieldId} label="Lead" hint="Who answers for this team.">
+        <Field id={leadFieldId} label={t("tnew.lead")} hint={t("tnew.lead.hint")}>
           <select
             id={leadFieldId}
             value={leadId}
             onChange={(event) => setLeadId(event.target.value)}
             className={INPUT}
           >
-            <option value="">Nobody yet</option>
+            <option value="">{t("wnew.nobody")}</option>
             {people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.label}
@@ -136,7 +138,7 @@ export function NewTeamForm({
       )}
 
       <Button type="submit" variant="primary" disabled={submitting}>
-        {submitting ? "Creating…" : "Create team"}
+        {submitting ? t("pnew.creating") : t("tnew.create")}
       </Button>
     </form>
   );

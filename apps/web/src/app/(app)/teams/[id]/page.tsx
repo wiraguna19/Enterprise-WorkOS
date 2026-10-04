@@ -14,6 +14,8 @@ import type { Person, Workload } from "@/features/people/types";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * A team's workspace (docs/08 §2).
@@ -25,6 +27,9 @@ import { requireUser } from "@/lib/auth";
  */
 export default async function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const [me, { id }] = await Promise.all([requireUser(), params]);
+
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   let team: Team;
 
@@ -77,7 +82,10 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div className="space-y-4">
-        <Breadcrumb items={[{ label: "Teams", href: "/teams" }, { label: team.name }]} />
+        <Breadcrumb
+          items={[{ label: t("nav.teams"), href: "/teams" }, { label: team.name }]}
+          locale={locale}
+        />
 
         <PageHeader
           title={team.name}
@@ -95,14 +103,14 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
           href={`/reports/team?team=${team.id}`}
           className="text-a-500 underline underline-offset-2"
         >
-          Team report
+          {t("team.report")}
         </Link>{" "}
-        — the same work as a table, and exportable.
+        {t("team.reportTail")}
       </p>
 
       <section aria-labelledby="members-heading" className="space-y-2">
         <SectionLabel id="members-heading">
-          Members
+          {t("team.members")}
           <span className="ml-1 font-normal normal-case tracking-normal text-n-400">
             ({team.members?.length ?? 0})
           </span>
@@ -118,7 +126,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
 
       {workload.length > 0 && (
         <section aria-labelledby="load-heading" className="space-y-2">
-          <SectionLabel id="load-heading">This week</SectionLabel>
+          <SectionLabel id="load-heading">{t("home.section.thisWeek")}</SectionLabel>
 
           <ul className="divide-y divide-n-100 border-y border-n-100">
             {workload.map((row) => (
@@ -135,6 +143,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
                   capacityHours={row.capacity_hours}
                   itemCount={row.item_count}
                   unestimatedCount={row.unestimated_count}
+                  locale={locale}
                 />
               </li>
             ))}
@@ -144,34 +153,34 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
             // Said out loud rather than left as a shorter list: a team view
             // that quietly omits people misrepresents the team.
             <p className="text-caption text-n-500">
-              {workloadMeta.withheld_count} member
-              {workloadMeta.withheld_count === 1 ? "'s" : "s'"} workload is not yours to see.
+              {t.plural("team.withheld", workloadMeta.withheld_count)}
             </p>
           )}
         </section>
       )}
 
       <section aria-labelledby="work-heading" className="space-y-2">
-        <SectionLabel id="work-heading">Open work</SectionLabel>
+        <SectionLabel id="work-heading">{t("team.openWork")}</SectionLabel>
 
         {work.length === 0 ? (
-          <p className="text-body-sm text-n-400">Nothing open.</p>
+          <p className="text-body-sm text-n-400">{t("profile.nothingOpen")}</p>
         ) : (
           <div className="border-t border-n-100">
             {work.map((item) => (
-              <WorkItemRow key={item.id} item={item} timeZone={me.user.timezone} />
+              <WorkItemRow key={item.id} item={item} timeZone={me.user.timezone} locale={locale} />
             ))}
           </div>
         )}
       </section>
 
       <section aria-labelledby="history-heading" className="space-y-2">
-        <SectionLabel id="history-heading">History</SectionLabel>
+        <SectionLabel id="history-heading">{t("wi.history")}</SectionLabel>
 
         <ActivityTimeline
           events={activity}
           timeZone={me.user.timezone}
-          emptyMessage="Nothing has happened to this team yet."
+          emptyMessage={t("team.historyEmpty")}
+          locale={locale}
         />
       </section>
     </div>

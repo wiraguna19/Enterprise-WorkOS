@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
 import type { PersonDetail, WorkloadItem, WorkloadItemsMeta } from "@/features/people/types";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 
@@ -79,6 +81,9 @@ export default async function WorkloadItemsPage({
   // difference is the point — a footer that silently printed `committed_hours`
   // would make the residue invisible again.
   const listed = items.reduce((total, item) => total + (item.share_hours ?? 0), 0);
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   return (
     <div className="space-y-5">
@@ -86,16 +91,17 @@ export default async function WorkloadItemsPage({
         {/* Three levels, all of them real: the directory, the person, and the
             week of theirs somebody drilled into (ADR 0026). */}
         <Breadcrumb
+          locale={locale}
           items={[
-            { label: "People", href: "/people" },
+            { label: t("nav.people"), href: "/people" },
             { label: person.name, href: `/people/${id}` },
-            { label: "Committed work" },
+            { label: t("wl.committed") },
           ]}
         />
 
         <PageHeader
-          title="Committed work"
-          description={`Week of ${meta.week_start}`}
+          title={t("wl.committed")}
+          description={t("wl.week", { week: meta.week_start })}
         />
       </div>
 
@@ -104,12 +110,13 @@ export default async function WorkloadItemsPage({
         capacityHours={meta.capacity_hours}
         itemCount={meta.item_count}
         unestimatedCount={meta.unestimated_count}
+        locale={locale}
       />
 
       {items.length === 0 ? (
         <EmptyState
-          title="Nothing committed this week"
-          description="Work lands in a week through its start and due dates. Work without either is committed but unplaced — it appears in the note below rather than in this list."
+          title={t("wl.empty.title")}
+          description={t("wl.empty.body")}
         />
       ) : (
         <ul className="border-y border-n-100">
@@ -128,7 +135,7 @@ export default async function WorkloadItemsPage({
                 </span>
 
                 <span className="shrink-0 text-caption tabular-nums text-n-500">
-                  {item.due_at ? formatDateTime(item.due_at, me.user.timezone) : "no due date"}
+                  {item.due_at ? formatDateTime(item.due_at, me.user.timezone, locale) : t("items.noDue")}
                 </span>
 
                 {/* The contribution, flagged where it is the organization's
@@ -139,11 +146,11 @@ export default async function WorkloadItemsPage({
                   className="w-20 shrink-0 text-right text-caption tabular-nums text-n-700"
                   title={
                     item.counted_at_default
-                      ? "Counted at the organization's default estimate."
+                      ? t("wl.defaultEstimate")
                       : undefined
                   }
                 >
-                  {item.share_hours === null ? "—" : `${item.share_hours} h`}
+                  {item.share_hours === null ? "—" : t("time.hours", { hours: item.share_hours })}
                   {item.counted_at_default && <span className="ml-1 text-s-active">*</span>}
                 </span>
               </Link>
@@ -154,37 +161,30 @@ export default async function WorkloadItemsPage({
 
       <div className="max-w-[72ch] space-y-1.5 text-caption">
         <p className="tabular-nums text-n-700">
-          {Math.round(listed * 100) / 100} h listed of {meta.committed_hours} h committed.
+          {t("wl.listed", { listed: Math.round(listed * 100) / 100, committed: meta.committed_hours })}
         </p>
 
         {meta.hidden_count > 0 && (
           <p className="text-s-active">
-            {meta.hidden_count} further{" "}
-            {meta.hidden_count === 1 ? "item is" : "items are"} counted in this total but not
-            listed — {meta.hidden_count === 1 ? "it is" : "they are"} work you do not have access
-            to.
+            {t.plural("wl.hidden", meta.hidden_count)}
           </p>
         )}
 
         {meta.undated_count > 0 && (
           <p className="text-s-active">
-            {meta.undated_count} committed{" "}
-            {meta.undated_count === 1 ? "item has" : "items have"} no dates, so{" "}
-            {meta.undated_count === 1 ? "it lands" : "they land"} in no week and{" "}
-            {meta.undated_count === 1 ? "is" : "are"} in neither figure above.
+            {t.plural("wl.undated", meta.undated_count)}
           </p>
         )}
 
         {meta.unestimated_count > 0 && (
           <p className="text-n-500">
             * Counted at the organization&rsquo;s default of {meta.default_estimate_hours} h.{" "}
-            {meta.unestimated_count} of these {meta.unestimated_count === 1 ? "item is" : "items are"}{" "}
-            unestimated.
+            {t.plural("wl.unestimated", meta.unestimated_count)}
           </p>
         )}
 
         {meta.time_off_hours === null && (
-          <p className="text-n-500">Capacity is not adjusted for leave.</p>
+          <p className="text-n-500">{t("workload.noLeave")}</p>
         )}
       </div>
     </div>

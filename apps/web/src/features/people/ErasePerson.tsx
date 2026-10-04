@@ -6,6 +6,7 @@ import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { erasePerson } from "./roles";
 
 /**
@@ -34,6 +35,8 @@ export function ErasePerson({
   name: string;
   erasedAt: string | null;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [typed, setTyped] = useState("");
@@ -55,18 +58,16 @@ export function ErasePerson({
         setTyped("");
         toast({
           tone: "removed",
-          message: `${name} is erased. The audit log keeps a record that it happened.`,
+          message: t("erase.toast", { name }),
         });
       }
     });
 
   if (erasedAt !== null) {
     return (
-      <Panel id="erased" title="Erased" tone="danger">
+      <Panel id="erased" title={t("erase.erasedTitle")} tone="danger">
         <p className="text-body-sm text-n-700">
-          This person was erased from this organization. Their work, comments and history remain;
-          nothing here identifies them any more, except the append-only activity and audit records,
-          which age out on the retention window.
+          {t("erase.erasedBody")}
         </p>
       </Panel>
     );
@@ -75,20 +76,16 @@ export function ErasePerson({
   return (
     <Panel
       id="erase"
-      title="Erase this person"
+      title={t("erase.title")}
       tone="danger"
-      description="Permanent, and there is no undo."
+      description={t("erase.desc")}
     >
       <p className="text-body-sm text-n-700">
-        Removes their name, address and profile from this organization and revokes their access.
-        Their work items, comments and the history of what they did stay — they stop being about a
-        named person.
+        {t("erase.body1")}
       </p>
 
       <p className="mt-2 text-body-sm text-n-500">
-        Two records are not touched: the activity history and the security audit log are
-        append-only at the database level, so their name remains in those until they age out on the
-        retention window. This erasure is itself recorded there.
+        {t("erase.body2")}
       </p>
 
       {error && (
@@ -108,7 +105,7 @@ export function ErasePerson({
           erase();
         }}
       >
-        <Field id="erase-confirm" label={`Type “${name}” to confirm`}>
+        <Field id="erase-confirm" label={t("erase.type", { name })}>
           <input
             id="erase-confirm"
             className={INPUT}
@@ -119,13 +116,14 @@ export function ErasePerson({
         </Field>
 
         <Button type="submit" variant="danger" size="sm" disabled={busy || typed.trim() !== name}>
-          Erase
+          {t("erase.erase")}
         </Button>
       </form>
 
       {needsPassword && (
         <ConfirmPassword
-          action={`erase ${name}`}
+          action={t("erase.confirmAction", { name })}
+          locale={locale}
           onConfirmed={() => {
             setNeedsPassword(false);
             erase();

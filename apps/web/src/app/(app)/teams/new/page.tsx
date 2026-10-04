@@ -5,19 +5,22 @@ import { NewTeamForm } from "@/features/organization/NewTeamForm";
 import type { Person } from "@/features/people/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 type Department = { id: string; name: string; depth: number };
 
 export default async function NewTeamPage() {
   const me = await requireUser();
+  const t = translator(asLocale(me.user.locale));
 
   if (!me.permissions.includes("team.create")) {
     return (
       <div className="space-y-5">
-        <PageHeader title="New team" />
+        <PageHeader title={t("teams.new")} />
         <EmptyState
-          title="You cannot create teams here"
-          description="Creating a team needs the team.create permission. Your administrator grants it with a role."
+          title={t("tnew.cannot.title")}
+          description={t("tnew.cannot.body")}
         />
       </div>
     );
@@ -35,12 +38,12 @@ export default async function NewTeamPage() {
   return (
     <div className="space-y-5">
       <Link href="/teams" className="text-body-sm text-n-500 hover:text-a-700">
-        ← Teams
+        {t("tnew.back")}
       </Link>
 
       <PageHeader
-        title="New team"
-        description="People who work together, so work can be found by the group that owns it."
+        title={t("teams.new")}
+        description={t("tnew.description")}
       />
 
       <NewTeamForm

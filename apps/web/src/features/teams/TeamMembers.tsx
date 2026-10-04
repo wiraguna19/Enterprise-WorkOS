@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { addTeamMember, removeTeamMember } from "./actions";
 import type { TeamMember } from "./types";
 
@@ -27,6 +28,7 @@ export function TeamMembers({
   candidates: Array<{ id: string; name: string }>;
   canManage: boolean;
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
   const [adding, setAdding] = useState("");
@@ -48,7 +50,7 @@ export function TeamMembers({
               className="min-w-0 flex-1 hover:text-a-700"
             >
               <span className="block truncate text-body-sm font-medium text-n-900">
-                {member.name ?? "Unknown"}
+                {member.name ?? t("row.unknown")}
               </span>
               <span className="block truncate text-caption text-n-500">
                 {member.job_title ?? "—"}
@@ -57,7 +59,7 @@ export function TeamMembers({
 
             {member.role === "lead" && (
               <span className="shrink-0 rounded-full border border-n-200 px-2 py-0.5 text-micro uppercase tracking-[0.04em] text-n-500">
-                Lead
+                {t("tmem.lead")}
               </span>
             )}
 
@@ -68,7 +70,7 @@ export function TeamMembers({
                 disabled={busy}
                 onClick={() => run(() => removeTeamMember(teamId, member.membership_id))}
               >
-                Remove
+                {t("ms.remove")}
               </Button>
             )}
           </li>
@@ -90,7 +92,7 @@ export function TeamMembers({
           }}
         >
           <label htmlFor="add-member" className="sr-only">
-            Add someone to this team
+            {t("tmem.addLabel")}
           </label>
           <select
             id="add-member"
@@ -98,7 +100,7 @@ export function TeamMembers({
             onChange={(event) => setAdding(event.target.value)}
             className={INPUT.replace("w-full", "w-auto")}
           >
-            <option value="">Add someone…</option>
+            <option value="">{t("tmem.addPlaceholder")}</option>
             {candidates.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.name}
@@ -107,7 +109,7 @@ export function TeamMembers({
           </select>
 
           <Button type="submit" size="sm" disabled={busy || adding === ""}>
-            {busy ? "Working…" : "Add"}
+            {busy ? t("feed.working") : t("give.add")}
           </Button>
         </form>
       )}

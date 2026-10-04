@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { DepartmentRow, type DepartmentNode } from "@/features/organization/DepartmentRow";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * The organization's structure (docs/02 §4).
@@ -37,6 +39,8 @@ export default async function DepartmentsPage() {
   if (!me.permissions.includes("department.view")) notFound();
 
 
+  const t = translator(asLocale(me.user.locale));
+
   const departments = await api<Department[]>("/departments")
     .then((r) => r.data)
     .catch(() => [] as Department[]);
@@ -46,12 +50,12 @@ export default async function DepartmentsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Departments"
-        description={`${departments.length} in ${me.organization.name}`}
+        title={t("nav.departments")}
+        description={t("depts.summary", { count: departments.length, org: me.organization.name })}
         action={
           mayCreate ? (
             <ButtonLink href="/departments/new" variant="primary">
-              New department
+              {t("depts.new")}
             </ButtonLink>
           ) : undefined
         }
@@ -60,12 +64,12 @@ export default async function DepartmentsPage() {
       <PageBody>
         {departments.length === 0 ? (
           <EmptyState
-            title="No departments yet"
-            description="Departments are how work, people and projects are grouped for reporting. A project can name one, and a person's reporting line follows it."
+            title={t("depts.empty.title")}
+            description={t("depts.empty.body")}
             action={
               mayCreate ? (
                 <ButtonLink href="/departments/new" variant="primary">
-                  Create the first department
+                  {t("depts.empty.action")}
                 </ButtonLink>
               ) : undefined
             }
@@ -73,14 +77,14 @@ export default async function DepartmentsPage() {
         ) : (
           <Panel
             id="departments"
-            title="Departments"
-            description="Indentation is the reporting line. Moving one moves everything under it."
+            title={t("nav.departments")}
+            description={t("depts.panel.description")}
             bleed
           >
             <div className="flex items-center gap-x-3 border-b border-n-200 bg-n-25 px-4 py-1.5 text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-              <span className="w-28 shrink-0">Code</span>
-              <span className="min-w-0 flex-1">Name</span>
-              <span className="w-56 shrink-0">Reports into</span>
+              <span className="w-28 shrink-0">{t("depts.col.code")}</span>
+              <span className="min-w-0 flex-1">{t("projects.col.name")}</span>
+              <span className="w-56 shrink-0">{t("depts.col.reportsInto")}</span>
             </div>
 
             <ul>

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { api, ApiRequestError, describeApiError, REAUTH_CODE } from "@/lib/api";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 
 export type StructureResult = { error: string | null; requestId?: string; id?: string };
 
@@ -29,12 +31,12 @@ function bodyOf(input: Record<string, unknown>): Record<string, unknown> {
   return body;
 }
 
-function failure(error: unknown): StructureResult {
+async function failure(error: unknown): Promise<StructureResult> {
   if (error instanceof ApiRequestError) {
     return { error: error.error.message, requestId: error.error.request_id };
   }
 
-  return { error: "We could not reach the server. Please try again." };
+  return { error: translator(await requestLocale())("common.unreachable") };
 }
 
 /**

@@ -5,6 +5,9 @@ import { KeyValue, KeyValueItem, Unset } from "@/components/ui/KeyValue";
 import { Panel } from "@/components/ui/Panel";
 import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
+import type { Locale } from "@/i18n/config";
+import { employmentName, personStatusName } from "@/i18n/labels";
+import { translator, type Translator } from "@/i18n/translate";
 import { formatDate } from "@/lib/format";
 import { WorkloadPanel } from "./WorkloadPanel";
 import type { PersonDetail, PersonRef, Workload } from "./types";
@@ -31,7 +34,9 @@ import type { PersonDetail, PersonRef, Workload } from "./types";
  * own visibility, so what is missing from it is work the viewer may not see,
  * and a link promising the rest would be a promise the server will not keep.
  */
-export function PersonIdentity({ person }: { person: PersonDetail }) {
+export function PersonIdentity({ person, locale = "en" }: { person: PersonDetail; locale?: Locale }) {
+  const t = translator(locale);
+
   return (
     <header className="flex items-start gap-4 rounded-xl border border-n-300 bg-n-0 px-4 py-3.5">
       <Avatar id={person.id} name={person.name} size="lg" />
@@ -45,10 +50,10 @@ export function PersonIdentity({ person }: { person: PersonDetail }) {
               rather than only as an absence from the directory. */}
           {person.erased_at !== null ? (
             <Badge tone="danger" icon="cross" solid>
-              erased
+              {t("profile.erased")}
             </Badge>
           ) : (
-            person.status !== "active" && <Badge>{person.status}</Badge>
+            person.status !== "active" && <Badge>{personStatusName(person.status, t)}</Badge>
           )}
         </div>
 
@@ -56,14 +61,14 @@ export function PersonIdentity({ person }: { person: PersonDetail }) {
             facts somebody checks they have the right person by, and stacking
             them cost three rows to say what a sentence says. */}
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-body-sm text-n-500">
-          <span className="text-n-700">{person.job_title ?? "No job title"}</span>
+          <span className="text-n-700">{person.job_title ?? t("profile.noTitle")}</span>
           {person.department && <span>· {person.department.name}</span>}
           <span>·</span>
           {/* An erased person has no address — the API sends null rather than
               the placeholder stored in `users`, which is a random string at a
               domain reserved so it can never be delivered to (ADR 0022). */}
           {person.email === null ? (
-            <span>no address</span>
+            <span>{t("profile.noAddress")}</span>
           ) : (
             <a href={`mailto:${person.email}`} className="text-a-700 hover:underline">
               {person.email}
@@ -88,29 +93,31 @@ export function PersonIdentity({ person }: { person: PersonDetail }) {
 export function PersonWork({
   openWork,
   timeZone,
+  locale = "en",
 }: {
   openWork: WorkItem[];
   timeZone: string;
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   return (
     <Panel
       id="open-work"
-      title="Open work"
+      title={t("items.open.title")}
       description={
-        openWork.length === 0
-          ? "Nothing open."
-          : `${openWork.length} ${openWork.length === 1 ? "item" : "items"}, soonest due first`
+        openWork.length === 0 ? t("profile.nothingOpen") : t.plural("profile.openCount", openWork.length)
       }
       bleed
     >
       {openWork.length === 0 ? (
         <p className="px-4 py-3 text-body-sm text-n-500">
-          Nothing assigned and unfinished. Completed work is deliberately not listed here.
+          {t("profile.noOpen")}
         </p>
       ) : (
         <div className="divide-y divide-n-100">
           {openWork.map((item) => (
-            <WorkItemRow key={item.id} item={item} timeZone={timeZone} />
+            <WorkItemRow key={item.id} item={item} timeZone={timeZone} locale={locale} />
           ))}
         </div>
       )}
@@ -121,33 +128,37 @@ export function PersonWork({
 export function PersonEmployment({
   person,
   timeZone,
+  locale = "en",
 }: {
   person: PersonDetail;
   timeZone: string;
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   return (
-    <Panel id="employment" title="Employment">
+    <Panel id="employment" title={t("profile.employment")}>
       <KeyValue>
-        <KeyValueItem label="Capacity">
+        <KeyValueItem label={t("plist.col.capacity")}>
           {person.weekly_capacity_hours ? (
-            `${parseFloat(person.weekly_capacity_hours)} h / week`
+            t("profile.perWeek", { hours: parseFloat(person.weekly_capacity_hours) })
           ) : (
             <Unset />
           )}
         </KeyValueItem>
 
-        <KeyValueItem label="Type">
-          {person.employment_type?.replace("_", " ") ?? <Unset />}
+        <KeyValueItem label={t("tpl.type")}>
+          {person.employment_type ? employmentName(person.employment_type, t) : <Unset />}
         </KeyValueItem>
 
-        <KeyValueItem label="Location">{person.work_location || <Unset />}</KeyValueItem>
+        <KeyValueItem label={t("profile.location")}>{person.work_location || <Unset />}</KeyValueItem>
 
-        <KeyValueItem label="Joined">
-          {formatDate(person.hired_at ?? person.joined_at, timeZone)}
+        <KeyValueItem label={t("plist.col.joined")}>
+          {formatDate(person.hired_at ?? person.joined_at, timeZone, locale)}
         </KeyValueItem>
 
         {person.employee_number != null && (
-          <KeyValueItem label="Employee no.">
+          <KeyValueItem label={t("profile.employeeNo")}>
             <span className="font-mono">{person.employee_number}</span>
           </KeyValueItem>
         )}
@@ -160,32 +171,36 @@ export function PersonEmployment({
 export function PersonAside({
   person,
   workload,
+  locale = "en",
 }: {
   person: PersonDetail;
   workload: Workload | null;
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   return (
     <>
       {workload && (
-        <Panel id="this-week" title="This week">
-          <WorkloadPanel workload={workload} />
+        <Panel id="this-week" title={t("home.section.thisWeek")}>
+          <WorkloadPanel workload={workload} locale={locale} />
         </Panel>
       )}
 
-      <Panel id="reporting-line" title="Reporting line">
+      <Panel id="reporting-line" title={t("profile.reporting")}>
         <div className="space-y-3">
           <div>
             <p className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-              Manager
+              {t("profile.manager")}
             </p>
             <div className="mt-1">
-              {person.manager ? <PersonLink person={person.manager} /> : <Unset />}
+              {person.manager ? <PersonLink person={person.manager} t={t} /> : <Unset />}
             </div>
           </div>
 
           <div>
             <p className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-              Direct reports
+              {t("profile.directReports")}
               {person.direct_reports.length > 0 && (
                 <span className="ml-1 font-normal tracking-normal text-n-500">
                   ({person.direct_reports.length})
@@ -198,7 +213,7 @@ export function PersonAside({
               ) : (
                 person.direct_reports.map((report) => (
                   <div key={report.id}>
-                    <PersonLink person={report} />
+                    <PersonLink person={report} t={t} />
                   </div>
                 ))
               )}
@@ -217,14 +232,14 @@ export function PersonAside({
  * takes — so the reporting line is navigable without the client having to map
  * profile ids onto membership ids.
  */
-function PersonLink({ person }: { person: PersonRef }) {
+function PersonLink({ person, t }: { person: PersonRef; t: Translator }) {
   return (
     <Link
       href={`/people/${person.id}`}
       className="inline-flex min-w-0 items-center gap-2 text-body-sm text-n-900 hover:text-a-700"
     >
       <Avatar id={person.id} name={person.name ?? "?"} size="sm" />
-      <span className="truncate">{person.name ?? "Unknown"}</span>
+      <span className="truncate">{person.name ?? t("row.unknown")}</span>
     </Link>
   );
 }

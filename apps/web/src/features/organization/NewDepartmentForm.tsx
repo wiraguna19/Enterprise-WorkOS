@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { createDepartment } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Creating a department (docs/02 §4).
@@ -27,6 +28,7 @@ export function NewDepartmentForm({
   departments: Array<{ id: string; label: string }>;
 }) {
   const router = useRouter();
+  const t = useT();
 
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
@@ -57,12 +59,12 @@ export function NewDepartmentForm({
     >
       <Panel
         id="new-department"
-        title="Department"
-        description="The code is what reports and exports print; the name is what people read."
+        title={t("dnew.panel.title")}
+        description={t("dnew.panel.description")}
         footer={
           <div className="space-y-2">
             <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? "Creating…" : "Create department"}
+              {submitting ? t("pnew.creating") : t("dnew.create")}
             </Button>
 
             {error && (
@@ -76,7 +78,7 @@ export function NewDepartmentForm({
       >
       <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
-        <Field id={codeId} label="Code" hint="ENG, PEOPLE-OPS.">
+        <Field id={codeId} label={t("depts.col.code")} hint={t("dnew.code.hint")}>
           <input
             id={codeId}
             type="text"
@@ -93,7 +95,7 @@ export function NewDepartmentForm({
           />
         </Field>
 
-        <Field id={nameId} label="Name">
+        <Field id={nameId} label={t("projects.col.name")}>
           <input
             id={nameId}
             type="text"
@@ -102,7 +104,7 @@ export function NewDepartmentForm({
             minLength={2}
             maxLength={120}
             required
-            placeholder="Engineering"
+            placeholder={t("dnew.name.placeholder")}
             className={INPUT}
           />
         </Field>
@@ -110,8 +112,8 @@ export function NewDepartmentForm({
 
       <Field
         id={parentFieldId}
-        label="Reports into"
-        hint="Leave as a top-level department if it answers to nobody above it."
+        label={t("depts.col.reportsInto")}
+        hint={t("dnew.parent.hint")}
       >
         <select
           id={parentFieldId}
@@ -119,7 +121,7 @@ export function NewDepartmentForm({
           onChange={(event) => setParentId(event.target.value)}
           className={INPUT}
         >
-          <option value="">A top-level department</option>
+          <option value="">{t("dnew.topLevel")}</option>
           {departments.map((department) => (
             <option key={department.id} value={department.id}>
               {department.label}

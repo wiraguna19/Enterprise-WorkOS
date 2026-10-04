@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { api, ApiRequestError } from "@/lib/api";
+import { requestLocale } from "@/i18n/server";
+import { translator } from "@/i18n/translate";
 
 export type MemberResult = { error: string | null };
 
@@ -21,7 +23,7 @@ export async function addTeamMember(teamId: string, membershipId: string): Promi
       body: { membership_id: membershipId },
     });
   } catch (error) {
-    return { error: message(error) };
+    return { error: await message(error) };
   }
 
   revalidatePath(`/teams/${teamId}`);
@@ -36,7 +38,7 @@ export async function removeTeamMember(
   try {
     await api(`/teams/${teamId}/members/${membershipId}`, { method: "DELETE" });
   } catch (error) {
-    return { error: message(error) };
+    return { error: await message(error) };
   }
 
   revalidatePath(`/teams/${teamId}`);
@@ -44,8 +46,8 @@ export async function removeTeamMember(
   return { error: null };
 }
 
-function message(error: unknown): string {
+async function message(error: unknown): Promise<string> {
   if (error instanceof ApiRequestError) return error.error.message;
 
-  return "We could not reach the server. Please try again.";
+  return translator(await requestLocale())("common.unreachable");
 }

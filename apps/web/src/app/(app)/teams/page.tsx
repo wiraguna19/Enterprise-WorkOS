@@ -9,6 +9,8 @@ import { Panel } from "@/components/ui/Panel";
 import type { Team } from "@/features/teams/types";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Teams (docs/02 §4, docs/08 §2).
@@ -29,17 +31,18 @@ export default async function TeamsPage() {
   if (!me.permissions.includes("team.view")) notFound();
 
 
+  const t = translator(asLocale(me.user.locale));
   const { data: teams } = await api<Team[]>("/teams");
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Teams"
-        description={`${teams.length} active`}
+        title={t("nav.teams")}
+        description={t("teams.active", { count: teams.length })}
         action={
           me.permissions.includes("team.create") ? (
             <ButtonLink href="/teams/new" variant="primary">
-              New team
+              {t("teams.new")}
             </ButtonLink>
           ) : undefined
         }
@@ -48,14 +51,14 @@ export default async function TeamsPage() {
       <PageBody>
         {teams.length === 0 ? (
           <EmptyState
-            title="No teams yet"
-            description="Teams group people who work together, so work can be found by the group that owns it rather than person by person."
+            title={t("teams.empty.title")}
+            description={t("teams.empty.body")}
             action={
               // The empty state is the worse of the two dead buttons to leave
               // behind: it is what a brand-new organization sees first.
               me.permissions.includes("team.create") ? (
                 <ButtonLink href="/teams/new" variant="primary">
-                  Create the first team
+                  {t("teams.empty.action")}
                 </ButtonLink>
               ) : undefined
             }
@@ -63,18 +66,18 @@ export default async function TeamsPage() {
         ) : (
           <Panel
             id="teams"
-            title="Teams"
-            description={`${teams.length} ${teams.length === 1 ? "team" : "teams"}`}
+            title={t("nav.teams")}
+            description={t.plural("teams.count", teams.length)}
             bleed
           >
-            <DataTable caption="Teams in this organization">
+            <DataTable caption={t("teams.caption")}>
               <THead>
                 <Tr>
-                  <Th width="w-20">Key</Th>
-                  <Th>Name</Th>
-                  <Th>Department</Th>
+                  <Th width="w-20">{t("projects.col.key")}</Th>
+                  <Th>{t("projects.col.name")}</Th>
+                  <Th>{t("pnew.department")}</Th>
                   <Th width="w-24" align="right">
-                    People
+                    {t("teams.col.people")}
                   </Th>
                 </Tr>
               </THead>
@@ -92,7 +95,7 @@ export default async function TeamsPage() {
                         </span>
                       </Link>
                     </Td>
-                    <Td muted>{team.department?.name ?? "No department"}</Td>
+                    <Td muted>{team.department?.name ?? t("teams.noDepartment")}</Td>
                     <Td align="right" muted>
                       <span className="tabular-nums">{team.member_count ?? 0}</span>
                     </Td>

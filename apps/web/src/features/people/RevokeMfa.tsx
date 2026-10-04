@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { revokeMfa } from "./roles";
 
 /**
@@ -30,6 +31,8 @@ export function RevokeMfa({
   name: string;
   enabled: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [busy, startAction] = useTransition();
@@ -45,7 +48,7 @@ export function RevokeMfa({
       setError(result.needsPassword === true ? null : result.error);
 
       if (result.error === null) {
-        toast({ tone: "removed", message: `Two-factor removed for ${name}.` });
+        toast({ tone: "removed", message: t("mfa.removed", { name }) });
       }
     });
 
@@ -53,11 +56,11 @@ export function RevokeMfa({
     return (
       <Panel
         id="two-factor"
-        title="Two-factor authentication"
-        actions={<Badge tone="neutral" icon="minus">off</Badge>}
+        title={t("settings.twoFactor.label")}
+        actions={<Badge tone="neutral" icon="minus">{t("mfa.off")}</Badge>}
       >
         <p className="text-body-sm text-n-700">
-          {name} signs in with a password alone. Only they can turn a second factor on.
+          {t("mfa.offBody", { name })}
         </p>
       </Panel>
     );
@@ -66,9 +69,9 @@ export function RevokeMfa({
   return (
     <Panel
       id="two-factor"
-      title="Two-factor authentication"
-      description="Remove it only when this person has lost the device and their recovery codes — and only when you know who you are talking to."
-      actions={<Badge tone="success" icon="check">on</Badge>}
+      title={t("settings.twoFactor.label")}
+      description={t("mfa.desc")}
+      actions={<Badge tone="success" icon="check">{t("mfa.on")}</Badge>}
     >
       {error && (
         <p role="alert" className="mb-3 rounded-md border border-s-danger/40 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
@@ -77,9 +80,7 @@ export function RevokeMfa({
       )}
 
       <p className="max-w-prose text-body-sm text-n-700">
-        Removing it does not sign {name} out and does not change their password — it means their
-        password alone gets them in again, until they set up a new device. It is recorded in the
-        audit log of every organization they belong to, under your name.
+        {t("mfa.body", { name })}
       </p>
 
       <div className="mt-4">
@@ -89,13 +90,14 @@ export function RevokeMfa({
           disabled={busy}
           onClick={remove}
         >
-          {busy ? "Removing…" : "Remove two-factor"}
+          {busy ? t("mfa.removing") : t("mfa.remove")}
         </Button>
       </div>
 
       {needsPassword && (
         <ConfirmPassword
-          action={`remove two-factor for ${name}`}
+          action={t("mfa.confirmAction", { name })}
+          locale={locale}
           onConfirmed={() => {
             setNeedsPassword(false);
             remove();

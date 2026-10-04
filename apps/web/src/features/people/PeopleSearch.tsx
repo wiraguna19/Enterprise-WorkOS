@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Filtering the directory (docs/08 §2).
@@ -17,6 +18,7 @@ import { INPUT } from "@/components/ui/Field";
  * happened to have been fetched and quietly miss the rest.
  */
 export function PeopleSearch({ initialQuery }: { initialQuery: string }) {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -63,15 +65,15 @@ export function PeopleSearch({ initialQuery }: { initialQuery: string }) {
         type="search"
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        placeholder="Find someone…"
-        aria-label="Search people"
+        placeholder={t("search.placeholder")}
+        aria-label={t("search.label")}
         className={`${INPUT} sm:w-64`}
       />
 
       {/* Announced, not just animated: the list below changes under the user
           and a spinner alone tells a screen reader nothing. */}
       <span role="status" aria-live="polite" className="sr-only">
-        {isPending ? "Searching" : ""}
+        {isPending ? t("search.searching") : ""}
       </span>
     </div>
   );

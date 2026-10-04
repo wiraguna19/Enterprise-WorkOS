@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { reauthenticate } from "@/features/auth/reauth";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * "Confirm your password to do this" (ADR 0034).
@@ -21,12 +23,16 @@ import { reauthenticate } from "@/features/auth/reauth";
 export function ConfirmPassword({
   action,
   onConfirmed,
+  locale = "en",
 }: {
   /** What was refused, in a few words: "erase Tono Hartono". */
   action: string;
   /** Run again once the password is accepted. */
   onConfirmed: () => void;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
@@ -34,8 +40,7 @@ export function ConfirmPassword({
   return (
     <div className="mt-3 rounded-lg border border-s-active/30 bg-s-active/5 p-3">
       <p className="mb-2 max-w-prose text-body-sm text-n-900">
-        Confirm your password to {action}. You were asked because it has been a while since you
-        signed in — not because anything is wrong.
+        {t("confirmpw.body", { action })}
       </p>
 
       {error && (
@@ -45,7 +50,7 @@ export function ConfirmPassword({
       )}
 
       <div className="flex flex-wrap items-end gap-2">
-        <Field id="confirm-password" label="Password">
+        <Field id="confirm-password" label={t("login.password")}>
           <input
             id="confirm-password"
             type="password"
@@ -79,7 +84,7 @@ export function ConfirmPassword({
             })
           }
         >
-          {busy ? "Confirming…" : "Confirm"}
+          {busy ? t("confirmpw.confirming") : t("confirmpw.confirm")}
         </Button>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Panel } from "@/components/ui/Panel";
 import { Field, INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import { invitePerson, type Invitation } from "./invitations";
 
 /**
@@ -20,6 +21,7 @@ import { invitePerson, type Invitation } from "./invitations";
  * can do any good.
  */
 export function InviteForm({ roles }: { roles: Array<{ key: string; name: string }> }) {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,15 +35,14 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
       // thing" rather than "here is some text after a form" (ADR 0024).
       <Panel
         id="invitation"
-        title={`Invitation ready for ${issued.email}`}
-        description="Shown once — only a digest of it is stored."
+        title={t("invite.ready", { email: issued.email })}
+        description={t("invite.readyDesc")}
       >
       <div className="space-y-3">
 
         <p className="text-body-sm text-n-500">
-          Nothing was emailed — this product has no mail of its own yet. Send them this link
-          yourself. <strong>It is shown once:</strong> only a digest of it is stored, so if it is
-          lost the invitation has to be revoked and reissued.
+          {t("invite.noMail.before")} <strong>{t("invite.noMail.strong")}</strong>{" "}
+          {t("invite.noMail.after")}
         </p>
 
         <code className="block overflow-x-auto break-all rounded-lg border border-n-300 bg-n-50 p-3 font-mono text-micro text-n-900">
@@ -54,15 +55,15 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
             size="sm"
             onClick={() => navigator.clipboard?.writeText(inviteUrl(issued.token))}
           >
-            Copy the link
+            {t("invite.copy")}
           </Button>
 
           <Button variant="ghost" size="sm" onClick={() => setIssued(null)}>
-            Invite somebody else
+            {t("invite.another")}
           </Button>
 
           <Link href="/people" className="text-body-sm text-a-700 underline">
-            Back to people
+            {t("invite.back")}
           </Link>
         </div>
       </div>
@@ -86,14 +87,14 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
     >
       <Panel
         id="invite"
-        title="Invite somebody"
-        description="They choose their own password from the link; the role can wait until they are in."
+        title={t("invite.formTitle")}
+        description={t("invite.formDesc")}
         // The error stays in the BODY, beside the field it is about, rather
         // than being repeated down here: this form has one input, and an error
         // in two places is an error somebody reads twice and believes once.
         footer={
           <Button type="submit" variant="primary" disabled={busy || email === ""}>
-            {busy ? "Creating…" : "Create the invitation"}
+            {busy ? t("pnew.creating") : t("invite.create")}
           </Button>
         }
       >
@@ -107,7 +108,7 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
         </p>
       )}
 
-      <Field id="email" label="Email" hint="Where they already read their work mail.">
+      <Field id="email" label={t("login.email")} hint={t("invite.emailHint")}>
         <input
           id="email"
           type="email"
@@ -120,8 +121,8 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
 
       <Field
         id="role"
-        label="Role"
-        hint="Optional. Somebody can join before anyone has decided what they will do."
+        label={t("members.col.role")}
+        hint={t("invite.roleHint")}
       >
         <select
           id="role"
@@ -129,7 +130,7 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
           value={role}
           onChange={(event) => setRole(event.target.value)}
         >
-          <option value="">Decide later</option>
+          <option value="">{t("invite.decideLater")}</option>
           {roles.map((entry) => (
             <option key={entry.key} value={entry.key}>
               {entry.name}

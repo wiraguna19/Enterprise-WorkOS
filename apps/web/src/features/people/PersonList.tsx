@@ -3,6 +3,9 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Unset } from "@/components/ui/KeyValue";
+import type { Locale } from "@/i18n/config";
+import { employmentName } from "@/i18n/labels";
+import { translator, type Translator } from "@/i18n/translate";
 import { formatDate } from "@/lib/format";
 import type { Person } from "./types";
 
@@ -22,7 +25,18 @@ import type { Person } from "./types";
  * table row that swallows every click makes the capacity column unselectable,
  * which is the one number a manager wants to copy out of here.
  */
-export function PersonList({ people, timeZone }: { people: Person[]; timeZone: string }) {
+export function PersonList({
+  people,
+  timeZone,
+  locale = "en",
+}: {
+  people: Person[];
+  timeZone: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
+}) {
+  const t = translator(locale);
+
   return (
     <>
       {/* ── Phone: stacked list ─────────────────────────────────────────── */}
@@ -40,7 +54,7 @@ export function PersonList({ people, timeZone }: { people: Person[]; timeZone: s
                 </div>
               </div>
 
-              <CapacityLabel person={person} className="shrink-0 text-right" />
+              <CapacityLabel person={person} t={t} className="shrink-0 text-right" />
             </Link>
           </li>
         ))}
@@ -52,14 +66,14 @@ export function PersonList({ people, timeZone }: { people: Person[]; timeZone: s
           product, each with slightly different padding, which is what happens
           when the system has no table to reach for. */}
       <div className="hidden md:block">
-        <DataTable caption="Everyone in this organization">
+        <DataTable caption={t("plist.caption")}>
           <THead>
             <Tr>
-              <Th>Name</Th>
-              <Th>Role</Th>
-              <Th>Department</Th>
-              <Th align="right">Capacity</Th>
-              <Th>Joined</Th>
+              <Th>{t("projects.col.name")}</Th>
+              <Th>{t("plist.col.jobTitle")}</Th>
+              <Th>{t("pnew.department")}</Th>
+              <Th align="right">{t("plist.col.capacity")}</Th>
+              <Th>{t("plist.col.joined")}</Th>
             </Tr>
           </THead>
           <TBody>
@@ -80,11 +94,11 @@ export function PersonList({ people, timeZone }: { people: Person[]; timeZone: s
                 <Td>{person.job_title ?? <Unset />}</Td>
                 <Td muted>{person.department?.name ?? <Unset />}</Td>
                 <Td align="right">
-                  <CapacityLabel person={person} />
+                  <CapacityLabel person={person} t={t} />
                 </Td>
                 <Td muted>
                   <span className="whitespace-nowrap">
-                    {formatDate(person.joined_at, timeZone)}
+                    {formatDate(person.joined_at, timeZone, locale)}
                   </span>
                 </Td>
               </Tr>
@@ -101,7 +115,15 @@ export function PersonList({ people, timeZone }: { people: Person[]; timeZone: s
  * A workload denominator that silently defaults is how a manager ends up
  * over-committing a part-time colleague (docs/02 §11).
  */
-function CapacityLabel({ person, className = "" }: { person: Person; className?: string }) {
+function CapacityLabel({
+  person,
+  t,
+  className = "",
+}: {
+  person: Person;
+  t: Translator;
+  className?: string;
+}) {
   if (!person.weekly_capacity_hours)
     return (
       <span className={className}>
@@ -114,10 +136,10 @@ function CapacityLabel({ person, className = "" }: { person: Person; className?:
 
   return (
     <span className={className}>
-      <span className="whitespace-nowrap text-body-sm">{hours} h</span>
+      <span className="whitespace-nowrap text-body-sm">{t("time.hours", { hours })}</span>
       {!isStandard && (
         <span className="ml-1.5 align-middle">
-          <Badge>{person.employment_type?.replace("_", " ")}</Badge>
+          <Badge>{person.employment_type ? employmentName(person.employment_type, t) : null}</Badge>
         </span>
       )}
     </span>

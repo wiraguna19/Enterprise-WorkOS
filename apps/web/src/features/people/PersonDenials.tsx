@@ -7,6 +7,8 @@ import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
+import { scopeName } from "@/i18n/labels";
+import { useT } from "@/i18n/I18nProvider";
 import { denyPermission, explainPermission, liftDenial, type Explanation } from "./roles";
 import type { Scope } from "./PersonRoles";
 
@@ -46,6 +48,7 @@ export function PersonDenials({
   permissions: Array<{ key: string; description: string | null }>;
   scopes: { team: Scope[]; department: Scope[]; project: Scope[] };
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
   const toast = useToast();
@@ -63,12 +66,12 @@ export function PersonDenials({
   return (
     <Panel
       id="denials"
-      title="Denials"
-      description="A denial beats every grant, including one made after it."
+      title={t("deny.title")}
+      description={t("deny.desc")}
       actions={
         denials.length > 0 ? (
           <Badge tone="danger" icon="minus">
-            {denials.length} {denials.length === 1 ? "permission" : "permissions"} taken away
+            {t.plural("deny.count", denials.length)}
           </Badge>
         ) : undefined
       }
@@ -85,16 +88,16 @@ export function PersonDenials({
 
       {denials.length === 0 ? (
         <p className="px-4 py-3 text-body-sm text-n-500">
-          Nothing taken away.
+          {t("deny.none")}
         </p>
       ) : (
-        <DataTable caption="Permissions taken away from this person">
+        <DataTable caption={t("deny.caption")}>
           <THead>
             <Tr>
-              <Th>They may not</Th>
-              <Th>Where</Th>
-              <Th>Because</Th>
-              {mayManage && <Th width="w-20" align="right">Action</Th>}
+              <Th>{t("deny.mayNot")}</Th>
+              <Th>{t("deny.where")}</Th>
+              <Th>{t("deny.because")}</Th>
+              {mayManage && <Th width="w-20" align="right">{t("inv.col.action")}</Th>}
             </Tr>
           </THead>
           <TBody>
@@ -105,8 +108,8 @@ export function PersonDenials({
                 </Td>
                 <Td muted>
                   {denial.scope_type === null
-                    ? "everywhere"
-                    : `${denial.scope_type} ${denial.scope_name ?? denial.scope_id}`}
+                    ? t("deny.everywhere")
+                    : `${scopeName(denial.scope_type, t)} ${denial.scope_name ?? denial.scope_id}`}
                 </Td>
                 <Td muted>{denial.reason}</Td>
                 {mayManage && (
@@ -122,12 +125,12 @@ export function PersonDenials({
                           setError(result.error);
 
                           if (result.error === null) {
-                            toast({ message: "Lifted. Their roles decide again." });
+                            toast({ message: t("deny.lifted") });
                           }
                         })
                       }
                     >
-                      Lift
+                      {t("deny.lift")}
                     </Button>
                   </Td>
                 )}
@@ -156,15 +159,15 @@ export function PersonDenials({
               if (result.error === null) {
                 setScopeId("");
                 setReason("");
-                toast({ tone: "removed", message: "Taken away. A denial beats every grant they hold." });
+                toast({ tone: "removed", message: t("deny.taken") });
               }
             });
           }}
         >
           <Field
             id="deny-permission"
-            label="They may not"
-            hint="Beats every role they hold, now or later."
+            label={t("deny.mayNot")}
+            hint={t("deny.mayNotHint")}
           >
             <select
               id="deny-permission"
@@ -180,7 +183,7 @@ export function PersonDenials({
             </select>
           </Field>
 
-          <Field id="deny-where" label="Where">
+          <Field id="deny-where" label={t("deny.where")}>
             <select
               id="deny-where"
               className={INPUT}
@@ -192,15 +195,15 @@ export function PersonDenials({
                 setScopeId("");
               }}
             >
-              <option value="everywhere">everywhere</option>
-              <option value="team">on one team</option>
-              <option value="department">on one department</option>
-              <option value="project">on one project</option>
+              <option value="everywhere">{t("deny.everywhere")}</option>
+              <option value="team">{t("deny.onTeam")}</option>
+              <option value="department">{t("deny.onDepartment")}</option>
+              <option value="project">{t("deny.onProject")}</option>
             </select>
           </Field>
 
           {where !== "everywhere" && (
-            <Field id="deny-scope" label="Which one">
+            <Field id="deny-scope" label={t("roles.which")}>
               <select
                 id="deny-scope"
                 className={INPUT}
@@ -208,7 +211,7 @@ export function PersonDenials({
                 required
                 onChange={(event) => setScopeId(event.target.value)}
               >
-                <option value="">Choose…</option>
+                <option value="">{t("roles.choose")}</option>
                 {options.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.name}
@@ -220,8 +223,8 @@ export function PersonDenials({
 
           <Field
             id="deny-reason"
-            label="Because"
-            hint="Required — an entry with no reason is a mystery six months from now."
+            label={t("deny.because")}
+            hint={t("deny.reasonHint")}
           >
             <input
               id="deny-reason"
@@ -240,7 +243,7 @@ export function PersonDenials({
             size="sm"
             disabled={busy || reason.trim().length < 3 || (where !== "everywhere" && scopeId === "")}
           >
-            Deny
+            {t("deny.deny")}
           </Button>
         </form>
       )}
@@ -259,7 +262,7 @@ export function PersonDenials({
             });
           }}
         >
-          <Field id="explain-permission" label="Can they" hint="Where the answer comes from.">
+          <Field id="explain-permission" label={t("deny.canThey")} hint={t("deny.canTheyHint")}>
             <select
               id="explain-permission"
               className={INPUT}
@@ -275,39 +278,39 @@ export function PersonDenials({
           </Field>
 
           <Button type="submit" variant="ghost" size="sm" disabled={busy}>
-            Explain
+            {t("deny.explain")}
           </Button>
         </form>
 
         {explanation && (
           <div className="text-body-sm text-n-700" role="status">
             <p className="text-n-900">
-              {explanation.permission}: {explanation.allowed ? "allowed" : "not allowed"}
+              {explanation.permission}: {explanation.allowed ? t("deny.allowed") : t("deny.notAllowed")}
             </p>
 
             {explanation.granted_by.length > 0 && (
-              <p>Granted across the organization by {explanation.granted_by.join(", ")}.</p>
+              <p>{t("deny.grantedOrg", { roles: explanation.granted_by.join(", ") })}</p>
             )}
 
             {explanation.granted_on.map((grant, index) => (
               <p key={index}>
-                Granted by {grant.role} on {grant.scope_type} {grant.scope_name ?? "—"}.
+                {t("deny.grantedOn", { role: grant.role, scope: scopeName(grant.scope_type, t), name: grant.scope_name ?? "—" })}
               </p>
             ))}
 
             {explanation.denied_by.map((denial, index) => (
               <p key={index} className="text-s-danger">
-                Denied{" "}
+                {t("deny.denied")}{" "}
                 {denial.scope_type === null
-                  ? "everywhere"
-                  : `on ${denial.scope_type} ${denial.scope_name ?? "—"}`}
+                  ? t("deny.everywhere")
+                  : t("roles.onScope", { scope: scopeName(denial.scope_type, t), name: denial.scope_name ?? "—" })}
                 : {denial.reason}
               </p>
             ))}
 
             {explanation.granted_by.length === 0 &&
               explanation.granted_on.length === 0 &&
-              explanation.denied_by.length === 0 && <p>No role they hold carries it.</p>}
+              explanation.denied_by.length === 0 && <p>{t("deny.noRole")}</p>}
           </div>
         )}
       </div>

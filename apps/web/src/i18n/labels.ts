@@ -14,6 +14,25 @@ export function priorityName(value: string, t: Translator): string {
   return PRIORITIES.has(value) ? t(`priority.${value}` as MessageKey) : humanize(value);
 }
 
+const EMPLOYMENT = new Set(["full_time", "part_time", "contractor", "intern"]);
+
+export function employmentName(value: string, t: Translator): string {
+  return EMPLOYMENT.has(value) ? t(`employment.${value}` as MessageKey) : value.replace(/_/g, " ");
+}
+
+const PERSON_STATUSES = new Set(["invited", "suspended", "revoked"]);
+
+export function personStatusName(value: string, t: Translator): string {
+  return PERSON_STATUSES.has(value) ? t(`personStatus.${value}` as MessageKey) : value;
+}
+
+const SCOPES = new Set(["team", "department", "project"]);
+
+/** "team", "department", "project" — what a grant or a denial is scoped to. */
+export function scopeName(value: string, t: Translator): string {
+  return SCOPES.has(value) ? t(`scope.${value}` as MessageKey) : value;
+}
+
 function humanize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
 }

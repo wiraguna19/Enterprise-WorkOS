@@ -4,11 +4,14 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { NewDepartmentForm } from "@/features/organization/NewDepartmentForm";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 type Department = { id: string; name: string; depth: number };
 
 export default async function NewDepartmentPage() {
   const me = await requireUser();
+  const t = translator(asLocale(me.user.locale));
 
   if (!me.permissions.includes("department.create")) {
     // Said plainly, and named. "You do not have permission" tells a person
@@ -16,10 +19,10 @@ export default async function NewDepartmentPage() {
     // what to grant.
     return (
       <div className="space-y-5">
-        <PageHeader title="New department" />
+        <PageHeader title={t("depts.new")} />
         <EmptyState
-          title="You cannot create departments here"
-          description="Creating a department needs the department.create permission. Your administrator grants it with a role."
+          title={t("dnew.cannot.title")}
+          description={t("dnew.cannot.body")}
         />
       </div>
     );
@@ -35,12 +38,12 @@ export default async function NewDepartmentPage() {
   return (
     <div className="space-y-5">
       <Link href="/departments" className="text-body-sm text-n-500 hover:text-a-700">
-        ← Departments
+        {t("dnew.back")}
       </Link>
 
       <PageHeader
-        title="New department"
-        description="A group for reporting: projects name one, and a person's reporting line follows it."
+        title={t("depts.new")}
+        description={t("dnew.description")}
       />
 
       <NewDepartmentForm
