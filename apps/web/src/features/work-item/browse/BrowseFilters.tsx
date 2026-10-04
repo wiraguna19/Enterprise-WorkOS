@@ -5,6 +5,8 @@ import { useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
+import { priorityName } from "@/i18n/labels";
+import { useT } from "@/i18n/I18nProvider";
 import { CATEGORIES, SORTS } from "./query";
 
 /**
@@ -31,6 +33,7 @@ export function BrowseFilters({
   customFields: CustomFieldAnswer[];
   active: number;
 }) {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const [navigating, start] = useTransition();
@@ -57,46 +60,46 @@ export function BrowseFilters({
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Field id="f-category" label="Status">
+        <Field id="f-category" label={t("status.status")}>
           <select
             id="f-category"
             value={value("category")}
             onChange={(event) => set("category", event.target.value)}
             className={INPUT}
           >
-            <option value="">Any</option>
+            <option value="">{t("browse.any")}</option>
             {CATEGORIES.map((category) => (
               <option key={category} value={category}>
-                {category.replace(/_/g, " ")}
+                {t(`category.${category}`)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field id="f-priority" label="Priority">
+        <Field id="f-priority" label={t("form.priority")}>
           <select
             id="f-priority"
             value={value("priority")}
             onChange={(event) => set("priority", event.target.value)}
             className={INPUT}
           >
-            <option value="">Any</option>
+            <option value="">{t("browse.any")}</option>
             {priorities.map((priority) => (
               <option key={priority} value={priority}>
-                {priority}
+                {priorityName(priority, t)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field id="f-project" label="Project">
+        <Field id="f-project" label={t("wnew.project")}>
           <select
             id="f-project"
             value={value("project")}
             onChange={(event) => set("project", event.target.value)}
             className={INPUT}
           >
-            <option value="">Any</option>
+            <option value="">{t("browse.any")}</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.label}
@@ -105,7 +108,7 @@ export function BrowseFilters({
           </select>
         </Field>
 
-        <Field id="f-sort" label="Order">
+        <Field id="f-sort" label={t("browse.order")}>
           <select
             id="f-sort"
             value={value("sort")}
@@ -114,7 +117,7 @@ export function BrowseFilters({
           >
             {SORTS.map((sort) => (
               <option key={sort.value} value={sort.value}>
-                {sort.label}
+                {t(sort.label)}
               </option>
             ))}
           </select>
@@ -131,7 +134,7 @@ export function BrowseFilters({
               key={field.key}
               id={`f-cf-${field.key}`}
               label={field.label}
-              hint={`Exact match on ${`cf_${field.key}`}.`}
+              hint={t("browse.exact", { param: `cf_${field.key}` })}
             >
               {field.type === "select" ? (
                 <select
@@ -140,7 +143,7 @@ export function BrowseFilters({
                   onChange={(event) => set(`cf_${field.key}`, event.target.value)}
                   className={INPUT}
                 >
-                  <option value="">Any</option>
+                  <option value="">{t("browse.any")}</option>
                   {field.options.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -169,17 +172,17 @@ export function BrowseFilters({
 
       <div className="flex flex-wrap items-center gap-2">
         <Toggle
-          label="Overdue only"
+          label={t("browse.overdueOnly")}
           on={value("late") === "1"}
           onChange={(on) => set("late", on ? "1" : "")}
         />
         <Toggle
-          label="Unassigned only"
+          label={t("browse.unassignedOnly")}
           on={value("unassigned") === "1"}
           onChange={(on) => set("unassigned", on ? "1" : "")}
         />
         <Toggle
-          label="Include archived"
+          label={t("browse.includeArchived")}
           on={value("archived") === "include" || value("archived") === "only"}
           // Archived work is closed work out of the working set (ADR 0054).
           // Off by default, like the board; `only` arrives from a board's
@@ -187,7 +190,7 @@ export function BrowseFilters({
           onChange={(on) => set("archived", on ? "include" : "")}
         />
         <Toggle
-          label="Mine"
+          label={t("browse.mine")}
           on={value("assignee") === "me"}
           // `me` is resolved by the server (docs/05 §4), so this screen never
           // has to know the reader's own membership id.
@@ -201,14 +204,14 @@ export function BrowseFilters({
             disabled={navigating}
             onClick={() => start(() => router.replace("/work"))}
           >
-            Clear {active} {active === 1 ? "filter" : "filters"}
+            {t.plural("browse.clear", active)}
           </Button>
         )}
 
         {/* Announced, not just shown: the list below changes under the reader
             and a spinner alone tells a screen reader nothing. */}
         <span role="status" aria-live="polite" className="text-caption text-n-500">
-          {navigating ? "Filtering…" : ""}
+          {navigating ? t("browse.filtering") : ""}
         </span>
       </div>
     </div>

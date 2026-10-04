@@ -12,6 +12,8 @@ import { BulkSelectList } from "@/features/work-item/browse/BulkSelectList";
 import type { WorkVocabulary } from "@/features/work-item/templates";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, describeApiError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 const PER_PAGE = 50;
@@ -93,27 +95,26 @@ export default async function BrowseWorkPage({
   }
 
   const active = activeCount(params);
+  // Translated (ADR 0060). A refusal is the API's sentence and stays English.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Work"
-        description={
-          active === 0
-            ? "Everything you can see. Narrow it with the filters."
-            : `${active} ${active === 1 ? "filter" : "filters"} on.`
-        }
+        title={t("nav.work")}
+        description={active === 0 ? t("browse.everything") : t.plural("browse.filtersOn", active)}
         action={
           me.permissions.includes("work_item.create") ? (
             <ButtonLink href="/work/new" variant="primary" size="sm">
-              New work item
+              {t("myWork.new")}
             </ButtonLink>
           ) : undefined
         }
       />
 
       <PageBody>
-        <Panel id="filters" title="Filters" description="Every choice here is part of the address — bookmark it, or send it to somebody.">
+        <Panel id="filters" title={t("browse.filters")} description={t("browse.filtersDesc")}>
           <BrowseFilters
             projects={projects.map((project) => ({
               id: project.id,
@@ -128,28 +129,24 @@ export default async function BrowseWorkPage({
         {refusal !== null ? (
           // The API's own sentence, not a rewritten one. It names the filter it
           // refused, which is the whole value of the refusal.
-          <Panel id="refused" title="That filter was refused" tone="danger">
+          <Panel id="refused" title={t("browse.refused")} tone="danger">
             <p className="max-w-prose text-body-sm text-n-900">{refusal}</p>
             <p className="mt-2 text-caption text-n-500">
               <Link href="/work" className="underline">
-                Start again with no filters
+                {t("browse.startAgain")}
               </Link>
             </p>
           </Panel>
         ) : items.length === 0 ? (
           <EmptyState
-            title={active === 0 ? "No work you can see" : "Nothing matches those filters"}
-            description={
-              active === 0
-                ? "Work you have access to will appear here as it is created."
-                : "Every filter narrows the list. Clear one and try again."
-            }
+            title={t(active === 0 ? "browse.empty.none.title" : "browse.empty.filtered.title")}
+            description={t(active === 0 ? "browse.empty.none.body" : "browse.empty.filtered.body")}
           />
         ) : (
           <Panel
             id="results"
-            title="Results"
-            description={`${items.length} on this page.`}
+            title={t("browse.results")}
+            description={t("browse.onPage", { count: items.length })}
             bleed
             footer={
               nextCursor === null ? undefined : (
@@ -158,7 +155,7 @@ export default async function BrowseWorkPage({
                   size="sm"
                   variant="secondary"
                 >
-                  Next page
+                  {t("browse.next")}
                 </ButtonLink>
               )
             }
@@ -171,7 +168,7 @@ export default async function BrowseWorkPage({
               key={apiQuery(params, PER_PAGE)}
               items={items}
               timeZone={me.user.timezone}
-              people={people.map((person) => ({ id: person.id, label: person.name ?? "Unnamed" }))}
+              people={people.map((person) => ({ id: person.id, label: person.name ?? t("common.unnamed") }))}
               canAssign={canAssign}
               canUpdate={canUpdate}
             />

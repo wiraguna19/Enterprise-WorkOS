@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { INPUT } from "@/components/ui/Field";
 import { useToast } from "@/components/ui/Toast";
+import type { MessageKey } from "@/i18n/messages/en";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { bulkUpdateWorkItems, type BulkChange, type BulkOutcome } from "../actions";
 import { WorkItemRow } from "../components/WorkItemRow";
 import type { WorkItem } from "../types";
@@ -43,6 +45,8 @@ export function BulkSelectList({
   canAssign: boolean;
   canUpdate: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [selected, setSelected] = useState<string[]>([]);
   const [assignee, setAssignee] = useState("");
   const [due, setDue] = useState("");
@@ -60,7 +64,7 @@ export function BulkSelectList({
       current.includes(reference) ? current.filter((r) => r !== reference) : [...current, reference],
     );
 
-  const run = (change: BulkChange, doing: string) =>
+  const run = (change: BulkChange, doing: MessageKey) =>
     start(async () => {
       const result = await bulkUpdateWorkItems(selected, change);
 
@@ -75,7 +79,9 @@ export function BulkSelectList({
 
       if ((result.succeeded ?? 0) > 0) {
         toast({
-          message: `${doing} on ${result.succeeded} ${result.succeeded === 1 ? "item" : "items"}.${failed.length > 0 ? ` ${failed.length} refused — named below.` : ""}`,
+          message:
+            t.plural("bulk.done", result.succeeded ?? 0, { doing: t(doing) })
+            + (failed.length > 0 ? ` ${t("bulk.refusedTail", { count: failed.length })}` : ""),
         });
       }
     });
@@ -85,7 +91,7 @@ export function BulkSelectList({
       <ul>
         {items.map((item) => (
           <li key={item.id}>
-            <WorkItemRow item={item} timeZone={timeZone} />
+            <WorkItemRow item={item} timeZone={timeZone} locale={locale} />
           </li>
         ))}
       </ul>
@@ -103,7 +109,7 @@ export function BulkSelectList({
           className="size-4 accent-a-500"
         />
         <label htmlFor="bulk-select-page" className="text-caption text-n-500">
-          Select all on this page
+          {t("bulk.selectAll")}
         </label>
       </div>
 
@@ -114,7 +120,7 @@ export function BulkSelectList({
               type="checkbox"
               checked={selected.includes(item.reference)}
               onChange={() => toggle(item.reference)}
-              aria-label={`Select ${item.reference}`}
+              aria-label={t("bulk.select", { reference: item.reference })}
               className="ml-3 size-4 shrink-0 accent-a-500"
             />
             <div className="min-w-0 flex-1">
@@ -122,6 +128,7 @@ export function BulkSelectList({
                 item={item}
                 timeZone={timeZone}
                 selected={selected.includes(item.reference)}
+                locale={locale}
               />
             </div>
           </li>
@@ -135,13 +142,13 @@ export function BulkSelectList({
 
           <div
             role="region"
-            aria-label="Change selected"
+            aria-label={t("bulk.region")}
             // Above the phone's tab bar (z-20), like every other overlay here.
             className="fixed inset-x-0 bottom-0 z-30 border-t border-n-200 bg-n-0/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-e2 backdrop-blur md:inset-x-auto md:bottom-4 md:left-1/2 md:w-[44rem] md:-translate-x-1/2 md:rounded-xl md:border"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-body-sm font-medium text-n-900" aria-live="polite">
-                {selected.length} selected
+                {t("bulk.selected", { count: selected.length })}
               </p>
               <Button
                 variant="ghost"
@@ -152,7 +159,7 @@ export function BulkSelectList({
                   setError(null);
                 }}
               >
-                Clear selection
+                {t("bulk.clear")}
               </Button>
             </div>
 
@@ -160,13 +167,13 @@ export function BulkSelectList({
               {canAssign && (
                 <div className="flex flex-1 items-end gap-2">
                   <label className="flex-1 text-caption text-n-700">
-                    Assign to
+                    {t("bulk.assignTo")}
                     <select
                       value={assignee}
                       onChange={(event) => setAssignee(event.target.value)}
                       className={`${INPUT} mt-0.5`}
                     >
-                      <option value="">Choose a person…</option>
+                      <option value="">{t("bulk.choosePerson")}</option>
                       {people.map((person) => (
                         <option key={person.id} value={person.id}>
                           {person.label}
@@ -178,9 +185,9 @@ export function BulkSelectList({
                     variant="affirmative"
                     size="sm"
                     disabled={busy || assignee === ""}
-                    onClick={() => run({ assignee_id: assignee }, "Assigned")}
+                    onClick={() => run({ assignee_id: assignee }, "bulk.assigned")}
                   >
-                    Assign
+                    {t("assign.assign")}
                   </Button>
                 </div>
               )}
@@ -188,7 +195,7 @@ export function BulkSelectList({
               {canUpdate && (
                 <div className="flex flex-1 items-end gap-2">
                   <label className="flex-1 text-caption text-n-700">
-                    Due date
+                    {t("bulk.dueDate")}
                     <input
                       type="date"
                       value={due}
@@ -203,9 +210,9 @@ export function BulkSelectList({
                     // The end of the working day, as the create form sends it:
                     // a bare date would be midnight, and "due Tuesday" would be
                     // overdue from the first minute of Tuesday.
-                    onClick={() => run({ due_at: `${due}T17:00:00` }, "Due date set")}
+                    onClick={() => run({ due_at: `${due}T17:00:00` }, "bulk.dueSet")}
                   >
-                    Set due date
+                    {t("bulk.setDue")}
                   </Button>
                 </div>
               )}
@@ -220,7 +227,7 @@ export function BulkSelectList({
             {refused.length > 0 && (
               <div role="alert" className="mt-2 max-h-28 overflow-y-auto rounded-md border border-s-danger/30 bg-s-danger/5 px-3 py-2">
                 <p className="text-caption font-medium text-s-danger">
-                  {refused.length} not changed — still selected:
+                  {t("bulk.notChanged", { count: refused.length })}
                 </p>
                 <ul className="mt-1 space-y-0.5 text-caption text-n-700">
                   {refused.map((outcome) => (

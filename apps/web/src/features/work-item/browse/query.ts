@@ -1,4 +1,5 @@
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * The browse screen's URL, and the API query it becomes (ADR 0039, ADR 0038).
@@ -32,13 +33,14 @@ export type BrowseParams = {
 export const CATEGORIES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"] as const;
 
 
-export const SORTS: Array<{ value: string; label: string }> = [
-  { value: "position", label: "Board order" },
-  { value: "due_at", label: "Due soonest" },
-  { value: "-due_at", label: "Due latest" },
-  { value: "-updated_at", label: "Recently changed" },
-  { value: "-created_at", label: "Newest" },
-  { value: "priority", label: "Priority" },
+// `label` is a dictionary key (ADR 0060), looked up where the list is drawn.
+export const SORTS: Array<{ value: string; label: MessageKey }> = [
+  { value: "position", label: "sort.position" },
+  { value: "due_at", label: "sort.dueSoonest" },
+  { value: "-due_at", label: "sort.dueLatest" },
+  { value: "-updated_at", label: "sort.recent" },
+  { value: "-created_at", label: "sort.newest" },
+  { value: "priority", label: "sort.priority" },
 ];
 
 /**

@@ -238,8 +238,10 @@ last entry is deliberately last.
                         Project settings (details, archive, templates,
                         access) and the new-project form, with Settings →
                         Templates because it shares the template editor.
-                        Next, one screen at a time: new/edit work item and
-                        the Work browse screen, then Calendar, Timesheet,
+                        New and edit work item (with the template picker
+                        and milestone picker) and the Work browse screen
+                        with its filters and bulk changes.
+                        Next, one screen at a time: Calendar, Timesheet,
                         Recurring, Reports, People, Teams, Departments and
                         the rest of Settings.
 ```

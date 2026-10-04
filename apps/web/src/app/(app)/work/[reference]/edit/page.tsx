@@ -6,6 +6,8 @@ import type { MilestoneOption } from "@/features/work-item/actions";
 import type { WorkVocabulary } from "@/features/work-item/templates";
 import type { WorkItem } from "@/features/work-item/types";
 import { api, ApiRequestError } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -38,13 +40,16 @@ export default async function EditWorkItemPage({
     throw error;
   }
 
+  // Translated (ADR 0060).
+  const t = translator(asLocale(me.user.locale));
+
   if (!(item.permissions.update ?? false)) {
     return (
       <div className="space-y-5">
         <PageHeader title={item.reference} />
         <EmptyState
-          title="You cannot edit this item"
-          description="You can still comment on it, and log time against it, if those are yours to do."
+          title={t("wedit.cannot.title")}
+          description={t("wedit.cannot.body")}
         />
       </div>
     );
@@ -67,8 +72,8 @@ export default async function EditWorkItemPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        title={`Edit ${item.reference}`}
-        description="Status is not here — it moves through the workflow, from the item itself."
+        title={t("wedit.title", { reference: item.reference })}
+        description={t("wedit.description")}
       />
 
       <EditWorkItemForm

@@ -12,6 +12,8 @@ import {
 import type { CustomFieldAnswer } from "@/features/custom-fields/types";
 import { deleteWorkItem, updateWorkItem, type MilestoneOption, type WorkItemEdit } from "../actions";
 import { MilestoneSelect } from "./MilestoneSelect";
+import { priorityName } from "@/i18n/labels";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 
 /**
  * Editing a work item (docs/08 §4, docs/03 §8).
@@ -86,6 +88,8 @@ export function EditWorkItemForm({
   const [customBefore] = useState(() => initialValues(customFields));
   const [custom, setCustom] = useState(customBefore);
 
+  const t = useT();
+  const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<{ yours: number; current: number } | null>(null);
   const [saving, startTransition] = useTransition();
@@ -145,7 +149,7 @@ export function EditWorkItemForm({
         save();
       }}
     >
-      <Field id={titleId} label="Title">
+      <Field id={titleId} label={t("tpl.titleLabel")}>
         <input
           id={titleId}
           type="text"
@@ -158,7 +162,7 @@ export function EditWorkItemForm({
         />
       </Field>
 
-      <Field id={descriptionId} label="Description">
+      <Field id={descriptionId} label={t("wi.description")}>
         <textarea
           id={descriptionId}
           value={description}
@@ -170,7 +174,7 @@ export function EditWorkItemForm({
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field id={priorityId} label="Priority">
+        <Field id={priorityId} label={t("form.priority")}>
           <select
             id={priorityId}
             value={priority}
@@ -181,13 +185,13 @@ export function EditWorkItemForm({
                 so an edit never silently changes a field nobody touched. */}
             {(priorities.includes(priority) ? priorities : [priority, ...priorities]).map((value) => (
               <option key={value} value={value}>
-                {value.charAt(0).toUpperCase() + value.slice(1)}
+                {priorityName(value, t)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field id={startId} label="Start">
+        <Field id={startId} label={t("wnew.start")}>
           <input
             id={startId}
             type="date"
@@ -197,7 +201,7 @@ export function EditWorkItemForm({
           />
         </Field>
 
-        <Field id={dueId} label="Due">
+        <Field id={dueId} label={t("wi.field.due")}>
           <input
             id={dueId}
             type="date"
@@ -209,7 +213,7 @@ export function EditWorkItemForm({
         </Field>
       </div>
 
-      <Field id={estimateId} label="Estimate" hint="Hours. Empty clears it.">
+      <Field id={estimateId} label={t("wi.field.estimate")} hint={t("wedit.estimateHint")}>
         <input
           id={estimateId}
           type="number"
@@ -225,8 +229,8 @@ export function EditWorkItemForm({
 
       <Field
         id={milestoneFieldId}
-        label="Milestone"
-        hint={milestones === null ? "Work with no project has no milestones to belong to." : undefined}
+        label={t("wnew.milestone")}
+        hint={milestones === null ? t("wedit.noMilestones") : undefined}
       >
         <MilestoneSelect
           id={milestoneFieldId}
@@ -244,7 +248,7 @@ export function EditWorkItemForm({
         // installation has them.
         <div className="space-y-3 border-t border-n-100 pt-4">
           <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-            Fields for this organization
+            {t("wi.customFields")}
           </h2>
 
           <CustomFieldInputs
@@ -252,17 +256,18 @@ export function EditWorkItemForm({
             values={custom}
             idPrefix="cf"
             onChange={(key, value) => setCustom((current) => ({ ...current, [key]: value }))}
+            locale={locale}
           />
         </div>
       )}
 
       <div className="flex items-center gap-3 border-t border-n-100 pt-4">
         <Button type="submit" variant="primary" disabled={saving || conflict !== null}>
-          {saving ? "Saving…" : "Save changes"}
+          {saving ? t("common.saving") : t("pedit.saveChanges")}
         </Button>
 
         <Button type="button" variant="ghost" disabled={saving} onClick={() => router.back()}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
 
@@ -272,12 +277,10 @@ export function EditWorkItemForm({
         // moves are to look at what changed or to start again from it.
         <div role="alert" className="space-y-2 rounded-sm border border-s-active/40 bg-s-active/5 p-3">
           <p className="text-body-sm text-n-900">
-            Somebody else saved this item while you had it open — it is now at version{" "}
-            {conflict.current}, and you started from {conflict.yours}. Your changes have not been
-            saved, and theirs have not been touched.
+            {t("wedit.conflict", { current: conflict.current, yours: conflict.yours })}
           </p>
           <Button size="sm" onClick={() => router.refresh()}>
-            Reload their version
+            {t("pedit.reload")}
           </Button>
         </div>
       ) : (
@@ -300,6 +303,7 @@ export function EditWorkItemForm({
  */
 function DeleteControl({ reference, disabled }: { reference: string; disabled: boolean }) {
   const router = useRouter();
+  const t = useT();
   const [armed, setArmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, startTransition] = useTransition();
@@ -325,8 +329,7 @@ function DeleteControl({ reference, disabled }: { reference: string; disabled: b
       {armed ? (
         <div className="space-y-2">
           <p className="text-caption text-n-500">
-            It stops appearing in every list and board. The record and its history are kept, but
-            no screen in this product brings one back.
+            {t("wedit.deleteExplain")}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -336,7 +339,7 @@ function DeleteControl({ reference, disabled }: { reference: string; disabled: b
               disabled={deleting}
               onClick={remove}
             >
-              {deleting ? "Deleting…" : "Delete it"}
+              {deleting ? t("wedit.deleting") : t("wedit.deleteIt")}
             </Button>
             <Button
               type="button"
@@ -345,7 +348,7 @@ function DeleteControl({ reference, disabled }: { reference: string; disabled: b
               disabled={deleting}
               onClick={() => setArmed(false)}
             >
-              Keep it
+              {t("wedit.keepIt")}
             </Button>
           </div>
         </div>
@@ -361,7 +364,7 @@ function DeleteControl({ reference, disabled }: { reference: string; disabled: b
           }}
           className="text-s-danger"
         >
-          Delete this item
+          {t("wedit.deleteItem")}
         </Button>
       )}
 

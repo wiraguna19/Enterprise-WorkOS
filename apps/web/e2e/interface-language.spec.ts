@@ -86,6 +86,14 @@ test.describe("interface language", () => {
       // create one: the refusal is translated too.
       await page.goto("/projects/new");
       await expect(page.getByRole("heading", { name: "Proyek baru", level: 1 })).toBeVisible();
+
+      // Work: the browse screen and the create form (or its refusal).
+      await page.goto("/work");
+      await expect(page.getByRole("heading", { name: "Pekerjaan", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Filter" })).toBeVisible();
+
+      await page.goto("/work/new");
+      await expect(page.getByRole("heading", { name: "Item kerja baru", level: 1 })).toBeVisible();
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

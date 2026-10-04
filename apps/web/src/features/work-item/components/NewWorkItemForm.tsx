@@ -5,6 +5,8 @@ import { useEffect, useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
+import { priorityName } from "@/i18n/labels";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import {
   CustomFieldInputs,
   initialValues,
@@ -75,6 +77,8 @@ export function NewWorkItemForm({
    */
   template?: { name: string; prefill: TemplatePrefill };
 }) {
+  const t = useT();
+  const locale = useLocale();
   const prefill = template?.prefill;
 
   const router = useRouter();
@@ -186,8 +190,8 @@ export function NewWorkItemForm({
     >
       <Panel
         id="new-work-item"
-        title="Work item"
-        description="Only the title is required. Everything else can be set later, from the item itself."
+        title={t("wnew.panel")}
+        description={t("wnew.panelDesc")}
         footer={
           <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -196,7 +200,7 @@ export function NewWorkItemForm({
                 variant="primary"
                 disabled={submitting || title.trim().length < 2}
               >
-                {submitting ? "Creating…" : "Create work item"}
+                {submitting ? t("wnew.creating") : t("wnew.create")}
               </Button>
 
               <Button
@@ -205,7 +209,7 @@ export function NewWorkItemForm({
                 disabled={submitting}
                 onClick={() => router.back()}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
 
@@ -229,14 +233,14 @@ export function NewWorkItemForm({
         // here, because the alternative is a field that silently stayed blank
         // on a form somebody believed was filled in for them.
         <p role="status" className="text-caption text-n-500">
-          Filled in from <span className="font-medium text-n-700">{template.name}</span>. Change
-          anything before creating.
+          {t("wnew.filledFrom.before")} <span className="font-medium text-n-700">{template.name}</span>.{" "}
+          {t("wnew.filledFrom.after")}
           {template.prefill.notApplied.length > 0 &&
-            ` Skipped, because the field no longer accepts it: ${template.prefill.notApplied.join(", ")}.`}
+            ` ${t("wnew.skipped", { fields: template.prefill.notApplied.join(", ") })}`}
         </p>
       )}
 
-      <Field id={titleId} label="Title">
+      <Field id={titleId} label={t("tpl.titleLabel")}>
         <input
           id={titleId}
           type="text"
@@ -246,12 +250,12 @@ export function NewWorkItemForm({
           maxLength={500}
           required
           autoFocus
-          placeholder="What needs doing?"
+          placeholder={t("wnew.titlePlaceholder")}
           className={INPUT}
         />
       </Field>
 
-      <Field id={descriptionId} label="Description" hint="Markdown, and optional.">
+      <Field id={descriptionId} label={t("wi.description")} hint={t("pnew.descHint")}>
         <textarea
           id={descriptionId}
           value={description}
@@ -265,8 +269,8 @@ export function NewWorkItemForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           id={projectId_}
-          label="Project"
-          hint="Optional: work with no project is private to the people involved in it."
+          label={t("wnew.project")}
+          hint={t("wnew.projectHint")}
         >
           <select
             id={projectId_}
@@ -274,7 +278,7 @@ export function NewWorkItemForm({
             onChange={(event) => chooseProject(event.target.value)}
             className={INPUT}
           >
-            <option value="">No project</option>
+            <option value="">{t("wnew.noProjectOption")}</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.label}
@@ -285,8 +289,8 @@ export function NewWorkItemForm({
 
         <Field
           id={milestoneFieldId}
-          label="Milestone"
-          hint={projectId === "" ? "Choose a project first — a milestone belongs to one." : undefined}
+          label={t("wnew.milestone")}
+          hint={projectId === "" ? t("wnew.milestoneHint") : undefined}
         >
           <MilestoneSelect
             id={milestoneFieldId}
@@ -297,7 +301,7 @@ export function NewWorkItemForm({
           />
         </Field>
 
-        <Field id={typeId} label="Type">
+        <Field id={typeId} label={t("tpl.type")}>
           <select
             id={typeId}
             value={type}
@@ -306,7 +310,7 @@ export function NewWorkItemForm({
           >
             {/* Blank is not "none": it is "let the API decide", which is where
                 the default lives. */}
-            <option value="">Default</option>
+            <option value="">{t("form.default")}</option>
             {types.map((value) => (
               <option key={value} value={value}>
                 {humanize(value)}
@@ -315,23 +319,23 @@ export function NewWorkItemForm({
           </select>
         </Field>
 
-        <Field id={priorityId} label="Priority">
+        <Field id={priorityId} label={t("form.priority")}>
           <select
             id={priorityId}
             value={priority}
             onChange={(event) => setPriority(event.target.value)}
             className={INPUT}
           >
-            <option value="">Default</option>
+            <option value="">{t("form.default")}</option>
             {priorities.map((value) => (
               <option key={value} value={value}>
-                {humanize(value)}
+                {priorityName(value, t)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field id={estimateId} label="Estimate" hint="Hours.">
+        <Field id={estimateId} label={t("wi.field.estimate")} hint={t("tpl.estimateHint")}>
           <input
             id={estimateId}
             type="number"
@@ -346,7 +350,7 @@ export function NewWorkItemForm({
           />
         </Field>
 
-        <Field id={startId} label="Start">
+        <Field id={startId} label={t("wnew.start")}>
           <input
             id={startId}
             type="date"
@@ -356,7 +360,7 @@ export function NewWorkItemForm({
           />
         </Field>
 
-        <Field id={dueId} label="Due">
+        <Field id={dueId} label={t("wi.field.due")}>
           <input
             id={dueId}
             type="date"
@@ -370,14 +374,14 @@ export function NewWorkItemForm({
           />
         </Field>
 
-        <Field id={assigneeId_} label="Assignee" hint="Who does it.">
+        <Field id={assigneeId_} label={t("wi.field.assignee")} hint={t("wnew.assigneeHint")}>
           <select
             id={assigneeId_}
             value={assigneeId}
             onChange={(event) => setAssigneeId(event.target.value)}
             className={INPUT}
           >
-            <option value="">Nobody yet</option>
+            <option value="">{t("wnew.nobody")}</option>
             {people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.label}
@@ -386,14 +390,14 @@ export function NewWorkItemForm({
           </select>
         </Field>
 
-        <Field id={reviewerId_} label="Reviewer" hint="Who signs it off.">
+        <Field id={reviewerId_} label={t("wi.field.reviewer")} hint={t("wnew.reviewerHint")}>
           <select
             id={reviewerId_}
             value={reviewerId}
             onChange={(event) => setReviewerId(event.target.value)}
             className={INPUT}
           >
-            <option value="">Nobody yet</option>
+            <option value="">{t("wnew.nobody")}</option>
             {people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.label}
@@ -409,7 +413,7 @@ export function NewWorkItemForm({
         // refused for a field that does not exist in another installation.
         <div className="mt-4 space-y-3 border-t border-n-100 pt-4">
           <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-            Fields for this organization
+            {t("wi.customFields")}
           </h2>
 
           <CustomFieldInputs
@@ -417,6 +421,7 @@ export function NewWorkItemForm({
             values={custom}
             idPrefix="new-cf"
             onChange={(key, value) => setCustom((current) => ({ ...current, [key]: value }))}
+            locale={locale}
           />
         </div>
       )}

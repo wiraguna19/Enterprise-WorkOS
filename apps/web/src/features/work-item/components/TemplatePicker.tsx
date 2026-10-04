@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Panel } from "@/components/ui/Panel";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import type { WorkItemTemplate } from "../templates";
 
 /**
@@ -20,6 +22,7 @@ export function TemplatePicker({
   keep = {},
   projectKey,
   missing,
+  locale = "en",
 }: {
   /** The page the links lead back to, e.g. `/work/new`. */
   basePath: string;
@@ -33,11 +36,15 @@ export function TemplatePicker({
    */
   projectKey?: string;
   missing: boolean;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+
   if (templates === null) {
     return (
       <p role="status" className="text-caption text-n-500">
-        Templates could not be loaded. You can still fill in the form by hand.
+        {t("tpick.failed")}
       </p>
     );
   }
@@ -68,12 +75,8 @@ export function TemplatePicker({
   return (
     <Panel
       id="start-from"
-      title="Start from"
-      description={
-        missing
-          ? "That template no longer exists. Pick another, or start blank."
-          : "A template fills in the form below. You can change anything before creating."
-      }
+      title={t("tpick.title")}
+      description={missing ? t("tpick.missing") : t("tpick.desc")}
       bleed
     >
       <ul className="divide-y divide-n-100">
@@ -83,7 +86,7 @@ export function TemplatePicker({
             aria-current={chosenId === undefined ? "page" : undefined}
             className="flex flex-col gap-0.5 px-4 py-2.5 transition-colors duration-[120ms] ease-standard hover:bg-n-50 aria-[current=page]:bg-n-50"
           >
-            <span className="font-medium text-n-900">Blank</span>
+            <span className="font-medium text-n-900">{t("tpick.blank")}</span>
           </Link>
         </li>
         {offered.map((template) => (

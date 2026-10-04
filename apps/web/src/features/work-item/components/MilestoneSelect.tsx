@@ -1,4 +1,5 @@
 import { INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 import type { MilestoneOption } from "../actions";
 
 /**
@@ -25,6 +26,7 @@ export function MilestoneSelect({
 }) {
   // The item's own milestone is kept even when the list did not include it,
   // so an edit never silently moves a field nobody touched.
+  const t = useT();
   const known = value === "" || milestones.some((milestone) => milestone.id === value);
 
   return (
@@ -35,13 +37,13 @@ export function MilestoneSelect({
       onChange={(event) => onChange(event.target.value)}
       className={INPUT}
     >
-      <option value="">None</option>
-      {!known && <option value={value}>The current milestone</option>}
+      <option value="">{t("form.none")}</option>
+      {!known && <option value={value}>{t("msel.current")}</option>}
       {milestones.map((milestone) => (
         <option key={milestone.id} value={milestone.id}>
           {milestone.name}
           {milestone.due_date ? ` · ${milestone.due_date}` : ""}
-          {milestone.status === "completed" ? " (completed)" : milestone.status === "missed" ? " (missed)" : ""}
+          {milestone.status === "completed" ? t("msel.completed") : milestone.status === "missed" ? t("msel.missed") : ""}
         </option>
       ))}
     </select>

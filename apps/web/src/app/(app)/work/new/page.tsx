@@ -9,6 +9,8 @@ import {
   type WorkVocabulary,
 } from "@/features/work-item/templates";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -43,6 +45,9 @@ export default async function NewWorkItemPage({
   searchParams: Promise<{ project?: string; template?: string }>;
 }) {
   const [me, params] = await Promise.all([requireUser(), searchParams]);
+  // Translated (ADR 0060). Work item types are the workflow's own words.
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   // Checked here as well as by the API, and for a different purpose: the API
   // decides, this decides what to render. A form that 403s on submit is a form
@@ -50,10 +55,10 @@ export default async function NewWorkItemPage({
   if (!me.permissions.includes("work_item.create")) {
     return (
       <div className="space-y-5">
-        <PageHeader title="New work item" />
+        <PageHeader title={t("myWork.new")} />
         <EmptyState
-          title="You cannot create work here"
-          description="Creating work needs the work_item.create permission. Your administrator grants it with a role."
+          title={t("wnew.cannot.title")}
+          description={t("wnew.cannot.body")}
         />
       </div>
     );
@@ -97,11 +102,11 @@ export default async function NewWorkItemPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        title="New work item"
+        title={t("myWork.new")}
         description={
           fromProject === undefined
-            ? "Unassigned to a project unless you choose one."
-            : `In ${fromProject.name}.`
+            ? t("wnew.noProject")
+            : t("wnew.inProject", { project: fromProject.name })
         }
       />
 
@@ -114,6 +119,7 @@ export default async function NewWorkItemPage({
         // A `?template=` that names nothing — deleted since the link was made —
         // is said out loud rather than quietly ignored.
         missing={params.template !== undefined && templates !== null && chosen === undefined}
+        locale={locale}
       />
 
       <NewWorkItemForm
@@ -127,7 +133,7 @@ export default async function NewWorkItemPage({
         }))}
         people={people.map((person) => ({
           id: person.id,
-          label: person.name ?? "Unnamed",
+          label: person.name ?? t("common.unnamed"),
         }))}
         defaultProjectId={fromProject?.id}
         projectKey={fromProject?.key}
