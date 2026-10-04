@@ -71,6 +71,8 @@ export const id: Messages = {
   "settings.panel.description": "Hanya yang boleh Anda buka yang ditampilkan.",
   "settings.organization.label": "Organisasi",
   "settings.organization.description": "Tempat Anda bekerja, dan berapa lama Anda tetap masuk.",
+  "settings.display.label": "Tampilan",
+  "settings.display.description": "Seberapa besar antarmuka terbaca untuk Anda, di setiap perangkat.",
   "settings.notifications.label": "Notifikasi",
   "settings.notifications.description": "Pemberitahuan mana yang sampai ke Anda, dan lewat mana.",
   "settings.language.label": "Bahasa",
@@ -1860,6 +1862,19 @@ export const id: Messages = {
   "notif.needs_attention": "{reference} perlu perhatian",
   "notif.mentioned": "{actor} menyebut Anda di {reference}",
   "notif.update": "Pembaruan pada {reference}",
+
+  // ── Settings: display ───────────────────────────────────────────────────
+  "display.description": "Seberapa besar antarmuka terbaca untuk Anda. Pengaturan ini mengikuti akun Anda ke setiap perangkat tempat Anda masuk.",
+  "display.size.title": "Ukuran teks",
+  "display.size.description": "Semua ikut membesar bersama teksnya — tombol, baris, dan jarak — jadi tidak ada yang sesak pada ukuran yang lebih besar.",
+  "display.size.normal": "Normal",
+  "display.size.normal.hint": "Ukuran yang menjadi dasar desain antarmuka.",
+  "display.size.large": "Besar",
+  "display.size.large.hint": "Lebih nyaman di mata untuk membaca seharian.",
+  "display.size.larger": "Sangat besar",
+  "display.size.larger.hint": "Untuk membaca dari jarak jauh, atau dengan penglihatan terbatas.",
+  "display.saved": "Tersimpan. Perangkat Anda yang lain akan memakai ukuran ini saat membuka halaman berikutnya.",
+  "display.unknown": "Itu bukan salah satu ukuran yang tersedia.",
 
   // ── Sign in ──────────────────────────────────────────────────────────────
   "login.metaTitle": "Masuk",

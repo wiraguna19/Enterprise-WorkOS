@@ -86,7 +86,13 @@ export async function signedInPhone(
 ): Promise<Phone> {
   const phone = await openPhone(browser, email, viewport);
 
-  await call(phone.session, "/auth/me", { method: "PATCH", body: { locale: "en" } });
+  // The reading size too: a spec that chose "larger" and failed before putting
+  // it back would otherwise hand every later spec on this account a page laid
+  // out at another size.
+  await call(phone.session, "/auth/me", {
+    method: "PATCH",
+    body: { locale: "en", text_size: "normal" },
+  });
 
   return phone;
 }

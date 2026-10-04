@@ -68,6 +68,8 @@ export const en = {
   "settings.panel.description": "Only the ones you may open are listed.",
   "settings.organization.label": "Organization",
   "settings.organization.description": "The place you work, and how long it keeps you signed in.",
+  "settings.display.label": "Display",
+  "settings.display.description": "How large the interface reads for you, on every device.",
   "settings.notifications.label": "Notifications",
   "settings.notifications.description": "Which interruptions reach you, and where.",
   "settings.language.label": "Language",
@@ -1843,6 +1845,19 @@ export const en = {
   "notif.needs_attention": "{reference} needs attention",
   "notif.mentioned": "{actor} mentioned you on {reference}",
   "notif.update": "Update on {reference}",
+
+  // ── Settings: display ───────────────────────────────────────────────────
+  "display.description": "How large the interface reads for you. It follows your account to every device you sign in on.",
+  "display.size.title": "Text size",
+  "display.size.description": "Everything grows with the text — buttons, rows and spacing — so nothing is cramped at a larger size.",
+  "display.size.normal": "Normal",
+  "display.size.normal.hint": "The size the interface is designed at.",
+  "display.size.large": "Large",
+  "display.size.large.hint": "Easier on the eyes for a long day of reading.",
+  "display.size.larger": "Larger",
+  "display.size.larger.hint": "For reading at a distance, or with low vision.",
+  "display.saved": "Saved. Your other devices will use this size the next time they open a page.",
+  "display.unknown": "That is not one of the sizes offered.",
 
   // ── Sign in ──────────────────────────────────────────────────────────────
   "login.metaTitle": "Sign in",

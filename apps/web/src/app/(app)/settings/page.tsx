@@ -14,6 +14,7 @@ type SectionKey =
   | "organization"
   | "notifications"
   | "language"
+  | "display"
   | "twoFactor"
   | "sessions"
   | "apiTokens"
@@ -47,6 +48,7 @@ const SECTIONS: Array<{
   { href: "/settings/organization", key: "organization", permission: "organization.view" },
   { href: "/settings/notifications", key: "notifications" },
   { href: "/settings/language", key: "language" },
+  { href: "/settings/display", key: "display" },
   { href: "/settings/two-factor", key: "twoFactor" },
   { href: "/settings/sessions", key: "sessions" },
   { href: "/settings/api-tokens", key: "apiTokens" },

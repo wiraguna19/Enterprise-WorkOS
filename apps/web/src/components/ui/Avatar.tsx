@@ -1,7 +1,7 @@
 import { avatarTone, initials } from "@/lib/format";
 import { clsx } from "@/lib/clsx";
 
-const SIZES = { sm: "size-5 text-[10px]", md: "size-6 text-micro", lg: "size-8 text-caption" };
+const SIZES = { sm: "size-5 text-[0.625rem]", md: "size-6 text-micro", lg: "size-8 text-caption" };
 
 export function Avatar({
   id,

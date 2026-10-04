@@ -18,6 +18,8 @@ export type CurrentUser = {
     timezone: string;
     /** The interface language (ADR 0060): `en` or `id`. */
     locale: string;
+    /** The reading size: `normal`, `large` or `larger`. */
+    text_size?: string;
     /** Whether a second factor is on (ADR 0030). The API has reported this
      *  since Phase 1 and nothing read it, because nothing could turn it on. */
     mfa_enabled: boolean;

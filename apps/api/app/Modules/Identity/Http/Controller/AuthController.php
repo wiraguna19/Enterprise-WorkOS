@@ -10,6 +10,7 @@ use App\Modules\Identity\Application\Service\MultiFactor;
 use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Identity\Application\Service\RecentAuthentication;
 use App\Modules\Identity\Application\Service\SessionDirectory;
+use App\Modules\Identity\Application\Service\TextSize;
 use App\Modules\Identity\Http\Request\LoginRequest;
 use App\Modules\Identity\Http\Request\MfaCodeRequest;
 use App\Modules\Identity\Http\Request\PasswordConfirmationRequest;
@@ -321,7 +322,7 @@ final class AuthController extends ApiController
     }
 
     /**
-     * The person's own interface language (ADR 0060).
+     * The person's own interface language (ADR 0060), and how large it reads.
      *
      * `users.locale` has existed since the first migration and nothing could
      * change it. One field, because it is the only preference here that
@@ -330,16 +331,24 @@ final class AuthController extends ApiController
      * Named `auth.me.update`, so an API token is refused it by the `auth.*`
      * rule (ADR 0049): a script has no interface to translate.
      */
-    public function updateMe(Request $request, InterfaceLanguage $language): ApiResponse
+    public function updateMe(Request $request, InterfaceLanguage $language, TextSize $textSize): ApiResponse
     {
+        // Either, or both: each screen sends only the preference it is about.
         $validated = $request->validate([
-            'locale' => ['required', 'string', 'in:'.implode(',', InterfaceLanguage::LOCALES)],
+            'locale' => ['required_without:text_size', 'string', 'in:'.implode(',', InterfaceLanguage::LOCALES)],
+            'text_size' => ['required_without:locale', 'string', 'in:'.implode(',', TextSize::SIZES)],
         ]);
 
         /** @var UserModel $user the route is behind auth:sanctum */
         $user = $request->user();
 
-        $language->set($user, (string) $validated['locale']);
+        if (isset($validated['locale'])) {
+            $language->set($user, (string) $validated['locale']);
+        }
+
+        if (isset($validated['text_size'])) {
+            $textSize->set($user, (string) $validated['text_size']);
+        }
 
         return $this->me($request);
     }

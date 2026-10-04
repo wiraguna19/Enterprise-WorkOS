@@ -31,6 +31,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $avatar_path
  * @property string $timezone
  * @property string $locale
+ * @property string $text_size
  * @property bool $is_platform_admin
  * @property string $kind 'person', or 'service' for an integration (ADR 0059)
  * @property CarbonImmutable|null $email_verified_at

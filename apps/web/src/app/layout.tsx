@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { cookies } from "next/headers";
 import { requestLocale } from "@/i18n/server";
+import { asTextSize, TEXT_SIZE_COOKIE } from "@/features/display/text-size";
 
 /**
  * Inter is self-hosted (@fontsource-variable) rather than loaded from Google
@@ -22,7 +24,13 @@ export const metadata: Metadata = {
  */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang={await requestLocale()} suppressHydrationWarning>
+    <html
+      lang={await requestLocale()}
+      // From this browser's copy of the reading size, so the first paint is
+      // already at it. The app layout corrects the copy from the account.
+      data-text-size={asTextSize((await cookies()).get(TEXT_SIZE_COOKIE)?.value)}
+      suppressHydrationWarning
+    >
       <body>{children}</body>
     </html>
   );

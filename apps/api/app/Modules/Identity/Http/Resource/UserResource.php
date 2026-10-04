@@ -23,6 +23,7 @@ final class UserResource extends BaseResource
             'avatar_url' => $this->resource->avatar_path,
             'timezone' => $this->resource->timezone,
             'locale' => $this->resource->locale,
+            'text_size' => $this->resource->text_size ?? 'normal',
             'mfa_enabled' => $this->resource->hasMfaEnabled(),
         ];
     }
