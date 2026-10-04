@@ -141,3 +141,51 @@ export async function answerRequiredFields(page: Page, session: Session): Promis
     }
   }
 }
+
+type PendingReview = { id: string; subject: { title: string | null } | null };
+
+/**
+ * Settle what earlier runs left in a reviewer's queue.
+ *
+ * The review queue is oldest-first on purpose — a newest-first queue starves
+ * the submission that has waited longest — and both the API page and the inbox
+ * show only the front of it. So every run that leaves an approval pending
+ * pushes the next run's approval further back, until it is past the inbox's
+ * first page and past the API's hundred-row ceiling, and the flow fails saying
+ * the reviewer is not on the roster when he simply cannot see the end of his
+ * own queue. That is what a day of runs did to Ahmad's.
+ *
+ * Only approvals on work this suite created are touched — every such item is
+ * titled "E2E …" — and approving is the one decision that needs no comment.
+ * Seeded approvals, and anything a person made by hand, are left alone.
+ */
+export async function settleLeftoverReviews(reviewer: Session): Promise<void> {
+  for (let round = 0; round < 20; round++) {
+    const queue = await call<PendingReview[]>(
+      reviewer,
+      "/approvals?role=reviewer&status=pending&limit=100",
+    );
+
+    const leftovers = queue.filter((row) => row.subject?.title?.startsWith("E2E ") ?? false);
+
+    if (leftovers.length === 0) return;
+
+    let settled = 0;
+
+    for (const row of leftovers) {
+      // One that cannot be decided — already settled by a rule, or one this
+      // reviewer may not decide — is skipped rather than failing the flow that
+      // is only tidying up before it starts.
+      await call(reviewer, `/approvals/${row.id}/decide`, {
+        method: "POST",
+        body: { decision: "approved" },
+      })
+        .then(() => {
+          settled += 1;
+        })
+        .catch(() => undefined);
+    }
+
+    if (settled === 0) return;
+  }
+}

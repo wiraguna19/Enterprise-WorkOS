@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 import { call, eventually, QUEUE_HINT, type Session } from "./support/api";
 import { test, signedInPhone } from "./support/auth";
-import { moveThroughTheInterface } from "./support/flows";
+import { moveThroughTheInterface, settleLeftoverReviews } from "./support/flows";
 
 /**
  * docs/11 §4, flow 15 — "Mobile: manager approves a submission end to end on a
@@ -42,6 +42,10 @@ test.describe("mobile approval", () => {
     const inbox = ahmadsPhone.page;
     const sarah = sarahsPhone.session;
     const ahmad = ahmadsPhone.session;
+
+    // Before anything of this run's: earlier runs' leftovers would push this
+    // run's approval past the front of Ahmad's oldest-first queue.
+    await settleLeftoverReviews(ahmad);
 
     const item = await arrangeItemInProgress(sarah, ahmad);
 
