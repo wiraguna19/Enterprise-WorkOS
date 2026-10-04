@@ -67,6 +67,9 @@ const SECONDARY: FixedItem[] = [
   // one report — so nobody could ask a question of their own.
   { href: "/work", labelKey: "nav.work", permission: "work_item.view" },
   { href: "/projects", labelKey: "nav.projects", permission: "project.view" },
+  // Ungated: reading what was said to your groups needs nothing (ADR 0061).
+  // No counter either — the two that exist are the only two (ADR 0027).
+  { href: "/announcements", labelKey: "nav.announcements" },
   { href: "/calendar", labelKey: "nav.calendar" },
   { href: "/time", labelKey: "nav.timesheet" },
   // Standing instructions to create work. Gated on the permission the route

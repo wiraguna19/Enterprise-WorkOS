@@ -118,6 +118,11 @@ export function NotificationList({
 function hrefFor(notification: Notification): string {
   const reference = notification.subject.reference;
 
+  // Not about work: it opens the announcement itself (ADR 0061).
+  if (notification.subject.type === "announcement") {
+    return `/announcements/${notification.subject.id}`;
+  }
+
   if (notification.type.startsWith("approval.")) {
     return reference === null ? "/inbox?tab=reviews" : `/work/${reference}`;
   }
@@ -166,6 +171,7 @@ const WORDED = new Set([
   "rejected",
   "needs_attention",
   "mentioned",
+  "announced",
   "update",
 ]);
 
@@ -185,5 +191,6 @@ function sentence(notification: Notification, t: Translator): string {
   return t(`notif.${key}` as MessageKey, {
     actor: notification.actor.name ?? "",
     reference: notification.subject.reference ?? t("notif.someWork"),
+    title: notification.subject.title ?? "",
   });
 }

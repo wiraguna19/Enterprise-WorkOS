@@ -64,6 +64,12 @@ const GROUPS: Array<{
       { key: "work.commented", label: "Work you watch gets a comment" },
     ],
   },
+  {
+    id: "announcements",
+    label: "nprefs.group.announcements",
+    description: "nprefs.group.announcements.description",
+    types: [{ key: "announcement.published", label: "An announcement is published for you" }],
+  },
 ];
 
 export default async function NotificationPreferencesPage() {

@@ -91,6 +91,9 @@ return [
     'attributes' => [
         'access' => 'akses',
         'assignee_id' => 'penanggung jawab',
+        'audience_id' => 'kelompok sasaran',
+        'audience_type' => 'jenis sasaran',
+        'body' => 'isi',
         'code' => 'kode',
         'comment' => 'komentar',
         'custom_fields' => 'field kustom',
@@ -102,6 +105,7 @@ return [
         'end_date' => 'tanggal selesai',
         'estimate_hours' => 'estimasi jam',
         'events' => 'peristiwa',
+        'expires_at' => 'tanggal kedaluwarsa',
         'expires_in_days' => 'masa berlaku',
         'file' => 'berkas',
         'key' => 'key',

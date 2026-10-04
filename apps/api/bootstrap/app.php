@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Announcement\Providers\AnnouncementServiceProvider;
 use App\Modules\Approval\Providers\ApprovalServiceProvider;
 use App\Modules\Calendar\Providers\CalendarServiceProvider;
 use App\Modules\Collaboration\Providers\CollaborationServiceProvider;
@@ -54,6 +55,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Phase 6. Reads what every other module owns and computes numbers from
         // it; imported by none of them.
         InsightsServiceProvider::class,
+        // ADR 0061. Says things to groups and notifies them; nothing reads it.
+        AnnouncementServiceProvider::class,
     ])
     ->withRouting(
         commands: __DIR__.'/../routes/console.php',

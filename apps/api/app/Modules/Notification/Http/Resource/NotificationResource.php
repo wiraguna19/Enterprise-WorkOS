@@ -83,6 +83,14 @@ final class NotificationResource extends BaseResource
 
         $actor = $payload['actor_name'];
 
+        // Not about work: the subject is the announcement, and its title is
+        // the thing worth reading in the inbox (ADR 0061).
+        if ($this->resource->type === 'announcement.published') {
+            $title = (string) ($payload['title'] ?? '');
+
+            return ['announced', "{$actor} posted an announcement: {$title}"];
+        }
+
         return match ($this->resource->type) {
             'work.assigned' => isset($payload['handover'])
                 ? ['handed_over', "{$actor} handed {$reference} over to you"]

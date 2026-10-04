@@ -62,6 +62,10 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Calendar/.*
+    - name: Announcement
+      collectors:
+        - type: directory
+          value: app/Modules/Announcement/.*
 
   ruleset:
     # Platform is the kernel: it depends on nothing above it.
@@ -164,6 +168,15 @@ parameters:
     # own and is imported by none of them, which is what keeps a metric
     # definition from leaking into the module that happens to store the data
     # (docs/04 §3, docs/02 §11).
+    # ADR 0061. Notification is imported to notify (ADR 0013); nothing that
+    # Notification depends on reaches back here, and nothing imports this.
+    Announcement:
+      - Platform
+      - Identity
+      - Organization
+      - Notification
+      - Governance
+
     Insights:
       - Platform
       - Identity

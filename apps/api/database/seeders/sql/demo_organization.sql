@@ -99,7 +99,9 @@ WHERE r.key = 'manager' AND p.key IN (
     'report.view',
     -- ADR 0049. Repeated here because the migration that grants it runs
     -- before this seed creates the role.
-    'api_token.create'
+    'api_token.create',
+    -- ADR 0061, for the same reason.
+    'announcement.publish_own_group'
 );
 
 -- Employee: sees the org and its people, changes nothing structural.

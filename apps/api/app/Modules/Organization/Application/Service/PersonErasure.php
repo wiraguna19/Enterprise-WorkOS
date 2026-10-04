@@ -149,6 +149,10 @@ final class PersonErasure
         // record of what somebody was looking for is a record about them.
         DB::table('recent_searches')->where('membership_id', $id)->delete();
 
+        // Which announcements they read and acknowledged. What they WROTE
+        // stays: it was said to the organization (ADR 0061).
+        DB::table('announcement_reads')->where('membership_id', $id)->delete();
+
         DB::table('employee_profiles')->where('membership_id', $id)->update([
             'employee_number' => null,
             'job_title' => '',
