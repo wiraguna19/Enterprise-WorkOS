@@ -2,6 +2,7 @@
 
 import { useId, useRef } from "react";
 import { Button } from "@/components/ui/Button";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 import { EventChip } from "./EventChip";
 import type { CalendarEvent } from "./types";
 
@@ -37,6 +38,8 @@ export function DayOverflow({
   /** All of the day's events, in the cell's order. */
   events: CalendarEvent[];
 }) {
+  const t = useT();
+  const locale = useLocale();
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
 
@@ -47,11 +50,11 @@ export function DayOverflow({
         onClick={() => dialog.current?.showModal()}
         className="mt-0.5 rounded-sm px-1 text-micro text-n-500 hover:bg-n-50 hover:text-n-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-a-500"
       >
-        +{hidden} more
+        {t("cal.more", { count: hidden })}
         {/* The visible words start the accessible name (WCAG 2.5.3), and the
             day finishes it: thirty buttons all called "+2 more" are thirty
             buttons a screen reader cannot tell apart. */}
-        <span className="sr-only"> on {dayLabel}</span>
+        <span className="sr-only">{t("cal.moreOn", { day: dayLabel })}</span>
       </button>
 
       <dialog
@@ -70,19 +73,19 @@ export function DayOverflow({
               {dayLabel}
             </h2>
             <p className="text-caption text-n-500">
-              {events.length} {events.length === 1 ? "date" : "dates"}
+              {t.plural("cal.dates", events.length)}
             </p>
           </div>
 
           <Button variant="ghost" size="sm" onClick={() => dialog.current?.close()}>
-            Close
+            {t("tpl.close")}
           </Button>
         </div>
 
         <ul className="max-h-[60vh] space-y-1 overflow-y-auto px-4 py-3">
           {events.map((event) => (
             <li key={event.id}>
-              <EventChip event={event} roomy />
+              <EventChip event={event} roomy locale={locale} />
             </li>
           ))}
         </ul>

@@ -1,3 +1,4 @@
+import { INTL_TAG, type Locale } from "@/i18n/config";
 import { clsx } from "@/lib/clsx";
 import { DayOverflow } from "./DayOverflow";
 import { EventChip } from "./EventChip";
@@ -19,24 +20,40 @@ import type { CalendarEvent } from "./types";
 const MAX_PER_DAY = 3;
 
 /** A cell's date in words, for the day list's heading. The cells are UTC dates. */
-const DAY_LABEL = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
+const dayLabel = (locale: Locale) =>
+  new Intl.DateTimeFormat(INTL_TAG[locale], {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+/**
+ * Monday to Sunday, short, in the reader's language (ADR 0060). 2024-01-01 was
+ * a Monday; the seven days after it are the week in order. English gives the
+ * "Mon … Sun" this grid always printed.
+ */
+const weekdayNames = (locale: Locale): string[] => {
+  const format = new Intl.DateTimeFormat(INTL_TAG[locale], { weekday: "short", timeZone: "UTC" });
+
+  return Array.from({ length: 7 }, (_, index) => format.format(new Date(Date.UTC(2024, 0, 1 + index))));
+};
 
 export function MonthGrid({
   month,
   events,
   timeZone,
+  locale = "en",
 }: {
   /** Any date inside the month to render, as YYYY-MM-DD. */
   month: string;
   events: CalendarEvent[];
   timeZone: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const DAY_LABEL = dayLabel(locale);
   const anchor = new Date(`${month}T00:00:00Z`);
   const firstOfMonth = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
 
@@ -77,7 +94,7 @@ export function MonthGrid({
     <div className="overflow-x-auto">
       <div className="min-w-[44rem]">
         <div className="grid grid-cols-7 border-b border-n-200">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+          {weekdayNames(locale).map((day) => (
             <div
               key={day}
               className="px-2 py-1 text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
@@ -120,7 +137,7 @@ export function MonthGrid({
                 <ul className="space-y-0.5">
                   {dayEvents.slice(0, MAX_PER_DAY).map((event) => (
                     <li key={event.id}>
-                      <EventChip event={event} />
+                      <EventChip event={event} locale={locale} />
                     </li>
                   ))}
                 </ul>

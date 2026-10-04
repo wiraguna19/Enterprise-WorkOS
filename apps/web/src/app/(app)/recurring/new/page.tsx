@@ -6,6 +6,8 @@ import type { Person } from "@/features/people/types";
 import { TemplatePicker } from "@/features/work-item/components/TemplatePicker";
 import type { WorkItemTemplate, WorkVocabulary } from "@/features/work-item/templates";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 type Project = { id: string; key: string; name: string };
@@ -16,6 +18,9 @@ export default async function NewRecurrencePage({
   searchParams: Promise<{ template?: string }>;
 }) {
   const [me, params] = await Promise.all([requireUser(), searchParams]);
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   if (!me.permissions.includes("work_item.create")) {
     // Creating a standing instruction to create work needs the permission to
@@ -23,10 +28,10 @@ export default async function NewRecurrencePage({
     // route requires.
     return (
       <div className="space-y-5">
-        <PageHeader title="New recurring work" />
+        <PageHeader title={t("rec.new")} />
         <EmptyState
-          title="You cannot set up recurring work"
-          description="It needs the work_item.create permission — the same one that lets you create a work item. Your administrator grants it with a role."
+          title={t("rec.cannot.title")}
+          description={t("rec.cannot.body")}
         />
       </div>
     );
@@ -52,12 +57,12 @@ export default async function NewRecurrencePage({
   return (
     <div className="space-y-5">
       <Link href="/recurring" className="text-body-sm text-n-500 hover:text-a-700">
-        ← Recurring work
+        {t("rec.back")}
       </Link>
 
       <PageHeader
-        title="New recurring work"
-        description="The same work item, created on a schedule. Every one it makes points back at this rule."
+        title={t("rec.new")}
+        description={t("rec.newDesc")}
       />
 
       <TemplatePicker
@@ -65,6 +70,7 @@ export default async function NewRecurrencePage({
         templates={templates}
         chosenId={chosen?.id}
         missing={params.template !== undefined && templates !== null && chosen === undefined}
+        locale={locale}
       />
 
       <NewRecurrenceForm

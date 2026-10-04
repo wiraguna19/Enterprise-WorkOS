@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { useT } from "@/i18n/I18nProvider";
 import { stopRecurrence } from "./actions";
 
 /**
@@ -19,6 +20,7 @@ import { stopRecurrence } from "./actions";
  * deliberately refuses to perform.
  */
 export function StopButton({ id, schedule }: { id: string; schedule: string }) {
+  const t = useT();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
@@ -27,7 +29,7 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
   if (!confirming) {
     return (
       <Button variant="destructive" size="sm" onClick={() => setConfirming(true)}>
-        Stop
+        {t("stop.stop")}
       </Button>
     );
   }
@@ -40,7 +42,7 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
         </span>
       )}
 
-      <span className="text-caption text-n-500">Stop “{schedule}”? No more work appears.</span>
+      <span className="text-caption text-n-500">{t("stop.confirm", { schedule })}</span>
 
       <Button
         variant="danger"
@@ -53,7 +55,7 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
             setError(result.error);
 
             if (result.error === null) {
-              toast({ tone: "removed", message: `“${schedule}” is stopped. No more work appears from it.` });
+              toast({ tone: "removed", message: t("stop.toast", { schedule }) });
             }
 
             // Left open on failure. The commonest refusal is one somebody else
@@ -63,11 +65,11 @@ export function StopButton({ id, schedule }: { id: string; schedule: string }) {
           })
         }
       >
-        {busy ? "Stopping…" : "Stop it"}
+        {busy ? t("stop.stopping") : t("stop.it")}
       </Button>
 
       <Button variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming(false)}>
-        Keep it
+        {t("wedit.keepIt")}
       </Button>
     </span>
   );

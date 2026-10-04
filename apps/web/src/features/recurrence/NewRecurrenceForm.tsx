@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
-import { describeFields, humanize, type TemplateFields } from "@/features/work-item/templates";
+import { describeFields, type TemplateFields } from "@/features/work-item/templates";
+import { priorityName } from "@/i18n/labels";
+import { useLocale, useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 import { createRecurrence } from "./actions";
 import { describe, MAX_MONTH_DAY, toRrule, WEEKDAYS, type Frequency } from "./schedule";
 
@@ -49,6 +52,8 @@ export function NewRecurrenceForm({
   const fields = template?.fields;
   const router = useRouter();
 
+  const t = useT();
+  const locale = useLocale();
   const [frequency, setFrequency] = useState<Frequency>("weekly");
   const [interval, setInterval] = useState(1);
   const [weekday, setWeekday] = useState<string>("MO");
@@ -73,7 +78,7 @@ export function NewRecurrenceForm({
     estimate_hours: fields?.estimate_hours,
     custom_fields: fields?.custom_fields,
   };
-  const carriedWords = describeFields(carried);
+  const carriedWords = describeFields(carried, locale);
 
   const [error, setError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
@@ -127,24 +132,24 @@ export function NewRecurrenceForm({
     >
       <section className="space-y-3">
         <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-          When
+          {t("rf.when")}
         </h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id={frequencyId} label="Repeats">
+          <Field id={frequencyId} label={t("rf.repeats")}>
             <select
               id={frequencyId}
               value={frequency}
               onChange={(event) => setFrequency(event.target.value as Frequency)}
               className={INPUT}
             >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
+              <option value="daily">{t("rf.daily")}</option>
+              <option value="weekly">{t("rf.weekly")}</option>
+              <option value="monthly">{t("rf.monthly")}</option>
             </select>
           </Field>
 
-          <Field id={intervalId} label="Every" hint="1 means every one of them.">
+          <Field id={intervalId} label={t("rf.every")} hint={t("rf.everyHint")}>
             <input
               id={intervalId}
               type="number"
@@ -158,7 +163,7 @@ export function NewRecurrenceForm({
         </div>
 
         {frequency === "weekly" && (
-          <Field id={weekdayId} label="On">
+          <Field id={weekdayId} label={t("rf.on")}>
             <select
               id={weekdayId}
               value={weekday}
@@ -167,7 +172,7 @@ export function NewRecurrenceForm({
             >
               {WEEKDAYS.map((day) => (
                 <option key={day.value} value={day.value}>
-                  {day.label}
+                  {t(`weekday.${day.value}` as MessageKey)}
                 </option>
               ))}
             </select>
@@ -177,8 +182,8 @@ export function NewRecurrenceForm({
         {frequency === "monthly" && (
           <Field
             id={monthDayId}
-            label="Day of the month"
-            hint={`1 to ${MAX_MONTH_DAY}. Later days do not exist in every month, so they are not offered.`}
+            label={t("rf.monthDay")}
+            hint={t("rf.monthDayHint", { max: MAX_MONTH_DAY })}
           >
             <input
               id={monthDayId}
@@ -192,7 +197,7 @@ export function NewRecurrenceForm({
           </Field>
         )}
 
-        <Field id={endsId} label="Stops after" hint="Optional. It runs until stopped otherwise.">
+        <Field id={endsId} label={t("rf.stops")} hint={t("rf.stopsHint")}>
           <input
             id={endsId}
             type="date"
@@ -207,24 +212,24 @@ export function NewRecurrenceForm({
             system runs — and the day they disagree, only showing one of them
             makes that impossible to see. */}
         <p className="text-caption text-n-500">
-          {describe(rrule)} · <span className="font-mono">{rrule}</span>
+          {describe(rrule, locale)} · <span className="font-mono">{rrule}</span>
         </p>
       </section>
 
       <section className="space-y-3 border-t border-n-100 pt-4">
         <h2 className="text-micro font-semibold uppercase tracking-[0.04em] text-n-500">
-          What appears
+          {t("rf.appears")}
         </h2>
 
         {template !== undefined && (
           <p role="status" className="text-caption text-n-500">
-            Filled in from <span className="font-medium text-n-700">{template.name}</span>.
-            {carriedWords !== "" && ` Every occurrence also gets: ${carriedWords}.`} Change anything
-            before saving.
+            {t("wnew.filledFrom.before")} <span className="font-medium text-n-700">{template.name}</span>.
+            {carriedWords !== "" && ` ${t("rf.carried", { words: carriedWords })}`}{" "}
+            {t("rf.changeBeforeSave")}
           </p>
         )}
 
-        <Field id={titleId} label="Title">
+        <Field id={titleId} label={t("tpl.titleLabel")}>
           <input
             id={titleId}
             type="text"
@@ -232,20 +237,20 @@ export function NewRecurrenceForm({
             onChange={(event) => setTitle(event.target.value)}
             maxLength={500}
             required
-            placeholder="Weekly deployment checklist"
+            placeholder={t("rf.titlePlaceholder")}
             className={INPUT}
           />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id={projectFieldId} label="Project" hint="Optional.">
+          <Field id={projectFieldId} label={t("wnew.project")} hint={t("form.optional")}>
             <select
               id={projectFieldId}
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
               className={INPUT}
             >
-              <option value="">No project</option>
+              <option value="">{t("wnew.noProjectOption")}</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.label}
@@ -254,14 +259,14 @@ export function NewRecurrenceForm({
             </select>
           </Field>
 
-          <Field id={assigneeId_} label="Assignee" hint="Optional.">
+          <Field id={assigneeId_} label={t("wi.field.assignee")} hint={t("form.optional")}>
             <select
               id={assigneeId_}
               value={assigneeId}
               onChange={(event) => setAssigneeId(event.target.value)}
               className={INPUT}
             >
-              <option value="">Nobody</option>
+              <option value="">{t("rf.nobody")}</option>
               {people.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.label}
@@ -272,17 +277,17 @@ export function NewRecurrenceForm({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id={priorityId} label="Priority">
+          <Field id={priorityId} label={t("form.priority")}>
             <select
               id={priorityId}
               value={priority}
               onChange={(event) => setPriority(event.target.value)}
               className={INPUT}
             >
-              <option value="">Default</option>
+              <option value="">{t("form.default")}</option>
               {priorities.map((value) => (
                 <option key={value} value={value}>
-                  {humanize(value)}
+                  {priorityName(value, t)}
                 </option>
               ))}
             </select>
@@ -290,8 +295,8 @@ export function NewRecurrenceForm({
 
           <Field
             id={dueId}
-            label="Due after"
-            hint="Days from when it appears. Blank means no due date."
+            label={t("rf.dueAfter")}
+            hint={t("rf.dueAfterHint")}
           >
             <input
               id={dueId}
@@ -315,7 +320,7 @@ export function NewRecurrenceForm({
       )}
 
       <Button type="submit" variant="primary" disabled={submitting}>
-        {submitting ? "Setting up…" : "Set up recurring work"}
+        {submitting ? t("rf.settingUp") : t("rf.submit")}
       </Button>
     </form>
   );

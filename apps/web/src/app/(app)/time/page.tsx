@@ -5,6 +5,8 @@ import { Panel } from "@/components/ui/Panel";
 import { Timesheet } from "@/features/time/Timesheet";
 import type { TimesheetDay, TimesheetMeta } from "@/features/time/types";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 /**
@@ -28,32 +30,32 @@ export default async function TimePage({
 
   const { data: days, meta } = await api<TimesheetDay[]>(`/me/time?${query}`);
   const window = meta as unknown as TimesheetMeta;
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+  const summary = t.plural("time.summary", window.days_logged, { hours: window.total_hours });
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Timesheet"
-        description={`${window.total_hours} h across ${window.days_logged} ${
-          window.days_logged === 1 ? "day" : "days"
-        }`}
+        title={t("nav.timesheet")}
+        description={summary}
       />
 
       <PageBody>
         {days.length === 0 ? (
           <EmptyState
-            title="No time logged"
-            description="Time is logged on the work item you spent it on — open one and use the time panel."
+            title={t("time.none")}
+            description={t("time.empty.body")}
           />
         ) : (
           <Panel
             id="timesheet"
-            title="This window"
-            description={`${window.total_hours} h across ${window.days_logged} ${
-              window.days_logged === 1 ? "day" : "days"
-            }`}
+            title={t("time.window")}
+            description={summary}
             bleed
           >
-            <Timesheet days={days} window={window} timeZone={me.user.timezone} />
+            <Timesheet days={days} window={window} timeZone={me.user.timezone} locale={locale} />
           </Panel>
         )}
       </PageBody>

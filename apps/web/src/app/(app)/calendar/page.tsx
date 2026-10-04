@@ -7,6 +7,8 @@ import { MonthGrid } from "@/features/calendar/MonthGrid";
 import { SourceFilter } from "@/features/calendar/SourceFilter";
 import type { CalendarEvent, CalendarSource, FeedStatus } from "@/features/calendar/types";
 import { api } from "@/lib/api";
+import { asLocale, INTL_TAG } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 
 const ALL_SOURCES: CalendarSource[] = ["work", "milestones", "recurring"];
@@ -64,7 +66,11 @@ export default async function CalendarPage({
       .catch(() => null),
   ]);
 
-  const label = new Intl.DateTimeFormat("en-GB", {
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
+  const label = new Intl.DateTimeFormat(INTL_TAG[locale], {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
@@ -72,27 +78,27 @@ export default async function CalendarPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Calendar" description={label} action={<FeedSubscription feed={feed} />} />
+      <PageHeader title={t("nav.calendar")} description={label} action={<FeedSubscription feed={feed} />} />
 
       <Panel
         id="month"
         title={label}
-        description={`${events.length} ${events.length === 1 ? "date" : "dates"} in view`}
+        description={t.plural("cal.datesInView", events.length)}
         actions={
-          <nav className="flex items-center gap-2" aria-label="Month">
+          <nav className="flex items-center gap-2" aria-label={t("cal.month")}>
             <ButtonLink
               href={`/calendar?${monthQuery(month, -1, params.sources)}`}
               variant="ghost"
               size="sm"
             >
-              ← Previous
+              {t("cal.prev")}
             </ButtonLink>
             <ButtonLink
               href={`/calendar?${monthQuery(month, 1, params.sources)}`}
               variant="ghost"
               size="sm"
             >
-              Next →
+              {t("cal.next")}
             </ButtonLink>
           </nav>
         }
@@ -103,11 +109,11 @@ export default async function CalendarPage({
             columns, a list to answer "what is coming" with a thumb
             (docs/08 §6). */}
         <div className="px-4 py-3 md:hidden">
-          <Agenda events={events} timeZone={me.user.timezone} />
+          <Agenda events={events} timeZone={me.user.timezone} locale={locale} />
         </div>
 
         <div className="hidden px-4 py-3 md:block">
-          <MonthGrid month={month} events={events} timeZone={me.user.timezone} />
+          <MonthGrid month={month} events={events} timeZone={me.user.timezone} locale={locale} />
         </div>
       </Panel>
     </div>

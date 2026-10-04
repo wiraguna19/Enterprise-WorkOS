@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDate } from "@/lib/format";
 import type { CalendarEvent } from "./types";
 
@@ -18,10 +20,14 @@ import type { CalendarEvent } from "./types";
 export function Agenda({
   events,
   timeZone,
+  locale = "en",
 }: {
   events: CalendarEvent[];
   timeZone: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
   const day = (event: CalendarEvent) =>
     event.all_day
       ? event.starts_at.slice(0, 10)
@@ -44,7 +50,7 @@ export function Agenda({
   const days = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
 
   if (days.length === 0) {
-    return <p className="text-body-sm text-n-400">Nothing dated this month.</p>;
+    return <p className="text-body-sm text-n-400">{t("cal.nothing")}</p>;
   }
 
   return (
@@ -52,8 +58,8 @@ export function Agenda({
       {days.map(([date, dayEvents]) => (
         <section key={date}>
           <h3 className="border-b border-n-100 pb-1 text-body-sm font-medium text-n-900">
-            {formatDate(date, timeZone)}
-            {date === today && <span className="ml-1.5 text-caption text-a-700">today</span>}
+            {formatDate(date, timeZone, locale)}
+            {date === today && <span className="ml-1.5 text-caption text-a-700">{t("due.today")}</span>}
           </h3>
 
           <ul className="divide-y divide-n-100">
@@ -63,12 +69,12 @@ export function Agenda({
                   // Nothing to open: the work item does not exist yet.
                   <span className="flex items-baseline gap-2 text-body-sm text-n-500">
                     <span className="truncate">{event.title}</span>
-                    <span className="ml-auto shrink-0 text-caption">recurring</span>
+                    <span className="ml-auto shrink-0 text-caption">{t("cal.recurring")}</span>
                   </span>
                 ) : event.type === "milestone" ? (
                   <span className="flex items-baseline gap-2 text-body-sm text-n-700">
                     <span className="truncate">{event.title}</span>
-                    <span className="ml-auto shrink-0 text-caption text-n-500">milestone</span>
+                    <span className="ml-auto shrink-0 text-caption text-n-500">{t("cal.milestone")}</span>
                   </span>
                 ) : (
                   <Link

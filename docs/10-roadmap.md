@@ -241,9 +241,11 @@ last entry is deliberately last.
                         New and edit work item (with the template picker
                         and milestone picker) and the Work browse screen
                         with its filters and bulk changes.
-                        Next, one screen at a time: Calendar, Timesheet,
-                        Recurring, Reports, People, Teams, Departments and
-                        the rest of Settings.
+                        Calendar (month grid, agenda, the day dialog and
+                        the feed subscription), Timesheet, and Recurring
+                        (list, form, and the schedule sentence itself).
+                        Next, one screen at a time: Reports, People, Teams,
+                        Departments and the rest of Settings.
 ```
 
 ---

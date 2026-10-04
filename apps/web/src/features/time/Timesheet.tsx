@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDate } from "@/lib/format";
 import type { TimesheetDay, TimesheetMeta } from "./types";
 
@@ -16,11 +18,16 @@ export function Timesheet({
   days,
   window,
   timeZone,
+  locale = "en",
 }: {
   days: TimesheetDay[];
   window: TimesheetMeta;
   timeZone: string;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
 }) {
+  const t = translator(locale);
+  const date = (value: string) => formatDate(value, timeZone, locale);
   const shift = (weeks: number) => {
     const from = new Date(`${window.from}T00:00:00Z`);
     from.setUTCDate(from.getUTCDate() + weeks * 7);
@@ -35,13 +42,13 @@ export function Timesheet({
     <div className="space-y-4">
       <nav className="flex items-center gap-4 text-body-sm">
         <Link href={shift(-1)} className="text-a-700 hover:underline">
-          ← Previous
+          {t("cal.prev")}
         </Link>
         <span className="text-n-500">
-          {formatDate(window.from, timeZone)} – {formatDate(window.to, timeZone)}
+          {date(window.from)} – {date(window.to)}
         </span>
         <Link href={shift(1)} className="text-a-700 hover:underline">
-          Next →
+          {t("cal.next")}
         </Link>
       </nav>
 
@@ -50,15 +57,15 @@ export function Timesheet({
           <section key={day.date}>
             <h2 className="flex items-baseline justify-between border-b border-n-100 pb-1">
               <span className="text-body-sm font-medium text-n-900">
-                {formatDate(day.date, timeZone)}
+                {date(day.date)}
               </span>
-              <span className="tabular-nums text-body-sm text-n-700">{day.hours} h</span>
+              <span className="tabular-nums text-body-sm text-n-700">{t("time.hours", { hours: day.hours })}</span>
             </h2>
 
             <ul className="divide-y divide-n-100">
               {day.entries.map((entry) => (
                 <li key={entry.id} className="flex items-baseline gap-3 py-1.5 text-body-sm">
-                  <span className="w-14 shrink-0 tabular-nums text-n-900">{entry.hours} h</span>
+                  <span className="w-14 shrink-0 tabular-nums text-n-900">{t("time.hours", { hours: entry.hours })}</span>
 
                   {entry.work_item ? (
                     <Link
@@ -74,7 +81,7 @@ export function Timesheet({
                     // The work item was deleted; the hours were still worked,
                     // and dropping the row would quietly change a total someone
                     // may have already reported.
-                    <span className="min-w-0 flex-1 text-n-400">deleted work item</span>
+                    <span className="min-w-0 flex-1 text-n-400">{t("time.deleted")}</span>
                   )}
 
                   {entry.note && (

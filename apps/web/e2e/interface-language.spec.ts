@@ -94,6 +94,21 @@ test.describe("interface language", () => {
 
       await page.goto("/work/new");
       await expect(page.getByRole("heading", { name: "Item kerja baru", level: 1 })).toBeVisible();
+
+      // Calendar, Timesheet and Recurring.
+      await page.goto("/calendar");
+      await expect(page.getByRole("heading", { name: "Kalender", level: 1 })).toBeVisible();
+
+      await page.goto("/time");
+      await expect(page.getByRole("heading", { name: "Lembar Waktu", level: 1 })).toBeVisible();
+
+      // Recurring is behind work_item.create; Budi's role decides whether he
+      // gets the screen or a 404.
+      const { permissions } = await call<{ permissions: string[] }>(session, "/auth/me");
+      if (permissions.includes("work_item.create")) {
+        await page.goto("/recurring");
+        await expect(page.getByRole("heading", { name: "Pekerjaan berulang", level: 1 })).toBeVisible();
+      }
     } finally {
       await call(session, "/auth/me", { method: "PATCH", body: { locale: "en" } }).catch(
         () => undefined,

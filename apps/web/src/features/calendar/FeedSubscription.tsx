@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { useT } from "@/i18n/I18nProvider";
 import { createFeed, revokeFeed } from "./actions";
 import type { FeedStatus } from "./types";
 
@@ -15,6 +16,7 @@ import type { FeedStatus } from "./types";
  * rather than a "show URL" that could not work.
  */
 export function FeedSubscription({ feed }: { feed: FeedStatus }) {
+  const t = useT();
   const [issued, setIssued] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -40,7 +42,7 @@ export function FeedSubscription({ feed }: { feed: FeedStatus }) {
   if (!open) {
     return (
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
-        {feed ? "Calendar subscription" : "Subscribe in your calendar"}
+        {feed ? t("feed.subscription") : t("feed.subscribe")}
       </Button>
     );
   }
@@ -52,8 +54,7 @@ export function FeedSubscription({ feed }: { feed: FeedStatus }) {
       {issued ? (
         <>
           <p className="text-n-700">
-            Paste this into your calendar app. It is shown once — we store only a
-            hash of it, so it cannot be retrieved later, only replaced.
+            {t("feed.paste")}
           </p>
           {/* Selectable and wrapped rather than a copy button alone: a copy
               button that silently fails leaves the user with nothing. */}
@@ -61,32 +62,30 @@ export function FeedSubscription({ feed }: { feed: FeedStatus }) {
             {issued}
           </code>
           <Button size="sm" onClick={() => setIssued(null)}>
-            Done
+            {t("toast.done")}
           </Button>
         </>
       ) : (
         <>
           <p className="text-n-700">
             {feed
-              ? `A subscription exists${
-                  feed.last_accessed_at ? "" : " but has never been fetched"
-                }. Issuing a new URL immediately stops the old one working.`
-              : "Your work and milestones, read-only, in Apple Calendar, Google Calendar, or Outlook."}
+              ? t(feed.last_accessed_at ? "feed.exists" : "feed.existsUnused")
+              : t("feed.intro")}
           </p>
 
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="primary" disabled={busy} onClick={issue}>
-              {busy ? "Working…" : feed ? "Replace URL" : "Create URL"}
+              {busy ? t("feed.working") : feed ? t("feed.replace") : t("feed.create")}
             </Button>
 
             {feed && (
               <Button size="sm" variant="danger" disabled={busy} onClick={revoke}>
-                Revoke
+                {t("feed.revoke")}
               </Button>
             )}
 
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-              Close
+              {t("tpl.close")}
             </Button>
           </div>
         </>

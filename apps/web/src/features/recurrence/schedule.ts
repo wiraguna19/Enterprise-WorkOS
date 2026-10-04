@@ -11,6 +11,10 @@
  * The composed rule is SHOWN on the form. What gets stored is what the person
  * can read back, which is the difference between a picker and a black box.
  */
+import type { Locale } from "@/i18n/config";
+import type { MessageKey } from "@/i18n/messages/en";
+import { translator } from "@/i18n/translate";
+
 export type Frequency = "daily" | "weekly" | "monthly";
 
 export const WEEKDAYS = [
@@ -65,7 +69,12 @@ export function toRrule(schedule: Schedule): string {
  * itself. **A wrong description is worse than a raw string**: somebody reads
  * "every Monday", believes it, and never checks.
  */
-export function describe(rrule: string): string {
+export function describe(rrule: string, locale: Locale = "en"): string {
+  // English unless the screen around it has been translated (ADR 0060).
+  const t = translator(locale);
+  // An ordinal is an English idea: Indonesian says "tanggal 3", not "3rd".
+  const nth = (day: number) => (locale === "en" ? ordinal(day) : String(day));
+
   const parts = new Map(
     rrule.split(";").map((part) => {
       const [key, value] = part.split("=");
@@ -82,14 +91,16 @@ export function describe(rrule: string): string {
 
   switch (parts.get("FREQ")) {
     case "DAILY":
-      return interval === 1 ? "Every day" : `Every ${interval} days`;
+      return interval === 1 ? t("sched.daily") : t("sched.dailyN", { n: interval });
 
     case "WEEKLY": {
       const day = WEEKDAYS.find((weekday) => weekday.value === parts.get("BYDAY"));
 
       if (!day) return rrule;
 
-      return interval === 1 ? `Every ${day.label}` : `Every ${interval} weeks on ${day.label}`;
+      const name = t(`weekday.${day.value}` as MessageKey);
+
+      return interval === 1 ? t("sched.weekly", { day: name }) : t("sched.weeklyN", { n: interval, day: name });
     }
 
     case "MONTHLY": {
@@ -98,8 +109,8 @@ export function describe(rrule: string): string {
       if (!Number.isInteger(day) || day < 1) return rrule;
 
       return interval === 1
-        ? `On the ${ordinal(day)} of every month`
-        : `On the ${ordinal(day)}, every ${interval} months`;
+        ? t("sched.monthly", { day: nth(day) })
+        : t("sched.monthlyN", { day: nth(day), n: interval });
     }
 
     default:

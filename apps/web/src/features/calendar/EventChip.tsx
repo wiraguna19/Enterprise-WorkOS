@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { Locale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { clsx } from "@/lib/clsx";
 import type { CalendarEvent } from "./types";
 
@@ -17,7 +19,17 @@ import type { CalendarEvent } from "./types";
  * to show what the cell could not would be pointless if it cut titles short
  * the same way.
  */
-export function EventChip({ event, roomy = false }: { event: CalendarEvent; roomy?: boolean }) {
+export function EventChip({
+  event,
+  roomy = false,
+  locale = "en",
+}: {
+  event: CalendarEvent;
+  roomy?: boolean;
+  /** English unless the screen around it has been translated (ADR 0060). */
+  locale?: Locale;
+}) {
+  const t = translator(locale);
   const label = (
     <span className={clsx("block", !roomy && "truncate")}>
       {event.reference && <span className="font-mono text-micro">{event.reference} </span>}
@@ -33,11 +45,11 @@ export function EventChip({ event, roomy = false }: { event: CalendarEvent; room
   if (event.is_projected) {
     return (
       <span
-        title={`${event.title} — recurring, not created yet`}
+        title={t("chip.projectedTitle", { title: event.title })}
         className={clsx("block rounded-sm border border-dashed border-n-300 text-n-500", size)}
       >
         {label}
-        {roomy && <span className="block text-micro">Recurring — not created yet.</span>}
+        {roomy && <span className="block text-micro">{t("chip.projected")}</span>}
       </span>
     );
   }

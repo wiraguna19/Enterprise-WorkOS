@@ -7,6 +7,8 @@ import { Panel } from "@/components/ui/Panel";
 import { StopButton } from "@/features/recurrence/StopButton";
 import { describe } from "@/features/recurrence/schedule";
 import { api } from "@/lib/api";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 
@@ -58,16 +60,19 @@ export default async function RecurringPage() {
   // re-sorted here — a second ordering is a second opinion about which rule
   // matters most, and the server already has one.
   const active = recurrences.filter((recurrence) => recurrence.is_active);
+  // Translated (ADR 0060).
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Recurring work"
-        description={`${active.length} running`}
+        title={t("rec.title")}
+        description={t("rec.running", { count: active.length })}
         action={
           mayCreate ? (
             <ButtonLink href="/recurring/new" variant="primary">
-              New recurring work
+              {t("rec.new")}
             </ButtonLink>
           ) : undefined
         }
@@ -76,12 +81,12 @@ export default async function RecurringPage() {
       <PageBody>
       {recurrences.length === 0 ? (
         <EmptyState
-          title="Nothing recurs yet"
-          description="A recurring rule creates the same work on a schedule — a weekly checklist, a monthly report — and every item it makes points back here."
+          title={t("rec.empty.title")}
+          description={t("rec.empty.body")}
           action={
             mayCreate ? (
               <ButtonLink href="/recurring/new" variant="primary">
-                Set up the first one
+                {t("rec.first")}
               </ButtonLink>
             ) : undefined
           }
@@ -89,8 +94,8 @@ export default async function RecurringPage() {
       ) : (
         <Panel
           id="recurrences"
-          title="Standing instructions"
-          description="Ordered by the API: running first, then by when they next produce work."
+          title={t("rec.panel")}
+          description={t("rec.panelDesc")}
           bleed
         >
         <ul className="divide-y divide-n-100">
@@ -101,31 +106,30 @@ export default async function RecurringPage() {
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-n-900">
-                  {recurrence.template.title ?? "Untitled"}
+                  {recurrence.template.title ?? t("review.untitled")}
                 </span>
                 <span className="block truncate text-caption text-n-500">
-                  {describe(recurrence.rrule)}
+                  {describe(recurrence.rrule, locale)}
                   {recurrence.ends_at &&
-                    ` · until ${formatDateTime(recurrence.ends_at, me.user.timezone)}`}
+                    ` · ${t("rec.until", { date: formatDateTime(recurrence.ends_at, me.user.timezone, locale) })}`}
                 </span>
               </span>
 
               {/* What it has produced, not merely that it exists. */}
               <span className="shrink-0 text-caption tabular-nums text-n-500">
-                {recurrence.created_count}{" "}
-                {recurrence.created_count === 1 ? "item" : "items"} so far
+                {t.plural("rec.soFar", recurrence.created_count)}
               </span>
 
               <span className="w-44 shrink-0 text-caption tabular-nums text-n-500">
                 {recurrence.is_active
-                  ? `next ${formatDateTime(recurrence.next_run_at, me.user.timezone)}`
-                  : "stopped"}
+                  ? t("rec.next", { date: formatDateTime(recurrence.next_run_at, me.user.timezone, locale) })
+                  : t("rec.stopped")}
               </span>
 
               {recurrence.is_active && mayCreate && (
                 <StopButton
                   id={recurrence.id}
-                  schedule={recurrence.template.title ?? describe(recurrence.rrule)}
+                  schedule={recurrence.template.title ?? describe(recurrence.rrule, locale)}
                 />
               )}
             </li>

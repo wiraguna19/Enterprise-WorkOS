@@ -1,12 +1,15 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 import type { CalendarSource } from "./types";
 
-const SOURCES: Array<{ key: CalendarSource; label: string }> = [
-  { key: "work", label: "Work" },
-  { key: "milestones", label: "Milestones" },
-  { key: "recurring", label: "Recurring" },
+// `label` is a dictionary key (ADR 0060).
+const SOURCES: Array<{ key: CalendarSource; label: MessageKey }> = [
+  { key: "work", label: "nav.work" },
+  { key: "milestones", label: "health.milestones.name" },
+  { key: "recurring", label: "nav.recurring" },
 ];
 
 /**
@@ -17,6 +20,7 @@ const SOURCES: Array<{ key: CalendarSource; label: string }> = [
  * the page. The last remaining source therefore cannot be unchecked.
  */
 export function SourceFilter({ active }: { active: CalendarSource[] }) {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -55,7 +59,7 @@ export function SourceFilter({ active }: { active: CalendarSource[] }) {
               onChange={() => toggle(source.key)}
               className="size-3.5 accent-a-500"
             />
-            {source.label}
+            {t(source.label)}
           </label>
         );
       })}
