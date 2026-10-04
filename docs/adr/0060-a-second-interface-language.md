@@ -70,3 +70,22 @@ rewrite.**
   learns `Accept-Language`. That is the next slice of this item if it is
   wanted, and the cookie and `users.locale` are already where it would read
   from.
+
+## Addendum — notification sentences (October 2026)
+
+The inbox sentence ("Sarah Chen asked you to review ENG-142") was composed by
+`NotificationResource` and arrived in English on an Indonesian page. It is the
+one API string a reader sees on a main screen every day, so it moved first.
+
+The server still decides **which** sentence applies: whether a rule acted
+without an actor, whether an assignment was a handover. It now names that
+choice in `message_key` beside the English `message`. The web words the key
+from its dictionaries (`notif.*`), and shows `message` as written for a key it
+does not know or when there is none. An organization's own text — a rule's
+`message` — is sent with no key: it is their words, not ours to translate.
+
+Refusals and validation messages are unchanged. Unlike the notification table
+they are about a hundred sentences across forty exception classes, many
+carrying names and counts, and translating them is a decision of its own:
+the API localizing from `users.locale`/`Accept-Language` with Laravel's
+language files, or the web mapping error codes. Neither is taken here.

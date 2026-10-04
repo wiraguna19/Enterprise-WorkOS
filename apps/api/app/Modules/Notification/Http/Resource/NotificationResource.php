@@ -22,6 +22,7 @@ final class NotificationResource extends BaseResource
     public function toArray($request): array
     {
         $payload = (array) $this->resource->payload;
+        $sentence = $this->sentence($payload);
 
         return [
             'id' => $this->resource->id,
@@ -36,7 +37,12 @@ final class NotificationResource extends BaseResource
                 'membership_id' => $this->resource->actor_membership_id,
                 'name' => $payload['actor_name'] ?? $this->resource->actor?->user?->name,
             ],
-            'message' => $this->message($payload),
+            // The sentence in English, and WHICH sentence it is. A client in
+            // another language words it from the key; one that does not know
+            // the key, or gets none, shows `message` as written. No key is sent
+            // for an organization's own text — a rule's message is its words.
+            'message' => $sentence[1],
+            'message_key' => $sentence[0],
             'read' => $this->resource->read_at !== null,
             'created_at' => $this->resource->created_at?->toIso8601String(),
         ];
@@ -48,8 +54,9 @@ final class NotificationResource extends BaseResource
      * drift.
      *
      * @param  array<string, mixed>  $payload
+     * @return array{0: string|null, 1: string}
      */
-    private function message(array $payload): string
+    private function sentence(array $payload): array
     {
         $reference = $payload['reference'] ?? 'work';
 
@@ -65,10 +72,12 @@ final class NotificationResource extends BaseResource
          */
         if (! isset($payload['actor_name'])) {
             return match ($this->resource->type) {
-                'work.escalated' => "{$reference} is overdue and has been escalated to you",
-                'work.needs_assignee' => "{$reference} is urgent and has nobody on it",
-                'work.due_soon' => "{$reference} is due soon",
-                default => (string) ($payload['message'] ?? "Update on {$reference}"),
+                'work.escalated' => ['escalated_to_you', "{$reference} is overdue and has been escalated to you"],
+                'work.needs_assignee' => ['needs_assignee', "{$reference} is urgent and has nobody on it"],
+                'work.due_soon' => ['due_soon', "{$reference} is due soon"],
+                default => isset($payload['message'])
+                    ? [null, (string) $payload['message']]
+                    : ['update', "Update on {$reference}"],
             };
         }
 
@@ -76,16 +85,18 @@ final class NotificationResource extends BaseResource
 
         return match ($this->resource->type) {
             'work.assigned' => isset($payload['handover'])
-                ? "{$actor} handed {$reference} over to you"
-                : "{$actor} assigned {$reference} to you",
-            'work.reassigned_away' => "{$actor} reassigned {$reference} to someone else",
-            'approval.requested' => "{$actor} asked you to review {$reference}",
-            'approval.approved' => "{$actor} approved {$reference}",
-            'approval.changes_requested' => "{$actor} requested changes on {$reference}",
-            'approval.rejected' => "{$actor} rejected {$reference}",
-            'work.escalated' => "{$reference} needs attention",
-            'comment.mentioned' => "{$actor} mentioned you on {$reference}",
-            default => (string) ($payload['message'] ?? "Update on {$reference}"),
+                ? ['handed_over', "{$actor} handed {$reference} over to you"]
+                : ['assigned', "{$actor} assigned {$reference} to you"],
+            'work.reassigned_away' => ['reassigned_away', "{$actor} reassigned {$reference} to someone else"],
+            'approval.requested' => ['review_requested', "{$actor} asked you to review {$reference}"],
+            'approval.approved' => ['approved', "{$actor} approved {$reference}"],
+            'approval.changes_requested' => ['changes_requested', "{$actor} requested changes on {$reference}"],
+            'approval.rejected' => ['rejected', "{$actor} rejected {$reference}"],
+            'work.escalated' => ['needs_attention', "{$reference} needs attention"],
+            'comment.mentioned' => ['mentioned', "{$actor} mentioned you on {$reference}"],
+            default => isset($payload['message'])
+                ? [null, (string) $payload['message']]
+                : ['update', "Update on {$reference}"],
         };
     }
 }

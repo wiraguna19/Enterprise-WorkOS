@@ -1842,6 +1842,22 @@ export const id: Messages = {
   "join.joining": "Bergabung…",
   "join.join": "Bergabung",
 
+  // ── Notification sentences (worded from the API's message_key) ──────────
+  "notif.someWork": "pekerjaan",
+  "notif.escalated_to_you": "{reference} lewat tenggat dan dieskalasikan kepada Anda",
+  "notif.needs_assignee": "{reference} mendesak dan belum ada yang mengerjakannya",
+  "notif.due_soon": "Tenggat {reference} sudah dekat",
+  "notif.handed_over": "{actor} menyerahkan {reference} kepada Anda",
+  "notif.assigned": "{actor} menugaskan {reference} kepada Anda",
+  "notif.reassigned_away": "{actor} menugaskan ulang {reference} kepada orang lain",
+  "notif.review_requested": "{actor} meminta Anda meninjau {reference}",
+  "notif.approved": "{actor} menyetujui {reference}",
+  "notif.changes_requested": "{actor} meminta perubahan pada {reference}",
+  "notif.rejected": "{actor} menolak {reference}",
+  "notif.needs_attention": "{reference} perlu perhatian",
+  "notif.mentioned": "{actor} menyebut Anda di {reference}",
+  "notif.update": "Pembaruan pada {reference}",
+
   // ── Sign in ──────────────────────────────────────────────────────────────
   "login.metaTitle": "Masuk",
   "login.title": "Masuk",

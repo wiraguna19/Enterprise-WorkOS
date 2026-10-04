@@ -273,9 +273,11 @@ last entry is deliberately last.
                         an account created from an invitation now takes the
                         language the invitation was accepted in.
                         Every screen of the web interface reads in
-                        Indonesian. Still English by design: messages the
-                        API writes (refusals, notification sentences,
-                        email), and what an organization names for itself.
+                        Indonesian, and so do inbox notifications (the API
+                        names the sentence, the web words it; ADR 0060
+                        addendum). Still English: the API's refusals and
+                        validation messages, and what an organization names
+                        for itself. There is no email layer to translate.
 ```
 
 ---

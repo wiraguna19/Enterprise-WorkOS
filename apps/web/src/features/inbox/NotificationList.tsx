@@ -2,7 +2,8 @@ import Link from "next/link";
 import { MarkReadButton } from "./MarkReadButton";
 import { clsx } from "@/lib/clsx";
 import { INTL_TAG, type Locale } from "@/i18n/config";
-import { translator } from "@/i18n/translate";
+import { translator, type Translator } from "@/i18n/translate";
+import type { MessageKey } from "@/i18n/messages/en";
 import { formatDateTime } from "@/lib/format";
 import type { Notification } from "@/features/work-item/types";
 
@@ -71,7 +72,7 @@ export function NotificationList({
                   )}
                 >
                   <span className="min-w-0 flex-1 text-body text-n-900">
-                    {notification.message}
+                    {sentence(notification, t)}
                     {notification.subject.title !== null && (
                       <span className="text-n-500"> · {notification.subject.title}</span>
                     )}
@@ -149,4 +150,40 @@ function groupByDay(
   }
 
   return [...groups.entries()];
+}
+
+/** The sentences this client can word itself; any other key falls back. */
+const WORDED = new Set([
+  "escalated_to_you",
+  "needs_assignee",
+  "due_soon",
+  "handed_over",
+  "assigned",
+  "reassigned_away",
+  "review_requested",
+  "approved",
+  "changes_requested",
+  "rejected",
+  "needs_attention",
+  "mentioned",
+  "update",
+]);
+
+/**
+ * The notification in the reader's language (ADR 0060).
+ *
+ * The API decides WHICH sentence applies — it knows whether there was an
+ * actor and whether an assignment was a handover — and this words it. A key
+ * this build does not know, or no key at all (an organization's own message),
+ * shows the API's text as it was written.
+ */
+function sentence(notification: Notification, t: Translator): string {
+  const key = notification.message_key;
+
+  if (key === null || !WORDED.has(key)) return notification.message;
+
+  return t(`notif.${key}` as MessageKey, {
+    actor: notification.actor.name ?? "",
+    reference: notification.subject.reference ?? t("notif.someWork"),
+  });
 }

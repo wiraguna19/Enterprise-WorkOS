@@ -1825,6 +1825,22 @@ export const en = {
   "join.joining": "Joining…",
   "join.join": "Join",
 
+  // ── Notification sentences (worded from the API's message_key) ──────────
+  "notif.someWork": "work",
+  "notif.escalated_to_you": "{reference} is overdue and has been escalated to you",
+  "notif.needs_assignee": "{reference} is urgent and has nobody on it",
+  "notif.due_soon": "{reference} is due soon",
+  "notif.handed_over": "{actor} handed {reference} over to you",
+  "notif.assigned": "{actor} assigned {reference} to you",
+  "notif.reassigned_away": "{actor} reassigned {reference} to someone else",
+  "notif.review_requested": "{actor} asked you to review {reference}",
+  "notif.approved": "{actor} approved {reference}",
+  "notif.changes_requested": "{actor} requested changes on {reference}",
+  "notif.rejected": "{actor} rejected {reference}",
+  "notif.needs_attention": "{reference} needs attention",
+  "notif.mentioned": "{actor} mentioned you on {reference}",
+  "notif.update": "Update on {reference}",
+
   // ── Sign in ──────────────────────────────────────────────────────────────
   "login.metaTitle": "Sign in",
   "login.title": "Sign in",

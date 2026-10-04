@@ -186,7 +186,10 @@ export type Notification = {
     title: string | null;
   };
   actor: { membership_id: string | null; name: string | null };
+  /** The sentence in English, for a key this client does not know. */
   message: string;
+  /** Which sentence it is (ADR 0060); null for an organization's own words. */
+  message_key: string | null;
   read: boolean;
   created_at: string;
 };
