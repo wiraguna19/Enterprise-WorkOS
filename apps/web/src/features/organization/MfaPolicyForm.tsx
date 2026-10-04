@@ -7,6 +7,7 @@ import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { setMfaPolicy } from "./actions";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 
 /**
  * Requiring a second factor of everybody in this organization (ADR 0033).
@@ -33,6 +34,8 @@ export function MfaPolicyForm({
   const [needsPassword, setNeedsPassword] = useState(false);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
 
   const save = () =>
     startAction(async () => {
@@ -45,10 +48,10 @@ export function MfaPolicyForm({
         toast({
           tone: required ? "removed" : "done",
           message: required
-            ? "Two-factor is optional here again."
+            ? t("mfapol.optionalAgain")
             : result.confined > 0
-              ? `Two-factor is required. ${result.confined} ${result.confined === 1 ? "person has" : "people have"} yet to enrol.`
-              : "Two-factor is required. Everybody here already has one.",
+              ? t.plural("mfapol.requiredPending", result.confined)
+              : t("mfapol.requiredAll"),
         });
       }
     });
@@ -56,13 +59,13 @@ export function MfaPolicyForm({
   return (
     <Panel
       id="mfa-policy"
-      title="Two-factor authentication"
-      description="Whether everybody here has to prove a second factor before they can work."
+      title={t("settings.twoFactor.label")}
+      description={t("mfapol.description")}
       actions={
         required ? (
-          <Badge tone="success" icon="check">required</Badge>
+          <Badge tone="success" icon="check">{t("mfapol.badge.required")}</Badge>
         ) : (
-          <Badge tone="neutral" icon="minus">optional</Badge>
+          <Badge tone="neutral" icon="minus">{t("mfapol.badge.optional")}</Badge>
         )
       }
     >
@@ -75,15 +78,13 @@ export function MfaPolicyForm({
       <div className="max-w-prose space-y-3">
         <p className="text-body-sm text-n-700">
           {required
-            ? "Everybody here signs in with a code as well as a password. Anybody who has not set one up yet is held at the enrolment screen until they do — signed in, but unable to do anything else."
-            : "People may turn on a second factor for themselves. Requiring it means nobody here can work without one."}
+            ? t("mfapol.body.required")
+            : t("mfapol.body.optional")}
         </p>
 
         {!required && peopleWithout > 0 && (
           <p className="rounded-md border border-s-active/30 bg-s-active/10 px-3 py-2 text-body-sm text-s-active">
-            {peopleWithout} {peopleWithout === 1 ? "person has" : "people have"} no second factor
-            yet. Turning this on holds {peopleWithout === 1 ? "them" : "them"} at the enrolment
-            screen on their next request — including you, if that is you. Nobody is signed out.
+            {t.plural("mfapol.without", peopleWithout)}
           </p>
         )}
 
@@ -94,13 +95,14 @@ export function MfaPolicyForm({
             disabled={busy}
             onClick={save}
           >
-            {busy ? "Saving…" : required ? "Stop requiring it" : "Require it"}
+            {busy ? t("common.saving") : required ? t("mfapol.stop") : t("mfapol.require")}
           </Button>
         )}
 
         {needsPassword && (
           <ConfirmPassword
-            action={required ? "stop requiring two-factor" : "require two-factor of everybody here"}
+            action={required ? t("mfapol.confirm.stop") : t("mfapol.confirm.require")}
+            locale={locale}
             onConfirmed={() => {
               setNeedsPassword(false);
               save();

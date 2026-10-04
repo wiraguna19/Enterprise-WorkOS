@@ -146,6 +146,33 @@ test.describe("interface language", () => {
       await expect(page.getByRole("heading", { name: "Token API", level: 1 })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Token Anda" })).toBeVisible();
 
+      // The organization's settings, each behind its own permission: Budi's
+      // role decides which of these he reaches, and the rest 404.
+      if (permissions.includes("organization.view")) {
+        await page.goto("/settings/organization");
+        await expect(page.getByRole("heading", { name: "Organisasi", level: 1 })).toBeVisible();
+      }
+
+      if (permissions.includes("audit_log.view")) {
+        await page.goto("/settings/audit");
+        await expect(page.getByRole("heading", { name: "Log audit", level: 1 })).toBeVisible();
+      }
+
+      if (permissions.includes("service_account.manage")) {
+        await page.goto("/settings/service-accounts");
+        await expect(page.getByRole("heading", { name: "Service account", level: 1 })).toBeVisible();
+      }
+
+      if (permissions.includes("sso.manage")) {
+        await page.goto("/settings/sso");
+        await expect(page.getByRole("heading", { name: "Single sign-on", level: 1 })).toBeVisible();
+      }
+
+      if (permissions.includes("webhook.manage")) {
+        await page.goto("/settings/webhooks");
+        await expect(page.getByRole("heading", { name: "Webhook", level: 1 })).toBeVisible();
+      }
+
       // Reports: the Flow page, behind report.view.
       if (permissions.includes("report.view")) {
         await page.goto("/reports");

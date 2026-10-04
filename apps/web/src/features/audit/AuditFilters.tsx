@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, INPUT } from "@/components/ui/Field";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Three filters, and the reason there are only three.
@@ -19,6 +20,7 @@ import { Field, INPUT } from "@/components/ui/Field";
 export function AuditFilters({ event, since }: { event: string; since: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useT();
 
   const [draftEvent, setDraftEvent] = useState(event);
   const [draftSince, setDraftSince] = useState(since);
@@ -47,7 +49,7 @@ export function AuditFilters({ event, since }: { event: string; since: string })
         router.push(`/settings/audit?${next.toString()}`);
       }}
     >
-      <Field id="event" label="Event" hint="A prefix works: invitation., auth., role.">
+      <Field id="event" label={t("audit.col.event")} hint={t("audit.filter.event.hint")}>
         <input
           id="event"
           className={INPUT}
@@ -56,7 +58,7 @@ export function AuditFilters({ event, since }: { event: string; since: string })
         />
       </Field>
 
-      <Field id="since" label="Since">
+      <Field id="since" label={t("audit.filter.since")}>
         <input
           id="since"
           type="date"
@@ -67,7 +69,7 @@ export function AuditFilters({ event, since }: { event: string; since: string })
       </Field>
 
       <Button type="submit" variant="secondary" size="sm">
-        Filter
+        {t("audit.filter")}
       </Button>
     </form>
   );

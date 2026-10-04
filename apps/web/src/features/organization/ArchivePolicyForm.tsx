@@ -7,6 +7,8 @@ import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { setArchivePolicy } from "./actions";
+import { useT } from "@/i18n/I18nProvider";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * How long closed work stays in view (ADR 0054).
@@ -17,13 +19,15 @@ import { setArchivePolicy } from "./actions";
  * like a retention policy, and somebody sets it to "never" out of caution and
  * keeps a Done column of ten thousand cards.
  */
-const CHOICES: Array<{ value: string; label: string }> = [
-  { value: "30", label: "30 days" },
-  { value: "60", label: "60 days" },
-  { value: "90", label: "90 days" },
-  { value: "180", label: "6 months" },
-  { value: "365", label: "A year" },
-  { value: "", label: "Never" },
+// A day count is labelled by the plural rule; the round spans have names of
+// their own, because "180 days" is a number the reader has to convert.
+const CHOICES: Array<{ value: string; label?: MessageKey }> = [
+  { value: "30" },
+  { value: "60" },
+  { value: "90" },
+  { value: "180", label: "arch.choice.180" },
+  { value: "365", label: "arch.choice.365" },
+  { value: "", label: "arch.never" },
 ];
 
 export function ArchivePolicyForm({
@@ -37,12 +41,16 @@ export function ArchivePolicyForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const toast = useToast();
+  const t = useT();
 
   // A value set some other way (the API, a script) that is not one of the
   // choices is still shown, rather than silently displayed as the nearest.
   const choices = CHOICES.some((choice) => choice.value === value)
     ? CHOICES
-    : [{ value, label: `${value} days` }, ...CHOICES];
+    : [{ value }, ...CHOICES];
+
+  const labelOf = (choice: { value: string; label?: MessageKey }): string =>
+    choice.label !== undefined ? t(choice.label) : t.plural("unit.days", Number(choice.value));
 
   const save = () =>
     start(async () => {
@@ -55,8 +63,8 @@ export function ArchivePolicyForm({
         toast({
           message:
             days === null
-              ? "Closed work stays on boards and lists."
-              : `Closed work leaves boards and lists after ${days} days untouched.`,
+              ? t("arch.toast.never")
+              : t("arch.toast.after", { count: days }),
         });
       }
     });
@@ -64,13 +72,13 @@ export function ArchivePolicyForm({
   return (
     <Panel
       id="archive-policy"
-      title="Closed work"
-      description="How long finished and cancelled work stays on boards and lists."
+      title={t("arch.title")}
+      description={t("arch.description")}
       actions={
         current === null ? (
-          <Badge tone="neutral" icon="minus">never archived</Badge>
+          <Badge tone="neutral" icon="minus">{t("arch.badge.never")}</Badge>
         ) : (
-          <Badge tone="neutral">after {current} days</Badge>
+          <Badge tone="neutral">{t("arch.badge.after", { count: current })}</Badge>
         )
       }
     >
@@ -82,14 +90,12 @@ export function ArchivePolicyForm({
 
       <div className="max-w-prose space-y-3">
         <p className="text-body-sm text-n-700">
-          Work that has been done or cancelled — and untouched — for this long is archived every
-          night. Nothing is deleted: it still counts in every report, opens from its reference, and
-          comes back to its board with one click. Reopening it brings it back by itself.
+          {t("arch.body")}
         </p>
 
         {editable && (
           <div className="flex flex-wrap items-end gap-2">
-            <Field id="archive-after" label="Archive after">
+            <Field id="archive-after" label={t("arch.after")}>
               <select
                 id="archive-after"
                 value={value}
@@ -99,7 +105,7 @@ export function ArchivePolicyForm({
               >
                 {choices.map((choice) => (
                   <option key={choice.value} value={choice.value}>
-                    {choice.label}
+                    {labelOf(choice)}
                   </option>
                 ))}
               </select>
@@ -111,7 +117,7 @@ export function ArchivePolicyForm({
               disabled={busy || value === (current === null ? "" : String(current))}
               onClick={save}
             >
-              {busy ? "Saving…" : "Save"}
+              {busy ? t("common.saving") : t("common.save")}
             </Button>
           </div>
         )}

@@ -7,6 +7,9 @@ import { Field } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { setSessionPolicy } from "./actions";
+import { useLocale, useT } from "@/i18n/I18nProvider";
+import { minutesName } from "@/i18n/labels";
+import type { MessageKey } from "@/i18n/messages/en";
 
 /**
  * How long a session may live in this organization (ADR 0028).
@@ -21,13 +24,15 @@ import { setSessionPolicy } from "./actions";
  * pulls back sessions that already exist, and an administrator who learns that
  * from the people who were signed out has learned it too late.
  */
-const CHOICES: Array<{ days: number; label: string; note?: string }> = [
-  { days: 1, label: "1 day", note: "Shared machines. Everybody signs in daily." },
-  { days: 7, label: "7 days", note: "A working week." },
-  { days: 14, label: "14 days" },
-  { days: 30, label: "30 days", note: "The product default." },
-  { days: 60, label: "60 days" },
-  { days: 90, label: "90 days", note: "The longest allowed." },
+// Labels are built from the number at render, in the reader's language; only
+// the notes are words of their own.
+const CHOICES: Array<{ days: number; note?: MessageKey }> = [
+  { days: 1, note: "sesspol.choice.1" },
+  { days: 7, note: "sesspol.choice.7" },
+  { days: 14 },
+  { days: 30, note: "sesspol.choice.30" },
+  { days: 60 },
+  { days: 90, note: "sesspol.longest" },
 ];
 
 /**
@@ -36,13 +41,13 @@ const CHOICES: Array<{ days: number; label: string; note?: string }> = [
  * Off is the first entry and the default, because switching it on signs out
  * everybody who has stepped away — a thing somebody should choose, not inherit.
  */
-const IDLE_CHOICES: Array<{ minutes: number | null; label: string; note?: string }> = [
-  { minutes: null, label: "Never", note: "Only the lifetime above ends a session." },
-  { minutes: 30, label: "After 30 minutes" },
-  { minutes: 60, label: "After 1 hour" },
-  { minutes: 480, label: "After 8 hours", note: "A working day." },
-  { minutes: 1440, label: "After 24 hours" },
-  { minutes: 10080, label: "After 7 days", note: "The longest allowed." },
+const IDLE_CHOICES: Array<{ minutes: number | null; note?: MessageKey }> = [
+  { minutes: null, note: "sesspol.idle.never.note" },
+  { minutes: 30 },
+  { minutes: 60 },
+  { minutes: 480, note: "sesspol.idle.workday" },
+  { minutes: 1440 },
+  { minutes: 10080, note: "sesspol.longest" },
 ];
 
 export function SessionPolicyForm({
@@ -61,6 +66,8 @@ export function SessionPolicyForm({
   const [needsPassword, setNeedsPassword] = useState(false);
   const [busy, startAction] = useTransition();
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
 
   const save = () =>
     startAction(async () => {
@@ -74,8 +81,10 @@ export function SessionPolicyForm({
           tone: result.shortened > 0 ? "removed" : "done",
           message:
             result.shortened > 0
-              ? `Sessions now last ${days} ${days === 1 ? "day" : "days"}. ${result.shortened} open ${result.shortened === 1 ? "session was" : "sessions were"} shortened.`
-              : `Sessions now last ${days} ${days === 1 ? "day" : "days"}.`,
+              ? t.plural("sesspol.toast.shortened", result.shortened, {
+                  duration: t.plural("unit.days", days),
+                })
+              : t("sesspol.toast", { duration: t.plural("unit.days", days) }),
         });
       }
     });
@@ -90,8 +99,8 @@ export function SessionPolicyForm({
   return (
     <Panel
       id="session-policy"
-      title="Session lifetime"
-      description="How long somebody stays signed in here before they have to prove who they are again."
+      title={t("sesspol.title")}
+      description={t("sesspol.description")}
     >
       {error && (
         <p role="alert" className="mb-3 rounded-md border border-s-danger/40 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
@@ -102,12 +111,8 @@ export function SessionPolicyForm({
       <div className="max-w-md space-y-3">
         <Field
           id="session-lifetime"
-          label="Sessions last"
-          hint={
-            editable
-              ? "Applies to the next sign-in. Shortening it also pulls back sessions that are already open."
-              : "Changing this needs the organization settings permission."
-          }
+          label={t("org.sessionsLast")}
+          hint={editable ? t("sesspol.lifetime.hint") : t("sesspol.noPermission")}
         >
           <select
             id="session-lifetime"
@@ -118,8 +123,8 @@ export function SessionPolicyForm({
           >
             {CHOICES.map((choice) => (
               <option key={choice.days} value={choice.days}>
-                {choice.label}
-                {choice.note ? ` — ${choice.note}` : ""}
+                {t.plural("unit.days", choice.days)}
+                {choice.note ? ` — ${t(choice.note)}` : ""}
               </option>
             ))}
           </select>
@@ -127,12 +132,8 @@ export function SessionPolicyForm({
 
         <Field
           id="idle-timeout"
-          label="Sign out after inactivity"
-          hint={
-            editable
-              ? "Measured from the last request that session made. It takes effect on the next one, including for sessions that are already idle."
-              : "Changing this needs the organization settings permission."
-          }
+          label={t("sesspol.idle")}
+          hint={editable ? t("sesspol.idle.hint") : t("sesspol.noPermission")}
         >
           <select
             id="idle-timeout"
@@ -144,9 +145,14 @@ export function SessionPolicyForm({
             className="w-56 rounded-md border border-n-300 bg-n-0 px-2 py-1.5 text-body-sm text-n-900 focus:border-a-500 focus:outline-none focus:ring-2 focus:ring-a-500/30 disabled:bg-n-50 disabled:text-n-500"
           >
             {IDLE_CHOICES.map((choice) => (
-              <option key={choice.label} value={choice.minutes === null ? "never" : choice.minutes}>
-                {choice.label}
-                {choice.note ? ` — ${choice.note}` : ""}
+              <option
+                key={choice.minutes ?? "never"}
+                value={choice.minutes === null ? "never" : choice.minutes}
+              >
+                {choice.minutes === null
+                  ? t("sesspol.idle.never")
+                  : t("sesspol.idle.after", { duration: idleName(choice.minutes, t) })}
+                {choice.note ? ` — ${t(choice.note)}` : ""}
               </option>
             ))}
           </select>
@@ -154,15 +160,13 @@ export function SessionPolicyForm({
 
         {tightening && (
           <p className="rounded-md border border-s-active/30 bg-s-active/10 px-3 py-2 text-body-sm text-s-active">
-            Anybody who has already been away longer than that is signed out on their next
-            request — including, if you have been reading this page for a while, you.
+            {t("sesspol.tightening")}
           </p>
         )}
 
         {changed && shortening && (
           <p className="rounded-md border border-s-active/30 bg-s-active/10 px-3 py-2 text-body-sm text-s-active">
-            Sessions open right now that would outlive {days} {days === 1 ? "day" : "days"} will be
-            cut back to it. Nobody is signed out immediately.
+            {t("sesspol.shortening", { duration: t.plural("unit.days", days) })}
           </p>
         )}
 
@@ -174,7 +178,7 @@ export function SessionPolicyForm({
               disabled={!changed || busy}
               onClick={save}
             >
-              {busy ? "Saving…" : "Save"}
+              {busy ? t("common.saving") : t("common.save")}
             </Button>
 
             {changed && (
@@ -187,7 +191,7 @@ export function SessionPolicyForm({
                   setIdle(currentIdle);
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
             )}
           </div>
@@ -195,7 +199,8 @@ export function SessionPolicyForm({
 
         {needsPassword && (
           <ConfirmPassword
-            action="change how long sessions last here"
+            action={t("sesspol.confirm")}
+            locale={locale}
             onConfirmed={() => {
               setNeedsPassword(false);
               save();
@@ -205,4 +210,16 @@ export function SessionPolicyForm({
       </div>
     </Panel>
   );
+}
+
+/**
+ * The idle picker's own reading of a span: hours up to a day, so "24 hours"
+ * sits beside "8 hours" rather than switching unit one row down. A week is
+ * the exception, because "168 hours" is a number nobody says.
+ */
+function idleName(minutes: number, t: ReturnType<typeof useT>): string {
+  if (minutes >= 10080) return minutesName(minutes, t);
+  if (minutes % 60 === 0) return t.plural("unit.hours", minutes / 60);
+
+  return t.plural("unit.minutes", minutes);
 }

@@ -7,13 +7,16 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
 import { WebhookEditor } from "@/features/workflow/WebhookEditor";
 import {
-  STATUS_WORDS,
+  statusName,
+  statusWords,
   type DeliveryStatus,
   type WebhookDelivery,
   type WebhookEndpoint,
 } from "@/features/workflow/webhooks";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDateTime } from "@/lib/format";
 
 /**
@@ -45,6 +48,9 @@ export default async function WebhooksPage({
   // somebody else's organization.
   if (!me.permissions.includes("webhook.manage")) notFound();
 
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
   const { data: endpoints, meta } = await api<WebhookEndpoint[]>("/webhook-endpoints");
   // Served by the API (ADR 0048): the events something in the product
   // actually emits. An older API without it offers no subscriptions rather
@@ -62,8 +68,8 @@ export default async function WebhooksPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Webhooks"
-        description="Where this organization's events may be sent — every time, by subscription, or when an automation rule says so. Rules choose among these; they cannot add an address."
+        title={t("settings.webhooks.label")}
+        description={t("hook.page.description")}
       />
 
       <PageBody>
@@ -77,44 +83,46 @@ export default async function WebhooksPage({
           {selected !== undefined && deliveries !== null && (
             <Panel
               id="deliveries"
-              title={`Deliveries to ${selected.name}`}
+              title={t("hook.deliveries.title", { name: selected.name })}
               description={
                 deliveries.length === 0
-                  ? "Nothing has been sent yet. “Send a test” sends one now."
-                  : "The latest fifty, newest first. What the receiver answered is not kept — only its status code."
+                  ? t("hook.deliveries.none")
+                  : t("hook.deliveries.some")
               }
               actions={
                 <Link href="/settings/webhooks" className="text-body-sm text-a-700 underline">
-                  Close
+                  {t("hook.close")}
                 </Link>
               }
               bleed
             >
               {deliveries.length > 0 && (
-                <DataTable caption={`Latest deliveries to ${selected.name}`}>
+                <DataTable caption={t("hook.deliveries.caption", { name: selected.name })}>
                   <THead>
                     <Tr>
-                      <Th>When</Th>
-                      <Th>Event</Th>
-                      <Th>Status</Th>
-                      <Th align="right">Tries</Th>
-                      <Th>Last answer</Th>
+                      <Th>{t("audit.col.when")}</Th>
+                      <Th>{t("audit.col.event")}</Th>
+                      <Th>{t("hook.col.status")}</Th>
+                      <Th align="right">{t("hook.col.tries")}</Th>
+                      <Th>{t("hook.col.lastAnswer")}</Th>
                     </Tr>
                   </THead>
                   <TBody>
                     {deliveries.map((delivery) => (
                       <Tr key={delivery.id}>
-                        <Td muted>{formatDateTime(delivery.created_at, me.user.timezone)}</Td>
+                        <Td muted>{formatDateTime(delivery.created_at, me.user.timezone, locale)}</Td>
                         <Td>
                           <code className="font-mono text-micro">{delivery.event}</code>
                         </Td>
                         <Td>
-                          <Badge tone={TONE[delivery.status]}>{delivery.status}</Badge>
+                          <Badge tone={TONE[delivery.status]}>{statusName(delivery.status, t)}</Badge>
                           <span className="block text-caption text-n-500">
-                            {STATUS_WORDS[delivery.status]}
+                            {statusWords(delivery.status, t)}
                             {delivery.status === "pending" &&
                               delivery.next_attempt_at !== null &&
-                              ` — next try ${formatDateTime(delivery.next_attempt_at, me.user.timezone)}`}
+                              t("hook.nextTry", {
+                                when: formatDateTime(delivery.next_attempt_at, me.user.timezone, locale),
+                              })}
                           </span>
                         </Td>
                         <Td align="right" muted>
@@ -124,7 +132,7 @@ export default async function WebhooksPage({
                           {delivery.last_status_code !== null && (
                             <span className="font-mono">{delivery.last_status_code} </span>
                           )}
-                          {delivery.last_error ?? (delivery.status === "delivered" ? "Accepted" : "—")}
+                          {delivery.last_error ?? (delivery.status === "delivered" ? t("hook.accepted") : "—")}
                         </Td>
                       </Tr>
                     ))}

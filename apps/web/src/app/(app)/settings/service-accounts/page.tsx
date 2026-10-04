@@ -5,6 +5,8 @@ import type { TokenAccess } from "@/features/auth/api-token-actions";
 import { ServiceAccountPanel, type ServiceAccountRow } from "@/features/auth/ServiceAccountPanel";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDateTime } from "@/lib/format";
 
 type Account = {
@@ -34,6 +36,9 @@ export default async function ServiceAccountsPage() {
   const me = await requireUser();
 
   if (!me.permissions.includes("service_account.manage")) notFound();
+
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
 
   const [{ data: accounts, meta }, roles] = await Promise.all([
     api<Account[]>("/service-accounts"),
@@ -65,8 +70,11 @@ export default async function ServiceAccountsPage() {
           id: token.id,
           name: token.name,
           access: token.access,
-          lastUsed: token.last_used_at === null ? "Never" : formatDateTime(token.last_used_at, me.user.timezone),
-          expires: formatDateTime(token.expires_at, me.user.timezone),
+          lastUsed:
+            token.last_used_at === null
+              ? t("tok.never")
+              : formatDateTime(token.last_used_at, me.user.timezone, locale),
+          expires: formatDateTime(token.expires_at, me.user.timezone, locale),
         })),
       };
     }),
@@ -75,8 +83,8 @@ export default async function ServiceAccountsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Service accounts"
-        description="Integrations that act in their own name, with a role you choose — not as whoever set them up."
+        title={t("settings.serviceAccounts.label")}
+        description={t("svc.description")}
       />
 
       <PageBody>

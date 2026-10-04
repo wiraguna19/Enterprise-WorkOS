@@ -1,3 +1,6 @@
+import type { MessageKey } from "@/i18n/messages/en";
+import type { Translator } from "@/i18n/translate";
+
 /**
  * Webhook endpoints and deliveries, as `WebhookEndpointController` sends them
  * (ADR 0048). Hand-written, and every field is read by the settings screen.
@@ -37,24 +40,30 @@ export type WebhookDelivery = {
   created_at: string;
 };
 
+/** A delivery status's short name, for the badge. */
+export function statusName(status: DeliveryStatus, t: Translator): string {
+  return t(`hook.status.${status}` as MessageKey);
+}
+
 /** What each status means, in the words of somebody on the receiving end. */
-export const STATUS_WORDS: Record<DeliveryStatus, string> = {
-  pending: "Waiting to be sent, or to be tried again",
-  delivered: "The receiver accepted it",
-  abandoned: "Every retry failed; it will not be sent again",
-  refused: "Never sent — the endpoint was off, or its address is not allowed",
-};
+export function statusWords(status: DeliveryStatus, t: Translator): string {
+  return t(`hook.statusWords.${status}` as MessageKey);
+}
 
-/** What an event is, in the words a person setting up a receiver would use. */
-export const EVENT_WORDS: Record<string, string> = {
-  "work_item.created": "Work created",
-  "work_item.assigned": "Work assigned",
-  "work_item.status_changed": "Status changed",
-  "approval.decided": "Approval decided",
-  "schedule.due_soon": "Due within a day",
-  "schedule.overdue": "Just went overdue",
-};
+const NAMED_EVENTS = new Set([
+  "work_item.created",
+  "work_item.assigned",
+  "work_item.status_changed",
+  "approval.decided",
+  "schedule.due_soon",
+  "schedule.overdue",
+]);
 
-export function eventWords(event: string): string {
-  return EVENT_WORDS[event] ?? event;
+/**
+ * What an event is, in the words a person setting up a receiver would use. An
+ * event the API starts offering before this list knows it is shown by its key
+ * rather than hidden: the key is what the receiver will see anyway.
+ */
+export function eventWords(event: string, t: Translator): string {
+  return NAMED_EVENTS.has(event) ? t(`hook.event.${event}` as MessageKey) : event;
 }

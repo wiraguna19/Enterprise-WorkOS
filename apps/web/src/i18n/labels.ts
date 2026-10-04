@@ -36,3 +36,15 @@ export function scopeName(value: string, t: Translator): string {
 function humanize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
 }
+
+/**
+ * A span of minutes in the largest whole unit: "8 hours", not "480 minutes".
+ * Shared by the organization page and the session policy form, so the same
+ * timeout cannot read one way in the summary and another in the picker.
+ */
+export function minutesName(minutes: number, t: Translator): string {
+  if (minutes % 1440 === 0) return t.plural("unit.days", minutes / 1440);
+  if (minutes % 60 === 0) return t.plural("unit.hours", minutes / 60);
+
+  return t.plural("unit.minutes", minutes);
+}

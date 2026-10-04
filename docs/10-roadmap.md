@@ -258,9 +258,13 @@ last entry is deliberately last.
                         The person's own settings: Notifications, two-factor
                         (enrolment, recovery codes and the downloaded file),
                         Signed in, and API tokens.
-                        Next, one screen at a time: the organization's
-                        settings (Organization and its policies, Service
-                        accounts, SSO, Webhooks, Audit), then Roles, Fields,
+                        The organization's settings: Organization with its
+                        two-factor, session and archive policies, the audit
+                        log, Service accounts, single sign-on, and Webhooks
+                        (endpoints, deliveries, the signing-secret panel).
+                        Audit event names and webhook event keys are shown
+                        as the API writes them.
+                        Next, one screen at a time: Roles, Fields,
                         Workflows and Rules.
 ```
 

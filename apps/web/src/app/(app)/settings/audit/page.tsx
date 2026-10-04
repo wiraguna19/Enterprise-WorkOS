@@ -7,6 +7,8 @@ import { Panel } from "@/components/ui/Panel";
 import { AuditFilters } from "@/features/audit/AuditFilters";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 import { formatDate, formatDateTime } from "@/lib/format";
 
 /**
@@ -41,6 +43,9 @@ export default async function AuditLogPage({
 
   if (!me.permissions.includes("audit_log.view")) notFound();
 
+  const locale = asLocale(me.user.locale);
+  const t = translator(locale);
+
   const query = new URLSearchParams({ limit: "100" });
 
   if (params.event) query.set("event", params.event);
@@ -57,8 +62,8 @@ export default async function AuditLogPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Audit log"
-        description="Who did what, and when. Written by the system; nothing here can be edited."
+        title={t("settings.audit.label")}
+        description={t("audit.description")}
       />
 
       <PageBody>
@@ -66,31 +71,35 @@ export default async function AuditLogPage({
 
         {entries.length === 0 ? (
           <EmptyState
-            title="Nothing matches"
-            description="The log records sign-ins, invitations, role changes and exports. An empty result here means no such event in this organization — not that nothing was recorded."
+            title={t("audit.empty.title")}
+            description={t("audit.empty.body")}
           />
         ) : (
           <Panel
             id="entries"
-            title="Events"
+            title={t("audit.events")}
             description={
               // Where the record ENDS (ADR 0021). An empty result for last
               // March otherwise reads as "nothing happened in March", which is
               // indistinguishable from "March was dropped".
               retention?.covers_since
-                ? `${entries.length} shown. This log keeps ${retention.months} months — nothing before ${formatDate(retention.covers_since, me.user.timezone)} exists to be found, so an empty month is not an answer about what happened.`
-                : `${entries.length} shown, newest first`
+                ? t("audit.retention", {
+                    count: entries.length,
+                    months: retention.months ?? "",
+                    date: formatDate(retention.covers_since, me.user.timezone, locale),
+                  })
+                : t("audit.shown", { count: entries.length })
             }
             bleed
           >
-            <DataTable caption="Audit log entries">
+            <DataTable caption={t("audit.caption")}>
               <THead>
                 <Tr>
-                  <Th width="w-44">When</Th>
-                  <Th width="w-56">Event</Th>
-                  <Th>Actor</Th>
-                  <Th>Detail</Th>
-                  <Th align="right">Address</Th>
+                  <Th width="w-44">{t("audit.col.when")}</Th>
+                  <Th width="w-56">{t("audit.col.event")}</Th>
+                  <Th>{t("audit.col.actor")}</Th>
+                  <Th>{t("audit.col.detail")}</Th>
+                  <Th align="right">{t("sess.col.address")}</Th>
                 </Tr>
               </THead>
               <TBody>
@@ -98,7 +107,7 @@ export default async function AuditLogPage({
                   <Tr key={entry.id}>
                     <Td muted>
                       <span className="whitespace-nowrap tabular-nums">
-                        {formatDateTime(entry.occurred_at, me.user.timezone)}
+                        {formatDateTime(entry.occurred_at, me.user.timezone, locale)}
                       </span>
                     </Td>
                     <Td>
@@ -108,7 +117,7 @@ export default async function AuditLogPage({
                         resolving the name today would rewrite history every
                         time somebody changed theirs, and would say nothing at
                         all about an account since deleted. */}
-                    <Td muted>{entry.actor || "the system"}</Td>
+                    <Td muted>{entry.actor || t("audit.system")}</Td>
                     <Td muted>
                       {Object.keys(entry.metadata).length === 0 ? (
                         ""

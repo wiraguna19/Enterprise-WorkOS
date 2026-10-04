@@ -15,7 +15,8 @@ import {
   setEndpointActive,
   testEndpoint,
 } from "./webhook-actions";
-import { STATUS_WORDS, eventWords, type WebhookEndpoint } from "./webhooks";
+import { statusWords, eventWords, type WebhookEndpoint } from "./webhooks";
+import { useT } from "@/i18n/I18nProvider";
 
 /**
  * Where this organization's events may be sent (ADR 0048).
@@ -49,6 +50,7 @@ export function WebhookEditor({
   const [secret, setSecret] = useState<{ name: string; value: string } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, start] = useTransition();
+  const t = useT();
 
   function run(action: () => Promise<{ error: string | null }>, done?: string): void {
     start(async () => {
@@ -79,21 +81,24 @@ export function WebhookEditor({
 
       <Panel
         id="endpoints"
-        title="Endpoints"
+        title={t("hook.endpoints")}
         description={
           endpoints.length === 0
-            ? "None yet. An endpoint registered here can be chosen by an automation rule's “Send a webhook” action."
-            : `${endpoints.filter((endpoint) => endpoint.is_active).length} of ${endpoints.length} switched on.`
+            ? t("hook.endpoints.none")
+            : t("hook.endpoints.on", {
+                on: endpoints.filter((endpoint) => endpoint.is_active).length,
+                count: endpoints.length,
+              })
         }
         bleed
       >
         {endpoints.length > 0 && (
-          <DataTable caption="Webhook endpoints">
+          <DataTable caption={t("hook.endpoints.caption")}>
             <THead>
               <Tr>
-                <Th>Name</Th>
-                <Th>Used by</Th>
-                <Th align="right">Actions</Th>
+                <Th>{t("projects.col.name")}</Th>
+                <Th>{t("hook.col.usedBy")}</Th>
+                <Th align="right">{t("tok.col.actions")}</Th>
               </Tr>
             </THead>
             <TBody>
@@ -103,7 +108,7 @@ export function WebhookEditor({
                     <span className="font-medium">{endpoint.name}</span>
                     {!endpoint.is_active && (
                       <span className="ml-2">
-                        <Badge tone="neutral">switched off</Badge>
+                        <Badge tone="neutral">{t("hook.switchedOff")}</Badge>
                       </span>
                     )}
                     <span className="block break-all font-mono text-micro text-n-500">
@@ -117,12 +122,16 @@ export function WebhookEditor({
                     {/* Both ways something reaches it, because both are what
                         a switch-off or a delete would silence. */}
                     <span className="block">
-                      {endpoint.rules.length === 0 ? "No rules" : `Rules: ${endpoint.rules.join(", ")}`}
+                      {endpoint.rules.length === 0
+                        ? t("hook.noRules")
+                        : t("hook.rules", { rules: endpoint.rules.join(", ") })}
                     </span>
                     <span className="block">
                       {endpoint.events.length === 0
-                        ? "No subscriptions"
-                        : `Every: ${endpoint.events.map(eventWords).join(", ")}`}
+                        ? t("hook.noSubscriptions")
+                        : t("hook.every", {
+                            events: endpoint.events.map((event) => eventWords(event, t)).join(", "),
+                          })}
                     </span>
                   </Td>
                   <Td align="right">
@@ -139,14 +148,18 @@ export function WebhookEditor({
                             setNotice(
                               result.delivery === undefined
                                 ? null
-                                : `Test sent to ${endpoint.name}: ${STATUS_WORDS[result.delivery.status].toLowerCase()}${
-                                    result.delivery.last_error ? ` — ${result.delivery.last_error}` : "."
-                                  }`,
+                                : t("hook.testSent", {
+                                    name: endpoint.name,
+                                    status: statusWords(result.delivery.status, t).toLowerCase(),
+                                  }) +
+                                    (result.delivery.last_error
+                                      ? ` — ${result.delivery.last_error}`
+                                      : "."),
                             );
                           })
                         }
                       >
-                        Send a test
+                        {t("hook.sendTest")}
                       </Button>
 
                       {/* An anchor: it GOES to the same page, showing this
@@ -156,7 +169,7 @@ export function WebhookEditor({
                         aria-current={showingDeliveriesFor === endpoint.id ? "page" : undefined}
                         className="inline-flex items-center rounded-md border border-n-300 px-2 py-1 text-caption text-n-700 hover:bg-n-50"
                       >
-                        Deliveries
+                        {t("hook.deliveries")}
                       </Link>
 
                       <Button
@@ -165,7 +178,7 @@ export function WebhookEditor({
                         disabled={busy}
                         onClick={() => setEditing(editing === endpoint.id ? null : endpoint.id)}
                       >
-                        {editing === endpoint.id ? "Close" : "Edit"}
+                        {editing === endpoint.id ? t("hook.close") : t("hook.edit")}
                       </Button>
 
                       {endpoint.is_active ? (
@@ -173,18 +186,18 @@ export function WebhookEditor({
                           size="sm"
                           variant="destructive"
                           disabled={busy}
-                          onClick={() => run(() => setEndpointActive(endpoint.id, false), `${endpoint.name} is switched off.`)}
+                          onClick={() => run(() => setEndpointActive(endpoint.id, false), t("hook.isOff", { name: endpoint.name }))}
                         >
-                          Switch off
+                          {t("hook.switchOff")}
                         </Button>
                       ) : (
                         <Button
                           size="sm"
                           variant="affirmative"
                           disabled={busy}
-                          onClick={() => run(() => setEndpointActive(endpoint.id, true), `${endpoint.name} is switched on.`)}
+                          onClick={() => run(() => setEndpointActive(endpoint.id, true), t("hook.isOn", { name: endpoint.name }))}
                         >
-                          Switch on
+                          {t("hook.switchOn")}
                         </Button>
                       )}
 
@@ -205,13 +218,13 @@ export function WebhookEditor({
                           })
                         }
                       >
-                        New secret
+                        {t("hook.newSecret")}
                       </Button>
 
                       <DeleteEndpoint
                         endpoint={endpoint}
                         disabled={busy}
-                        onConfirm={() => run(() => deleteEndpoint(endpoint.id), `${endpoint.name} is deleted.`)}
+                        onConfirm={() => run(() => deleteEndpoint(endpoint.id), t("hook.isDeleted", { name: endpoint.name }))}
                       />
                     </span>
                   </Td>
@@ -228,13 +241,13 @@ export function WebhookEditor({
           <EndpointForm
             key={endpoint.id}
             id={`edit-${endpoint.id}`}
-            title={`Edit ${endpoint.name}`}
-            description="Changing the address keeps the secret. Rotating it is a separate control, so a receiver that moved does not also lose its key."
-            submitLabel="Save"
+            title={t("hook.editTitle", { name: endpoint.name })}
+            description={t("hook.edit.description")}
+            submitLabel={t("common.save")}
             initial={endpoint}
             subscribable={subscribable}
             busy={busy}
-            onSubmit={(input) => run(() => saveEndpoint(endpoint.id, input), `${input.name} is saved.`)}
+            onSubmit={(input) => run(() => saveEndpoint(endpoint.id, input), t("hook.isSaved", { name: input.name }))}
           />
         ))}
 
@@ -242,9 +255,9 @@ export function WebhookEditor({
         // Remounted after each registration, which is how it empties itself.
         key={`new-${endpoints.length}`}
         id="register"
-        title="Register an endpoint"
-        description="An https address outside this network. Private, loopback and cloud-metadata addresses are refused — here, and again before every send."
-        submitLabel="Register"
+        title={t("hook.register.title")}
+        description={t("hook.register.description")}
+        submitLabel={t("hook.register")}
         subscribable={subscribable}
         busy={busy}
         onSubmit={(input) =>
@@ -270,14 +283,30 @@ export function WebhookEditor({
  * in a toast that fades is a secret somebody has to rotate tomorrow.
  */
 function SecretOnce({ name, value, onDone }: { name: string; value: string; onDone: () => void }) {
+  const t = useT();
+
+  // Two pieces of the sentence are code. The translated sentence is cut at its
+  // placeholders, so each language keeps its own word order around them.
+  const parts = t("hook.secret.body").split(/\{(header|format)\}/);
+
   return (
-    <Panel id="secret" title={`Signing secret for ${name}`} tone="danger">
+    <Panel id="secret" title={t("hook.secret.title", { name })} tone="danger">
       <div className="space-y-3">
         <p className="text-body-sm text-n-700">
-          <strong>It is shown once.</strong> Put it in the receiver now: it verifies the{" "}
-          <code className="font-mono">X-WorkOS-Signature</code> header, which is{" "}
-          <code className="font-mono">t=&lt;time&gt;,v1=&lt;HMAC-SHA256 of “time.body”&gt;</code>. If
-          it is lost, make a new one.
+          <strong>{t("tok.shownOnce")}</strong>{" "}
+          {parts.map((part, index) =>
+            part === "header" ? (
+              <code key={index} className="font-mono">
+                X-WorkOS-Signature
+              </code>
+            ) : part === "format" ? (
+              <code key={index} className="font-mono">
+                t=&lt;time&gt;,v1=&lt;HMAC-SHA256 of “time.body”&gt;
+              </code>
+            ) : (
+              part
+            ),
+          )}
         </p>
 
         <code className="block overflow-x-auto break-all rounded-lg border border-n-300 bg-n-50 p-3 font-mono text-micro text-n-900">
@@ -286,10 +315,10 @@ function SecretOnce({ name, value, onDone }: { name: string; value: string; onDo
 
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(value)}>
-            Copy the secret
+            {t("hook.secret.copy")}
           </Button>
           <Button variant="ghost" size="sm" onClick={onDone}>
-            I have saved it
+            {t("tok.saved")}
           </Button>
         </div>
       </div>
@@ -313,13 +342,14 @@ function DeleteEndpoint({
   onConfirm: () => void;
 }) {
   const [armed, setArmed] = useState(false);
+  const t = useT();
 
   if (endpoint.rules.length > 0) {
     // Words, not a greyed-out button: a disabled control with no reason is a
     // dead end, and the reason here is the whole point.
     return (
       <span className="self-center text-caption text-n-500">
-        In use by rules — switch it off instead
+        {t("hook.inUse")}
       </span>
     );
   }
@@ -327,7 +357,7 @@ function DeleteEndpoint({
   if (!armed) {
     return (
       <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setArmed(true)}>
-        Delete
+        {t("hook.delete")}
       </Button>
     );
   }
@@ -343,10 +373,10 @@ function DeleteEndpoint({
           onConfirm();
         }}
       >
-        Delete {endpoint.name} and its delivery history
+        {t("hook.deleteConfirm", { name: endpoint.name })}
       </Button>
       <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setArmed(false)}>
-        Cancel
+        {t("common.cancel")}
       </Button>
     </span>
   );
@@ -374,6 +404,7 @@ function EndpointForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [url, setUrl] = useState(initial?.url ?? "");
   const [events, setEvents] = useState<string[]>(initial?.events ?? []);
+  const t = useT();
 
   const nameId = useId();
   const urlId = useId();
@@ -381,9 +412,9 @@ function EndpointForm({
   // Why the button is off, in the words of what is missing.
   const blocker =
     name.trim() === ""
-      ? "Give it a name — it is what a rule author picks from."
+      ? t("hook.blocker.name")
       : !url.trim().startsWith("https://")
-        ? "The address has to start with https://."
+        ? t("hook.blocker.https")
         : null;
 
   return (
@@ -399,7 +430,7 @@ function EndpointForm({
             disabled={busy || blocker !== null}
             onClick={() => onSubmit({ name: name.trim(), url: url.trim(), events })}
           >
-            {busy ? "Saving…" : submitLabel}
+            {busy ? t("common.saving") : submitLabel}
           </Button>
 
           {blocker !== null && (
@@ -411,18 +442,18 @@ function EndpointForm({
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id={nameId} label="Name" hint="What the rule builder shows. Unique here.">
+        <Field id={nameId} label={t("projects.col.name")} hint={t("hook.name.hint")}>
           <input
             id={nameId}
             value={name}
             maxLength={80}
             onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Ops channel"
+            placeholder={t("hook.name.placeholder")}
             className={INPUT}
           />
         </Field>
 
-        <Field id={urlId} label="Address" hint="https only. Redirects are not followed.">
+        <Field id={urlId} label={t("hook.address")} hint={t("hook.address.hint")}>
           <input
             id={urlId}
             value={url}
@@ -436,10 +467,9 @@ function EndpointForm({
 
       {subscribable.length > 0 && (
         <fieldset className="mt-4 space-y-1.5">
-          <legend className="text-caption font-medium text-n-700">Send every time</legend>
+          <legend className="text-caption font-medium text-n-700">{t("hook.every.legend")}</legend>
           <p className="text-caption text-n-500">
-            Without a rule: each of these is sent to this address whenever it happens. Rules can
-            still send here too, for the cases that need conditions.
+            {t("hook.every.body")}
           </p>
           {subscribable.map((event) => (
             <label key={event} className="flex items-center gap-2 text-body-sm text-n-900">
@@ -453,7 +483,7 @@ function EndpointForm({
                 }
                 className="size-4 accent-a-500"
               />
-              {eventWords(event)}
+              {eventWords(event, t)}
               <code className="font-mono text-micro text-n-500">{event}</code>
             </label>
           ))}

@@ -10,6 +10,7 @@ import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { formatDateTime } from "@/lib/format";
 import { deleteSsoConnection, saveSsoConnection, setSsoEnforced } from "./sso-connection-actions";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 
 export type SsoConnection = {
   id: string;
@@ -45,33 +46,40 @@ export type SsoSettings = {
  * Every write may come back asking for the password (ADR 0034); the box
  * appears under the control that was refused and runs the act again.
  */
-export function SsoConnectionPanel({ settings }: { settings: SsoSettings }) {
+export function SsoConnectionPanel({
+  settings,
+  timeZone,
+}: {
+  settings: SsoSettings;
+  timeZone: string;
+}) {
   const { connection, service_provider: sp } = settings;
+  const t = useT();
 
   return (
     <>
       <Panel
         id="sso-service-provider"
-        title="For your identity provider"
-        description="Give these to whoever administers your IdP (Okta, Entra ID, Google Workspace…), or let it import the metadata URL."
+        title={t("sso.sp.title")}
+        description={t("sso.sp.description")}
       >
         <KeyValue columns={2}>
-          <KeyValueItem label="Entity ID (audience)">
+          <KeyValueItem label={t("sso.sp.entityId")}>
             <code className="font-mono text-caption">{sp.entity_id}</code>
           </KeyValueItem>
-          <KeyValueItem label="ACS URL (reply URL)">
+          <KeyValueItem label={t("sso.sp.acs")}>
             <code className="font-mono text-caption">{sp.acs_url}</code>
           </KeyValueItem>
-          <KeyValueItem label="Metadata URL">
+          <KeyValueItem label={t("sso.sp.metadata")}>
             <code className="font-mono text-caption">{sp.metadata_url}</code>
           </KeyValueItem>
-          <KeyValueItem label="Name ID">
-            <span>The person&apos;s email address</span>
+          <KeyValueItem label={t("sso.sp.nameId")}>
+            <span>{t("sso.sp.nameId.value")}</span>
           </KeyValueItem>
         </KeyValue>
       </Panel>
 
-      <ConnectionForm connection={connection} />
+      <ConnectionForm connection={connection} timeZone={timeZone} />
 
       {connection !== null && (
         <EnforcementPanel
@@ -84,7 +92,13 @@ export function SsoConnectionPanel({ settings }: { settings: SsoSettings }) {
   );
 }
 
-function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
+function ConnectionForm({
+  connection,
+  timeZone,
+}: {
+  connection: SsoConnection | null;
+  timeZone: string;
+}) {
   const [entityId, setEntityId] = useState(connection?.idp_entity_id ?? "");
   const [ssoUrl, setSsoUrl] = useState(connection?.idp_sso_url ?? "");
   const [certificate, setCertificate] = useState(connection?.idp_certificate ?? "");
@@ -93,6 +107,8 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
   const [needsPassword, setNeedsPassword] = useState<"save" | "delete" | null>(null);
   const [busy, start] = useTransition();
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
 
   const save = () =>
     start(async () => {
@@ -109,7 +125,7 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
       setError(result.error);
 
       if (result.error === null && !result.needsPassword) {
-        toast({ message: connection === null ? "Identity provider connected." : "Identity provider saved." });
+        toast({ message: connection === null ? t("sso.toast.connected") : t("sso.toast.saved") });
       }
     });
 
@@ -121,22 +137,22 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
       setError(result.error);
 
       if (result.error === null && !result.needsPassword) {
-        toast({ tone: "removed", message: "Single sign-on removed. Everybody signs in with a password again." });
+        toast({ tone: "removed", message: t("sso.toast.removed") });
       }
     });
 
   return (
     <Panel
       id="sso-identity-provider"
-      title="Identity provider"
-      description="Copied from your IdP's SAML settings or metadata."
+      title={t("sso.idp.title")}
+      description={t("sso.idp.description")}
       actions={
         connection === null ? (
-          <Badge tone="neutral" icon="minus">not set up</Badge>
+          <Badge tone="neutral" icon="minus">{t("sso.badge.notSetUp")}</Badge>
         ) : connection.last_succeeded_at === null ? (
-          <Badge tone="warning">never used</Badge>
+          <Badge tone="warning">{t("sso.badge.neverUsed")}</Badge>
         ) : (
-          <Badge tone="success" icon="check">working</Badge>
+          <Badge tone="success" icon="check">{t("sso.badge.working")}</Badge>
         )
       }
     >
@@ -147,7 +163,7 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
       )}
 
       <div className="max-w-prose space-y-3">
-        <Field id="sso-entity-id" label="IdP entity ID (issuer)">
+        <Field id="sso-entity-id" label={t("sso.idp.entityId")}>
           <input
             id="sso-entity-id"
             value={entityId}
@@ -157,7 +173,7 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
           />
         </Field>
 
-        <Field id="sso-url" label="Sign-in URL" hint="Where people are sent to sign in. HTTPS only.">
+        <Field id="sso-url" label={t("sso.idp.url")} hint={t("sso.idp.url.hint")}>
           <input
             id="sso-url"
             value={ssoUrl}
@@ -169,8 +185,8 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
 
         <Field
           id="sso-certificate"
-          label="Signing certificate"
-          hint="The whole certificate, including the BEGIN and END lines. It is public — the IdP's private key never leaves the IdP."
+          label={t("sso.idp.certificate")}
+          hint={t("sso.idp.certificate.hint")}
         >
           <textarea
             id="sso-certificate"
@@ -185,8 +201,8 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
 
         <Field
           id="sso-domains"
-          label="Email domains"
-          hint="One per line. Only these addresses can sign in through this IdP, and a domain can belong to one organization only."
+          label={t("sso.idp.domains")}
+          hint={t("sso.idp.domains.hint")}
         >
           <textarea
             id="sso-domains"
@@ -201,13 +217,15 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
 
         {connection?.last_succeeded_at && (
           <p className="text-caption text-n-500">
-            Last signed somebody in {formatDateTime(connection.last_succeeded_at)}.
+            {t("sso.lastSucceeded", {
+              when: formatDateTime(connection.last_succeeded_at, timeZone, locale),
+            })}
           </p>
         )}
 
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" size="sm" disabled={busy} onClick={save}>
-            {busy ? "Saving…" : connection === null ? "Connect" : "Save"}
+            {busy ? t("common.saving") : connection === null ? t("sso.connect") : t("common.save")}
           </Button>
 
           {connection !== null && (
@@ -215,17 +233,18 @@ function ConnectionForm({ connection }: { connection: SsoConnection | null }) {
               variant="destructive"
               size="sm"
               disabled={busy || connection.enforced}
-              title={connection.enforced ? "Stop requiring single sign-on first." : undefined}
+              title={connection.enforced ? t("sso.removeFirst") : undefined}
               onClick={remove}
             >
-              Remove single sign-on
+              {t("sso.remove")}
             </Button>
           )}
         </div>
 
         {needsPassword !== null && (
           <ConfirmPassword
-            action={needsPassword === "save" ? "change your identity provider" : "remove single sign-on"}
+            action={needsPassword === "save" ? t("sso.confirm.save") : t("sso.confirm.remove")}
+            locale={locale}
             onConfirmed={() => {
               const again = needsPassword;
 
@@ -254,6 +273,8 @@ function EnforcementPanel({
   const [needsPassword, setNeedsPassword] = useState(false);
   const [busy, start] = useTransition();
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
 
   const untested = connection.last_succeeded_at === null;
 
@@ -268,8 +289,8 @@ function EnforcementPanel({
         toast({
           tone: connection.enforced ? "removed" : "done",
           message: connection.enforced
-            ? "Passwords work here again."
-            : `Single sign-on is required. ${result.ended ?? 0} password ${result.ended === 1 ? "session" : "sessions"} ended.`,
+            ? t("sso.toast.passwordsBack")
+            : t.plural("sso.toast.required", result.ended ?? 0),
         });
       }
     });
@@ -277,13 +298,13 @@ function EnforcementPanel({
   return (
     <Panel
       id="sso-enforcement"
-      title="Require single sign-on"
-      description="Whether a password still gets anybody into this organization."
+      title={t("sso.enforce.title")}
+      description={t("sso.enforce.description")}
       actions={
         connection.enforced ? (
-          <Badge tone="success" icon="check">required</Badge>
+          <Badge tone="success" icon="check">{t("mfapol.badge.required")}</Badge>
         ) : (
-          <Badge tone="neutral" icon="minus">optional</Badge>
+          <Badge tone="neutral" icon="minus">{t("mfapol.badge.optional")}</Badge>
         )
       }
     >
@@ -296,21 +317,19 @@ function EnforcementPanel({
       <div className="max-w-prose space-y-3">
         <p className="text-body-sm text-n-700">
           {connection.enforced
-            ? "People sign in through your identity provider. Passwords are refused — except for people who administer single sign-on, so a broken IdP never locks out the ones who can fix it. Every such sign-in is in the audit log."
-            : "People may sign in either way. Requiring it refuses passwords here, and ends every session a password opened."}
+            ? t("sso.enforce.body.on")
+            : t("sso.enforce.body.off")}
         </p>
 
         {!connection.enforced && untested && (
           <p className="rounded-md border border-s-active/30 bg-s-active/10 px-3 py-2 text-body-sm text-s-active">
-            Nobody has signed in through this connection yet. Sign in with single sign-on once —
-            in a private window, so you keep this session — before requiring it of everybody.
+            {t("sso.enforce.untested")}
           </p>
         )}
 
         {!connection.enforced && !untested && passwordSessions > 0 && (
           <p className="rounded-md border border-s-active/30 bg-s-active/10 px-3 py-2 text-body-sm text-s-active">
-            {passwordSessions} {passwordSessions === 1 ? "session was" : "sessions were"} opened
-            with a password and will end. Yours stays.
+            {t.plural("sso.enforce.sessions", passwordSessions)}
           </p>
         )}
 
@@ -324,12 +343,13 @@ function EnforcementPanel({
           disabled={busy || (!connection.enforced && untested)}
           onClick={toggle}
         >
-          {busy ? "Saving…" : connection.enforced ? "Stop requiring it" : "Require it"}
+          {busy ? t("common.saving") : connection.enforced ? t("mfapol.stop") : t("mfapol.require")}
         </Button>
 
         {needsPassword && (
           <ConfirmPassword
-            action={connection.enforced ? "let passwords in again" : "require single sign-on of everybody here"}
+            action={connection.enforced ? t("sso.confirm.off") : t("sso.confirm.on")}
+            locale={locale}
             onConfirmed={() => {
               setNeedsPassword(false);
               toggle();
@@ -357,13 +377,12 @@ function LockedOut({
   enforced: boolean;
 }) {
   const shown = people.slice(0, 8);
+  const t = useT();
 
   return (
     <div className="rounded-md border border-s-danger/30 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
       <p>
-        {people.length} {people.length === 1 ? "person's address is" : "people's addresses are"}{" "}
-        outside every domain above, so {enforced ? "they cannot sign in at all right now" : "requiring it would leave them unable to sign in"}
-        {" "}— the identity provider is never asked about them, and passwords are refused:
+        {t.plural(enforced ? "sso.locked.enforced" : "sso.locked.would", people.length)}
       </p>
       <ul className="mt-1 list-disc pl-5">
         {shown.map((person) => (
@@ -372,8 +391,10 @@ function LockedOut({
           </li>
         ))}
       </ul>
-      {people.length > shown.length && <p className="mt-1">…and {people.length - shown.length} more.</p>}
-      <p className="mt-1">Add their domain above, or change their address, first.</p>
+      {people.length > shown.length && (
+        <p className="mt-1">{t("sso.locked.more", { count: people.length - shown.length })}</p>
+      )}
+      <p className="mt-1">{t("sso.locked.fix")}</p>
     </div>
   );
 }

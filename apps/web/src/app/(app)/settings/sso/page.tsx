@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SsoConnectionPanel, type SsoSettings } from "@/features/auth/SsoConnectionPanel";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
 
 /**
  * Single sign-on for this organization (ADR 0052).
@@ -17,17 +19,19 @@ export default async function SingleSignOnSettingsPage() {
 
   if (!me.permissions.includes("sso.manage")) notFound();
 
+  const t = translator(asLocale(me.user.locale));
+
   const { data } = await api<SsoSettings>("/sso-connection");
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Single sign-on"
-        description="Let your identity provider vouch for the people in this organization — and, once it works, require it."
+        title={t("settings.sso.label")}
+        description={t("sso.page.description")}
       />
 
       <PageBody>
-        <SsoConnectionPanel settings={data} />
+        <SsoConnectionPanel settings={data} timeZone={me.user.timezone} />
       </PageBody>
     </div>
   );

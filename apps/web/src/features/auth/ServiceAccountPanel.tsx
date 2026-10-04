@@ -13,6 +13,7 @@ import {
   issueServiceToken,
   revokeServiceToken,
 } from "./service-account-actions";
+import { useT } from "@/i18n/I18nProvider";
 
 export type ServiceAccountRow = {
   id: string;
@@ -45,6 +46,7 @@ export function ServiceAccountPanel({
   const [error, setError] = useState<string | null>(null);
   const [issued, setIssued] = useState<{ account: string; value: string } | null>(null);
   const [busy, start] = useTransition();
+  const t = useT();
 
   const run = (action: () => Promise<{ error: string | null }>) =>
     start(async () => setError((await action()).error));
@@ -58,11 +60,10 @@ export function ServiceAccountPanel({
       )}
 
       {issued && (
-        <Panel id="issued" title={`Token for ${issued.account}`} tone="danger">
+        <Panel id="issued" title={t("tok.issued", { name: issued.account })} tone="danger">
           <div className="space-y-3">
             <p className="text-body-sm text-n-700">
-              <strong>It is shown once.</strong> Only a digest of it is kept, so if it is lost, revoke
-              it and issue another.
+              <strong>{t("tok.shownOnce")}</strong> {t("svc.issued.tail")}
             </p>
             <code className="block overflow-x-auto break-all rounded-lg border border-n-300 bg-n-50 p-3 font-mono text-micro text-n-900">
               {issued.value}
@@ -72,10 +73,10 @@ export function ServiceAccountPanel({
             </code>
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(issued.value)}>
-                Copy the token
+                {t("tok.copy")}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setIssued(null)}>
-                I have saved it
+                {t("tok.saved")}
               </Button>
             </div>
           </div>
@@ -84,11 +85,11 @@ export function ServiceAccountPanel({
 
       <Panel
         id="accounts"
-        title="Service accounts"
+        title={t("settings.serviceAccounts.label")}
         description={
           accounts.length === 0
-            ? "None yet. A service account is an integration that acts in its own name, with a role you choose — and keeps working when the person who set it up leaves."
-            : `${accounts.filter((account) => account.active).length} active. The activity log names each one as the actor of what it does.`
+            ? t("svc.none")
+            : t("svc.active", { count: accounts.filter((account) => account.active).length })
         }
         bleed
       >
@@ -138,6 +139,7 @@ function AccountRow({
   const [access, setAccess] = useState<TokenAccess>("read");
   const [days, setDays] = useState(90);
   const [confirming, setConfirming] = useState(false);
+  const t = useT();
   const nameId = useId();
   const accessId = useId();
   const daysId = useId();
@@ -148,41 +150,41 @@ function AccountRow({
         <div>
           <p className="font-medium text-n-900">
             {account.name}{" "}
-            {!account.active && <Badge tone="neutral">deactivated</Badge>}
+            {!account.active && <Badge tone="neutral">{t("svc.deactivated")}</Badge>}
           </p>
           <p className="text-caption text-n-500">
-            {account.role === null ? "No role" : `Role: ${account.role.name}`} ·{" "}
-            {account.tokens.length === 1 ? "1 token" : `${account.tokens.length} tokens`}
+            {account.role === null ? t("svc.noRole") : t("svc.role", { role: account.role.name })} ·{" "}
+            {t.plural("svc.tokens", account.tokens.length)}
           </p>
         </div>
 
         {account.active &&
           (confirming ? (
             <span className="flex items-center gap-1.5">
-              <span className="text-caption text-n-700">Its tokens stop working at once.</span>
+              <span className="text-caption text-n-700">{t("svc.deactivate.warning")}</span>
               <Button variant="destructive" size="sm" disabled={busy} onClick={onDeactivate}>
-                Deactivate
+                {t("svc.deactivate")}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
-                Keep
+                {t("svc.keep")}
               </Button>
             </span>
           ) : (
             <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
-              Deactivate…
+              {t("svc.deactivateArm")}
             </Button>
           ))}
       </div>
 
       {account.tokens.length > 0 && (
-        <DataTable caption={`Tokens of ${account.name}`}>
+        <DataTable caption={t("svc.tokensOf", { name: account.name })}>
           <THead>
             <Tr>
-              <Th>Token</Th>
-              <Th>Access</Th>
-              <Th>Last used</Th>
-              <Th>Expires</Th>
-              <Th align="right">Actions</Th>
+              <Th>{t("svc.col.token")}</Th>
+              <Th>{t("tok.col.access")}</Th>
+              <Th>{t("sess.col.lastUsed")}</Th>
+              <Th>{t("tok.col.expires")}</Th>
+              <Th align="right">{t("tok.col.actions")}</Th>
             </Tr>
           </THead>
           <TBody>
@@ -191,14 +193,14 @@ function AccountRow({
                 <Td>{token.name}</Td>
                 <Td>
                   <Badge tone={token.access === "read" ? "neutral" : "warning"}>
-                    {token.access === "read" ? "read only" : "read and write"}
+                    {token.access === "read" ? t("tok.readOnly") : t("tok.readWrite")}
                   </Badge>
                 </Td>
                 <Td muted>{token.lastUsed}</Td>
                 <Td muted>{token.expires}</Td>
                 <Td align="right">
                   <Button variant="destructive" size="sm" disabled={busy} onClick={() => onRevoke(token.id)}>
-                    Revoke
+                    {t("tok.revoke")}
                   </Button>
                 </Td>
               </Tr>
@@ -209,7 +211,7 @@ function AccountRow({
 
       {account.active && (
         <form
-          aria-label={`Issue a token for ${account.name}`}
+          aria-label={t("svc.issueFor", { name: account.name })}
           className="flex flex-wrap items-end gap-2"
           onSubmit={(event) => {
             event.preventDefault();
@@ -217,41 +219,41 @@ function AccountRow({
             setTokenName("");
           }}
         >
-          <Field id={nameId} label="Token name" className="min-w-40 flex-1">
+          <Field id={nameId} label={t("svc.tokenName")} className="min-w-40 flex-1">
             <input
               id={nameId}
               value={tokenName}
               maxLength={80}
               onChange={(event) => setTokenName(event.target.value)}
-              placeholder="e.g. Nightly sync"
+              placeholder={t("svc.tokenName.placeholder")}
               className={INPUT}
             />
           </Field>
-          <Field id={accessId} label="Access">
+          <Field id={accessId} label={t("tok.col.access")}>
             <select
               id={accessId}
               value={access}
               onChange={(event) => setAccess(event.target.value as TokenAccess)}
               className={INPUT}
             >
-              <option value="read">Read only</option>
-              <option value="read_write">Read and write</option>
+              <option value="read">{t("tok.access.read")}</option>
+              <option value="read_write">{t("tok.access.write")}</option>
             </select>
           </Field>
-          <Field id={daysId} label="Expires after">
+          <Field id={daysId} label={t("tok.expiresAfter")}>
             <select
               id={daysId}
               value={days}
               onChange={(event) => setDays(Number(event.target.value))}
               className={INPUT}
             >
-              <option value={30}>30 days</option>
-              <option value={90}>90 days</option>
-              <option value={365}>A year</option>
+              <option value={30}>{t("tok.days", { count: 30 })}</option>
+              <option value={90}>{t("tok.days", { count: 90 })}</option>
+              <option value={365}>{t("svc.aYear")}</option>
             </select>
           </Field>
           <Button type="submit" variant="affirmative" size="sm" disabled={busy || tokenName.trim() === ""}>
-            Issue token
+            {t("svc.issue")}
           </Button>
         </form>
       )}
@@ -270,14 +272,15 @@ function NewAccount({
 }) {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
+  const t = useT();
   const nameId = useId();
   const roleId = useId();
 
   return (
     <Panel
       id="new-service-account"
-      title="Add a service account"
-      description="Give it the narrowest role that does the job. It cannot be an administrator, cannot sign in, and cannot be given work to hold."
+      title={t("svc.add.title")}
+      description={t("svc.add.description")}
     >
       <form
         className="flex flex-wrap items-end gap-2"
@@ -287,19 +290,24 @@ function NewAccount({
           setName("");
         }}
       >
-        <Field id={nameId} label="Name" hint="What the activity log will show it as." className="min-w-48 flex-1">
+        <Field
+          id={nameId}
+          label={t("projects.col.name")}
+          hint={t("svc.name.hint")}
+          className="min-w-48 flex-1"
+        >
           <input
             id={nameId}
             value={name}
             maxLength={160}
             onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Warehouse integration"
+            placeholder={t("svc.name.placeholder")}
             className={INPUT}
           />
         </Field>
-        <Field id={roleId} label="Role">
+        <Field id={roleId} label={t("members.col.role")}>
           <select id={roleId} value={role} onChange={(event) => setRole(event.target.value)} className={INPUT}>
-            <option value="">Choose a role…</option>
+            <option value="">{t("svc.chooseRole")}</option>
             {roles.map((option) => (
               <option key={option.key} value={option.key}>
                 {option.name}
@@ -308,7 +316,7 @@ function NewAccount({
           </select>
         </Field>
         <Button type="submit" variant="primary" size="sm" disabled={busy || name.trim().length < 2 || role === ""}>
-          Add service account
+          {t("svc.add")}
         </Button>
       </form>
     </Panel>

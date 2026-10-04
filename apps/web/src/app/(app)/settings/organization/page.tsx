@@ -8,6 +8,9 @@ import { MfaPolicyForm } from "@/features/organization/MfaPolicyForm";
 import { SessionPolicyForm } from "@/features/organization/SessionPolicyForm";
 import { api } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { asLocale } from "@/i18n/config";
+import { translator } from "@/i18n/translate";
+import { minutesName } from "@/i18n/labels";
 
 /**
  * The organization itself, and the one policy it can set (ADR 0028).
@@ -40,27 +43,29 @@ export default async function OrganizationSettingsPage() {
 
   if (!me.permissions.includes("organization.view")) notFound();
 
+  const t = translator(asLocale(me.user.locale));
+
   const { data } = await api<Settings>("/organization/settings");
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Organization"
-        description="What this organization is, and how long it lets people stay signed in."
+        title={t("settings.organization.label")}
+        description={t("org.description")}
       />
 
       <PageBody>
-        <Panel id="profile" title="Profile" description="Read-only for now — nothing in the product changes a name or a slug yet.">
+        <Panel id="profile" title={t("org.profile")} description={t("org.profile.description")}>
           <KeyValue columns={3}>
-            <KeyValueItem label="Name">{data.name}</KeyValueItem>
-            <KeyValueItem label="Slug">{data.slug}</KeyValueItem>
-            <KeyValueItem label="Sessions last">
-              {data.session_lifetime_days} {data.session_lifetime_days === 1 ? "day" : "days"}
+            <KeyValueItem label={t("projects.col.name")}>{data.name}</KeyValueItem>
+            <KeyValueItem label={t("org.slug")}>{data.slug}</KeyValueItem>
+            <KeyValueItem label={t("org.sessionsLast")}>
+              {t.plural("unit.days", data.session_lifetime_days)}
             </KeyValueItem>
-            <KeyValueItem label="Idle timeout">
+            <KeyValueItem label={t("org.idleTimeout")}>
               {data.idle_timeout_minutes === null
-                ? "None"
-                : describeIdle(data.idle_timeout_minutes)}
+                ? t("org.none")
+                : minutesName(data.idle_timeout_minutes, t)}
             </KeyValueItem>
           </KeyValue>
         </Panel>
@@ -84,21 +89,4 @@ export default async function OrganizationSettingsPage() {
       </PageBody>
     </div>
   );
-}
-
-/** Minutes are what the API stores; hours and days are what people say. */
-function describeIdle(minutes: number): string {
-  if (minutes % 1440 === 0) {
-    const days = minutes / 1440;
-
-    return `${days} ${days === 1 ? "day" : "days"}`;
-  }
-
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60;
-
-    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-  }
-
-  return `${minutes} minutes`;
 }
