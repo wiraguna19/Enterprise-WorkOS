@@ -115,7 +115,7 @@ final class SingleSignOnRefused extends DomainException
     public static function sessionBound(string $what): self
     {
         return new self(
-            "You signed in through your organization's identity provider, which can only vouch for you here. Sign in with your password to {$what}.",
+            __("You signed in through your organization's identity provider, which can only vouch for you here. Sign in with your password to :what.", ['what' => __($what)]),
             'auth.sso_session_bound',
             403,
         );
@@ -150,7 +150,7 @@ final class SingleSignOnRefused extends DomainException
     public static function domainTaken(string $domain): self
     {
         return new self(
-            "{$domain} already signs in through another organization's identity provider.",
+            __(":domain already signs in through another organization's identity provider.", ['domain' => $domain]),
             'sso.domain_taken',
             409,
             ['domain' => $domain],
@@ -160,7 +160,7 @@ final class SingleSignOnRefused extends DomainException
     public static function invalidDomain(string $domain): self
     {
         return new self(
-            "\"{$domain}\" is not a domain. Use the part of an address after the @, like acme.com.",
+            __('":domain" is not a domain. Use the part of an address after the @, like acme.com.', ['domain' => $domain]),
             'sso.invalid_domain',
             422,
             ['domain' => $domain],

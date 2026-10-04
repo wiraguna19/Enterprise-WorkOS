@@ -43,7 +43,7 @@ final class WorkflowGraphEditor
 
             if ($this->states($workflow)->where('key', $key)->exists()) {
                 throw new GraphEditRefused(
-                    "This workflow already has a state keyed `{$key}`.",
+                    __('This workflow already has a state keyed `:key`.', ['key' => $key]),
                     ['refusal' => 'duplicate_key', 'key' => $key],
                 );
             }
@@ -137,7 +137,7 @@ final class WorkflowGraphEditor
 
             if ($holding > 0) {
                 throw new GraphEditRefused(
-                    "{$holding} work items are in this state. Move them first.",
+                    __(':count work items are in this state. Move them first.', ['count' => $holding]),
                     ['refusal' => 'state_holds_work', 'work_items' => $holding],
                 );
             }
@@ -160,7 +160,7 @@ final class WorkflowGraphEditor
 
             if ($edges > 0) {
                 throw new GraphEditRefused(
-                    "{$edges} moves lead into or out of this state. Remove them first.",
+                    __(':count moves lead into or out of this state. Remove them first.', ['count' => $edges]),
                     ['refusal' => 'state_has_transitions', 'transitions' => $edges],
                 );
             }
@@ -256,7 +256,7 @@ final class WorkflowGraphEditor
 
                 if ($stranded > 0 && $remaining === 0) {
                     throw new GraphEditRefused(
-                        "This is the last move out of a state holding {$stranded} work items. Removing it would leave them with nowhere to go.",
+                        __('This is the last move out of a state holding :count work items. Removing it would leave them with nowhere to go.', ['count' => $stranded]),
                         ['refusal' => 'would_strand_work', 'work_items' => $stranded],
                     );
                 }

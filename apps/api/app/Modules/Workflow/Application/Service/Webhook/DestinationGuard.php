@@ -48,19 +48,19 @@ final class DestinationGuard
         $parts = parse_url($url);
 
         if ($parts === false || ! isset($parts['host'])) {
-            throw WebhookRefused::destinationNotAllowed('it is not a URL.');
+            throw WebhookRefused::destinationNotAllowed(__('it is not a URL.'));
         }
 
         if (strtolower($parts['scheme'] ?? '') !== 'https') {
             // The body is signed, not secret — but it carries this
             // organization's work, and sending it in the clear is the one
             // configuration nobody should be able to choose by accident.
-            throw WebhookRefused::destinationNotAllowed('only https addresses are accepted.');
+            throw WebhookRefused::destinationNotAllowed(__('only https addresses are accepted.'));
         }
 
         if (isset($parts['user']) || isset($parts['pass'])) {
             throw WebhookRefused::destinationNotAllowed(
-                'credentials in the address would be stored and shown in plain text. Put them in the receiver instead.',
+                __('credentials in the address would be stored and shown in plain text. Put them in the receiver instead.'),
             );
         }
 
@@ -76,7 +76,7 @@ final class DestinationGuard
         foreach ($addresses as $ip) {
             if (! $this->isPublic($ip)) {
                 throw WebhookRefused::destinationNotAllowed(
-                    "{$host} resolves to {$ip}, which is a private or reserved address.",
+                    __(':host resolves to :ip, which is a private or reserved address.', ['host' => $host, 'ip' => $ip]),
                 );
             }
         }

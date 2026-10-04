@@ -60,7 +60,7 @@ final class SearchRequest extends FormRequest
         $unknown = array_diff($requested, self::TYPES);
 
         if ($unknown !== []) {
-            abort(422, 'Unknown search type: '.implode(', ', $unknown).'.');
+            abort(422, __('Unknown search type: :types.', ['types' => implode(', ', $unknown)]));
         }
 
         return $requested;

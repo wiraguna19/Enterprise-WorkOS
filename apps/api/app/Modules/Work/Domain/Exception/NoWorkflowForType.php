@@ -23,7 +23,7 @@ final class NoWorkflowForType extends DomainException
         $label = ucfirst(str_replace('_', ' ', $type));
 
         return new self(
-            "{$label} work cannot be created here yet: no active workflow handles it.",
+            __(':type work cannot be created here yet: no active workflow handles it.', ['type' => $label]),
             ['type' => $type],
         );
     }

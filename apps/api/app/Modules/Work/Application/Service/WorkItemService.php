@@ -706,7 +706,7 @@ final class WorkItemService
 
             if ($depth >= self::MAX_DEPTH) {
                 throw new HierarchyTooDeep(
-                    'Work items can be nested at most '.self::MAX_DEPTH.' levels deep.',
+                    __('Work items can be nested at most :max levels deep.', ['max' => self::MAX_DEPTH]),
                     ['depth' => $depth],
                 );
             }

@@ -42,7 +42,7 @@ final class DepartmentService
 
             if ($depth > self::MAX_DEPTH) {
                 throw new DepartmentTooDeep(
-                    'Department nesting is limited to '.self::MAX_DEPTH.' levels.',
+                    __('Department nesting is limited to :max levels.', ['max' => self::MAX_DEPTH]),
                     ['attempted_depth' => $depth],
                 );
             }
@@ -160,7 +160,7 @@ final class DepartmentService
 
             if ($deepest + $shift > self::MAX_DEPTH) {
                 throw new DepartmentTooDeep(
-                    'This move would push descendants past the '.self::MAX_DEPTH.'-level limit.',
+                    __('This move would push descendants past the :max-level limit.', ['max' => self::MAX_DEPTH]),
                     ['resulting_depth' => $deepest + $shift],
                 );
             }

@@ -107,7 +107,7 @@ final class RoleBuilder
 
             if (RoleModel::query()->where('key', $key)->exists()) {
                 throw new RoleChangeRefused(
-                    "This organization already has a role keyed `{$key}`.",
+                    __('This organization already has a role keyed `:key`.', ['key' => $key]),
                     ['refusal' => 'duplicate_key', 'role' => $key],
                 );
             }
@@ -196,7 +196,7 @@ final class RoleBuilder
                 // what those people can do — the kind of change that is noticed
                 // a week later as "I used to be able to do this".
                 throw new RoleChangeRefused(
-                    "{$held} people hold this role. Take it off them first.",
+                    __(':count people hold this role. Take it off them first.', ['count' => $held]),
                     ['refusal' => 'role_in_use', 'held_by' => $held],
                 );
             }
@@ -233,7 +233,7 @@ final class RoleBuilder
 
         if ($beyond !== []) {
             throw new RoleChangeRefused(
-                'A role cannot contain permissions you do not hold yourself: '.implode(', ', $beyond),
+                __('A role cannot contain permissions you do not hold yourself: :permissions', ['permissions' => implode(', ', $beyond)]),
                 ['refusal' => 'beyond_your_own_authority', 'permissions' => $beyond],
             );
         }
@@ -243,7 +243,7 @@ final class RoleBuilder
     {
         if ($role->is_system) {
             throw new RoleChangeRefused(
-                "`{$role->key}` is one of the roles this product ships with and cannot be {$verb}.",
+                __('`:role` is one of the roles this product ships with and cannot be :verb.', ['role' => $role->key, 'verb' => __($verb)]),
                 ['refusal' => 'system_role', 'role' => $role->key],
             );
         }
@@ -260,7 +260,7 @@ final class RoleBuilder
             // Named, because the alternative is a role that silently contains
             // less than the form showed.
             throw new RoleChangeRefused(
-                'This build has no such permission: '.implode(', ', $unknown),
+                __('This build has no such permission: :permissions', ['permissions' => implode(', ', $unknown)]),
                 ['refusal' => 'unknown_permission', 'permissions' => $unknown],
             );
         }

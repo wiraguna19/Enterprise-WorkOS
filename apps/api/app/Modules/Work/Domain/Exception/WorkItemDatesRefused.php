@@ -26,7 +26,7 @@ final class WorkItemDatesRefused extends DomainException
     public static function dueBeforeStart(string $reference, string $start, string $due): self
     {
         return new self(
-            "{$reference} starts on {$start}, so it cannot be due on {$due}. Move the start date first.",
+            __(':reference starts on :start, so it cannot be due on :due. Move the start date first.', ['reference' => $reference, 'start' => $start, 'due' => $due]),
             ['reference' => $reference, 'start_date' => $start, 'due_at' => $due],
         );
     }

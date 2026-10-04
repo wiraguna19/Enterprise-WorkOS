@@ -97,7 +97,7 @@ final class ReportController extends ApiController
             // Named, and not silently downgraded. An .xlsx that is really a CSV
             // opens, looks right, and lies about what it is.
             throw new UnsupportedExportFormat(
-                "Exports can be {$this->supported()}; {$format} is not a format this can write.",
+                __('Exports can be :formats; :format is not a format this can write.', ['formats' => $this->supported(), 'format' => $format]),
                 ['supported' => $this->writers->formats()],
             );
         }
@@ -157,9 +157,9 @@ final class ReportController extends ApiController
 
         if (! $export->isDownloadable()) {
             throw new ExportNotReady(match ($export->status) {
-                'pending' => 'This export is still being built.',
-                'failed' => 'This export failed: '.(string) $export->failure_reason,
-                default => 'This export has expired and its file has been deleted.',
+                'pending' => __('This export is still being built.'),
+                'failed' => __('This export failed: :reason', ['reason' => (string) $export->failure_reason]),
+                default => __('This export has expired and its file has been deleted.'),
             }, ['status' => $export->status]);
         }
 

@@ -234,7 +234,7 @@ final class WorkItemController extends ApiController
             $membership = $this->acting->get();
 
             if ($membership === null || ! $this->permissions->has($membership, 'work_item.transition')) {
-                abort(403, 'You do not have permission to perform this action.');
+                abort(403, __('You do not have permission to perform this action.'));
             }
 
             $this->authorize('transition', $item);

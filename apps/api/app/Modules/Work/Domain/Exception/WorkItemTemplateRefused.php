@@ -38,7 +38,7 @@ final class WorkItemTemplateRefused extends DomainException
     public static function nameTaken(string $name): self
     {
         return new self(
-            "A template called \"{$name}\" already exists.",
+            __('A template called ":name" already exists.', ['name' => $name]),
             'work_item_template.name_taken',
             409,
             ['name' => $name],
@@ -75,7 +75,7 @@ final class WorkItemTemplateRefused extends DomainException
         $keys = implode(', ', array_keys($reasons));
 
         return new self(
-            "A template cannot hold: {$keys}.",
+            __('A template cannot hold: :keys.', ['keys' => $keys]),
             'work_item_template.not_templatable',
             422,
             ['fields' => $reasons],

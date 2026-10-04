@@ -29,12 +29,12 @@ final class RequirePermission
         $membership = $this->acting->get();
 
         if ($membership === null) {
-            abort(403, 'No active membership.');
+            abort(403, __('No active membership.'));
         }
 
         foreach ($required as $permission) {
             if (! $this->permissions->has($membership, $permission)) {
-                abort(403, 'You do not have permission to perform this action.');
+                abort(403, __('You do not have permission to perform this action.'));
             }
         }
 

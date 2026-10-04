@@ -277,11 +277,13 @@ last entry is deliberately last.
                         names the sentence, the web words it; ADR 0060
                         addendum). The API answers in the reader's language
                         too (Accept-Language; ADR 0060 addendum): its fixed
-                        refusals and its validation messages so far. Next:
-                        the refusals that carry a name or a count, worded
-                        where they are thrown. Still English by design: what
-                        an organization names for itself. There is no email
-                        layer to translate.
+                        refusals, including those that carry a name or a
+                        count, and its validation messages. Two tests keep
+                        it so: every __('…') has an Indonesian sentence, and
+                        every translation keeps its sentence's placeholders.
+                        Still English by design: what an organization names
+                        for itself, and messages meant only for a log.
+                        There is no email layer to translate.
 ```
 
 ---

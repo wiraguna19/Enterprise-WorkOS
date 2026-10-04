@@ -78,7 +78,7 @@ final class CalendarController extends ApiController
         $unknown = array_diff($requested, CalendarQuery::SOURCES);
 
         if ($unknown !== []) {
-            abort(422, 'Unknown calendar source: '.implode(', ', $unknown).'.');
+            abort(422, __('Unknown calendar source: :sources.', ['sources' => implode(', ', $unknown)]));
         }
 
         return $requested;

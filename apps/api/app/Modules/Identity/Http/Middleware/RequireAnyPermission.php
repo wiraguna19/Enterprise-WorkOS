@@ -43,7 +43,7 @@ final class RequireAnyPermission
         $membership = $this->acting->get();
 
         if ($membership === null) {
-            abort(403, 'No active membership.');
+            abort(403, __('No active membership.'));
         }
 
         foreach ($accepted as $permission) {
@@ -52,6 +52,6 @@ final class RequireAnyPermission
             }
         }
 
-        abort(403, 'You do not have permission to perform this action.');
+        abort(403, __('You do not have permission to perform this action.'));
     }
 }

@@ -38,7 +38,7 @@ final class ServiceAccountRefused extends DomainException
     public static function tooPowerful(string $roleKey): self
     {
         return new self(
-            "A service account cannot hold the {$roleKey} role. Give it a role with only what the integration needs.",
+            __('A service account cannot hold the :role role. Give it a role with only what the integration needs.', ['role' => $roleKey]),
             'service_account.role_too_powerful',
             422,
             ['role' => $roleKey],
@@ -47,7 +47,7 @@ final class ServiceAccountRefused extends DomainException
 
     public static function unknownRole(string $roleKey): self
     {
-        return new self("There is no role called {$roleKey} here.", 'service_account.unknown_role', 422, ['role' => $roleKey]);
+        return new self(__('There is no role called :role here.', ['role' => $roleKey]), 'service_account.unknown_role', 422, ['role' => $roleKey]);
     }
 
     public static function notFound(): self

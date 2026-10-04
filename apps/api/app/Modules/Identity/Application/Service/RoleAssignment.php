@@ -134,7 +134,7 @@ final class RoleAssignment
                 // typo'd id would store a grant that resolves to nothing and
                 // reads on screen as a perfectly good one.
                 throw new RoleGrantRefused(
-                    'That '.$scopeType.' does not exist.',
+                    __('That :scope does not exist.', ['scope' => __($scopeType)]),
                     ['refusal' => 'scope_not_found', 'scope_type' => $scopeType, 'scope_id' => $scopeId],
                 );
             }
@@ -252,7 +252,7 @@ final class RoleAssignment
 
             if (! DB::table('permissions')->where('key', $permissionKey)->exists()) {
                 throw new RoleGrantRefused(
-                    "This build has no permission keyed `{$permissionKey}`.",
+                    __('This build has no permission keyed `:key`.', ['key' => $permissionKey]),
                     ['refusal' => 'unknown_permission', 'permission' => $permissionKey],
                 );
             }
@@ -399,7 +399,7 @@ final class RoleAssignment
 
         if (! $exists) {
             throw new RoleGrantRefused(
-                'That '.$scopeType.' does not exist.',
+                __('That :scope does not exist.', ['scope' => __($scopeType)]),
                 ['refusal' => 'scope_not_found', 'scope_type' => $scopeType, 'scope_id' => $scopeId],
             );
         }
@@ -411,7 +411,7 @@ final class RoleAssignment
 
         if ($role === null) {
             throw new RoleGrantRefused(
-                "This organization has no role keyed `{$key}`.",
+                __('This organization has no role keyed `:key`.', ['key' => $key]),
                 ['refusal' => 'unknown_role', 'role' => $key],
             );
         }

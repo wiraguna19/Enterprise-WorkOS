@@ -48,3 +48,65 @@ it('words validation in Indonesian, with the field named as a person reads it', 
 
     expect($response->json('error.details.email.0'))->toBe('email wajib diisi.');
 });
+
+it('words a refusal that carries a name, in Indonesian', function (): void {
+    // A seeded role is refused by name; the name stays as it is, the sentence
+    // around it moves to the reader's language.
+    $admin = $this->loginAs('rina@acme.test');
+
+    $this->withToken($admin)
+        ->withHeader('Accept-Language', 'id')
+        ->deleteJson('/api/v1/roles/employee')
+        ->assertStatus(409)
+        ->assertJsonPath(
+            'error.message',
+            '`employee` adalah salah satu role bawaan produk ini dan tidak bisa dihapus.',
+        );
+});
+
+it('keeps every placeholder of a sentence in its translation', function (): void {
+    // A translation that drops `:count` prints the sentence without the number;
+    // one that adds a placeholder prints it literally. Neither fails anywhere
+    // else, so it fails here.
+    $dictionary = json_decode((string) file_get_contents(lang_path('id.json')), true);
+    $placeholders = static function (string $text): array {
+        preg_match_all('/:([a-zA-Z_]+)/', $text, $found);
+
+        return collect($found[1])->map(fn (string $name): string => strtolower($name))->unique()->sort()->values()->all();
+    };
+
+    $mismatched = collect($dictionary)
+        ->filter(fn (string $translation, string $english): bool => $placeholders($english) !== $placeholders($translation))
+        ->keys()
+        ->all();
+
+    expect($mismatched)->toBe([]);
+});
+
+it('has an Indonesian sentence for every sentence the API translates', function (): void {
+    // A new __('…') with no entry still works — it falls back to English — so
+    // nothing else would ever notice it. This does.
+    $dictionary = json_decode((string) file_get_contents(lang_path('id.json')), true);
+    $missing = [];
+
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path()));
+
+    foreach ($files as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $source = (string) file_get_contents($file->getPathname());
+
+        preg_match_all("/__\\(\\s*'((?:\\\\.|[^'\\\\])*)'/", $source, $single);
+        preg_match_all('/__\\(\\s*"((?:\\\\.|[^"\\\\])*)"/', $source, $double);
+
+        foreach ([...array_map(fn (string $s): string => str_replace("\\'", "'", $s), $single[1]), ...array_map('stripslashes', $double[1])] as $sentence) {
+            if (! array_key_exists($sentence, $dictionary)) {
+                $missing[] = $sentence;
+            }
+        }
+    }
+
+    expect(array_values(array_unique($missing)))->toBe([]);
+});

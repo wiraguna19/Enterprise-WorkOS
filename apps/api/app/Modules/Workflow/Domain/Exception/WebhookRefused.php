@@ -37,7 +37,7 @@ final class WebhookRefused extends DomainException
     public static function nameTaken(string $name): self
     {
         return new self(
-            "An endpoint called \"{$name}\" already exists.",
+            __('An endpoint called ":name" already exists.', ['name' => $name]),
             'webhook.name_taken',
             409,
             ['name' => $name],
@@ -54,7 +54,7 @@ final class WebhookRefused extends DomainException
     public static function destinationNotAllowed(string $reason): self
     {
         return new self(
-            "That address cannot receive webhooks: {$reason}",
+            __('That address cannot receive webhooks: :reason', ['reason' => $reason]),
             'webhook.destination_not_allowed',
             422,
             ['reason' => $reason],
@@ -70,7 +70,7 @@ final class WebhookRefused extends DomainException
     public static function unresolvable(string $host): self
     {
         return new self(
-            "That address cannot receive webhooks: {$host} does not resolve to an IPv4 address.",
+            __('That address cannot receive webhooks: :host does not resolve to an IPv4 address.', ['host' => $host]),
             'webhook.destination_unresolvable',
             422,
             ['host' => $host],
@@ -89,7 +89,7 @@ final class WebhookRefused extends DomainException
     public static function inUse(array $rules): self
     {
         return new self(
-            'Rules still send to this endpoint: '.implode(', ', $rules).'. Switch it off, or change those rules first.',
+            __('Rules still send to this endpoint: :rules. Switch it off, or change those rules first.', ['rules' => implode(', ', $rules)]),
             'webhook.endpoint_in_use',
             409,
             ['rules' => $rules],

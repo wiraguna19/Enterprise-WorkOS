@@ -376,7 +376,7 @@ final class Invitations
 
         if ($role === null) {
             throw new InvitationRefused(
-                "This organization has no role keyed `{$key}`.",
+                __('This organization has no role keyed `:key`.', ['key' => $key]),
                 ['refusal' => 'unknown_role', 'role' => $key],
             );
         }

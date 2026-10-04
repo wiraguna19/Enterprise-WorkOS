@@ -45,7 +45,7 @@ final class WriterRegistry
     {
         return $this->writers[$format]
             ?? throw new UnsupportedExportFormat(
-                "Exports can be csv or xlsx; {$format} is not a format this can write.",
+                __('Exports can be csv or xlsx; :format is not a format this can write.', ['format' => $format]),
                 ['supported' => $this->formats()],
             );
     }

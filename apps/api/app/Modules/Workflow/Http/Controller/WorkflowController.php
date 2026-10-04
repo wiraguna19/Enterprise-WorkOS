@@ -255,7 +255,7 @@ final class WorkflowController extends ApiController
             // 404 for a reference in another tenant as well as for one that
             // does not exist: "that item is real but not yours" is a fact
             // nobody outside the organization is owed (docs/05 §3).
-            abort(404, 'No work item with that reference.');
+            abort(404, __('No work item with that reference.'));
         }
 
         if (! $request->shouldApply()) {

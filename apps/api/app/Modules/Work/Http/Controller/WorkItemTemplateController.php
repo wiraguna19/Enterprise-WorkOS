@@ -186,7 +186,7 @@ final class WorkItemTemplateController extends ApiController
             return;
         }
 
-        abort(403, 'Organization-wide templates are written by people with work_item_template.manage.');
+        abort(403, __('Organization-wide templates are written by people with work_item_template.manage.'));
     }
 
     /** A template's project, if the reader can see it — else 404, like the template itself. */

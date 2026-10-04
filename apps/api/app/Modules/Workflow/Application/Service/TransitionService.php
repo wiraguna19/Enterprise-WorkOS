@@ -152,7 +152,7 @@ final class TransitionService
         if ($this->roleGuardPasses($transition, $subjectFacts)
             && ! $this->permissionGuardPasses($transition)) {
             throw new AuthorizationException(
-                "You do not have permission to \"{$transition->label}\".",
+                __('You do not have permission to ":move".', ['move' => $transition->label]),
             );
         }
 
@@ -171,7 +171,7 @@ final class TransitionService
 
         if ($transition->requires_comment && trim((string) $comment) === '') {
             throw new TransitionRequiresComment(
-                "\"{$transition->label}\" requires a comment explaining the decision.",
+                __('":move" requires a comment explaining the decision.', ['move' => $transition->label]),
                 ['transition' => $transition->label],
             );
         }
@@ -293,7 +293,7 @@ final class TransitionService
             $actor = MembershipModel::query()->find($this->tenant->membershipId());
 
             if ($actor === null || ! $this->permissions->has($actor, (string) $guard['permission'])) {
-                return "You do not have permission to \"{$transition->label}\".";
+                return __('You do not have permission to ":move".', ['move' => $transition->label]);
             }
         }
 

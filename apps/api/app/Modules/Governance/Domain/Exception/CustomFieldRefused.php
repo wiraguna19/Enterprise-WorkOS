@@ -55,7 +55,7 @@ final class CustomFieldRefused extends DomainException
     public static function keyTaken(string $key): self
     {
         return new self(
-            "A field with the key \"{$key}\" already exists for this scope.",
+            __('A field with the key ":key" already exists for this scope.', ['key' => $key]),
             'custom_field.key_taken',
             409,
             ['key' => $key],
@@ -89,7 +89,7 @@ final class CustomFieldRefused extends DomainException
     public static function notLive(string $label): self
     {
         return new self(
-            "\"{$label}\" has been retired and no longer accepts answers.",
+            __('":label" has been retired and no longer accepts answers.', ['label' => $label]),
             'custom_field.retired',
             422,
             ['label' => $label],
@@ -99,7 +99,7 @@ final class CustomFieldRefused extends DomainException
     public static function required(string $label): self
     {
         return new self(
-            "\"{$label}\" is required.",
+            __('":label" is required.', ['label' => $label]),
             'custom_field.required',
             422,
             ['label' => $label],
@@ -110,7 +110,7 @@ final class CustomFieldRefused extends DomainException
     public static function notAnOption(string $label, array $options): self
     {
         return new self(
-            "\"{$label}\" does not offer that option.",
+            __('":label" does not offer that option.', ['label' => $label]),
             'custom_field.not_an_option',
             422,
             ['label' => $label, 'options' => $options],
@@ -120,7 +120,7 @@ final class CustomFieldRefused extends DomainException
     public static function wrongType(string $label, string $type): self
     {
         return new self(
-            "\"{$label}\" expects a {$type}.",
+            __('":label" expects a :type.', ['label' => $label, 'type' => __($type)]),
             'custom_field.wrong_type',
             422,
             ['label' => $label, 'type' => $type],
