@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageBody } from "@/components/ui/PageBody";
 import { PersonKpis } from "@/features/kpi/PersonKpis";
+import { DeliveryPanel } from "@/features/people/DeliveryPanel";
+import type { Delivery } from "@/features/people/delivery";
 import type { Kpi } from "@/features/kpi/types";
 import { ErasePerson } from "@/features/people/ErasePerson";
 import { PersonDenials, type Denial } from "@/features/people/PersonDenials";
@@ -56,6 +58,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   // the reporting line, and a 404 to anyone else — which hides the panel.
   const kpis = await api<Kpi[]>(`/people/${id}/kpis`)
     .then((r) => ({ list: r.data, canManage: r.meta?.can_manage === true }))
+    .catch(() => null);
+
+  // What they finished, without a target (ADR 0062, "Delivery without a KPI"):
+  // the same audience as their KPIs, and the same 404 hides it from anyone else.
+  const delivery = await api<Delivery>(`/people/${id}/delivery`)
+    .then((r) => r.data)
     .catch(() => null);
 
   const { data: openWork } = await api<WorkItem[]>(
@@ -118,6 +126,16 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           page had two left edges and a ragged right one (ADR 0024). */}
       <PageBody aside={<PersonAside person={person} workload={workload} locale={locale} />}>
         <PersonWork openWork={openWork} timeZone={me.user.timezone} locale={locale} />
+
+        {delivery && (
+          <DeliveryPanel
+            membershipId={id}
+            delivery={delivery}
+            self={me.membership.id === id}
+            t={t}
+            locale={locale}
+          />
+        )}
 
         {kpis && (
           <PersonKpis

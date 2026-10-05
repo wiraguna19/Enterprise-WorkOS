@@ -94,6 +94,28 @@ person", so the reasons and the limits are written here:
 This shipped in a second slice, after the group KPIs, so the visibility rule
 has its own tests.
 
+### Delivery without a KPI (amendment, 2026-10-05)
+
+The product owner also asked to see, on a person's page and without setting a
+KPI, how many items they finished and how much of it was on time.
+
+- **Shown as plain numbers, with no target and no status.** It shows how many
+  items were finished, and the on-time share *with its denominator* ("8 of 10
+  dated items"), for the last four weeks and as a 12-week trend. Every figure
+  opens the list of items behind it.
+- **"Finished" counts items, not completions.** Each item counts once, in the
+  week its last completion fell. That makes the number exactly the length of
+  its list. A KPI's throughput counts every move into Done, so a reopened item
+  counts twice there. Both screens say which one they show.
+- **Visibility is exactly that of a person KPI:**
+  - The person and the people above them in the reporting line can see it.
+  - Anyone else gets a 404, including a colleague who can see KPIs.
+  - It is never shown in the people list, never sortable and never ranked.
+- **Endpoints:**
+  - `GET /people/{membership}/delivery` returns the summary and the trend.
+  - `GET /people/{membership}/delivery/items?from=&to=` returns the items
+    behind them.
+
 ## Consequences
 
 - KPIs live in the `Insights` module. Insights already owns the flow

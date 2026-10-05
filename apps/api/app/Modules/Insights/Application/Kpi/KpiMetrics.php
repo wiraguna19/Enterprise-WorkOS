@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Insights\Application\Kpi;
 
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -69,7 +70,52 @@ final class KpiMetrics
             return (float) ($row->n ?? 0);
         }
 
-        /** @var list<object{hours: string|float|null, late: bool|null}> $rows */
+        $rows = $this->completions($subjectType, $subjectId, $period->start, $period->end(), $departmentIds);
+
+        if ($source === 'cycle_time_p85') {
+            $hours = [];
+
+            foreach ($rows as $row) {
+                if ($row['hours'] !== null) {
+                    $hours[] = $row['hours'];
+                }
+            }
+
+            return self::nearestRank($hours, 0.85);
+        }
+
+        // on_time_rate: undated work is outside the denominator (ADR 0010).
+        $dated = 0;
+        $onTime = 0;
+
+        foreach ($rows as $row) {
+            if ($row['late'] === null) {
+                continue;
+            }
+
+            $dated++;
+            $onTime += $row['late'] ? 0 : 1;
+        }
+
+        return $dated === 0 ? null : round($onTime / $dated * 100, 1);
+    }
+
+    /**
+     * One row per item whose LAST completion falls in the window: what it
+     * took (first start to that completion) and whether it was late. The
+     * cycle time and the on-time rate are both folded from this, and so is
+     * the person delivery panel and the list behind it — so a figure and its
+     * evidence cannot disagree.
+     *
+     * @param  list<string>|null  $departmentIds
+     * @return list<array{work_item_id: string, reference: string, title: string, completed_at: string, due_at: string|null, hours: float|null, late: bool|null}>
+     */
+    public function completions(string $subjectType, string $subjectId, CarbonImmutable $from, CarbonImmutable $to, ?array $departmentIds = null): array
+    {
+        [$scope, $bindings] = $this->scope($subjectType, $subjectId, $departmentIds);
+        $organizationId = $this->tenant->organizationId();
+
+        /** @var list<object{work_item_id: string, reference: string, title: string, completed_at: string, due_at: string|null, hours: string|float|null, late: bool|null}> $rows */
         $rows = DB::select(<<<SQL
             WITH done AS (
                 SELECT t.work_item_id, max(t.occurred_at) AS completed_at
@@ -92,7 +138,12 @@ final class KpiMetrics
                    AND t.work_item_id IN (SELECT work_item_id FROM done)
                  GROUP BY t.work_item_id
             )
-            SELECT CASE
+            SELECT d.work_item_id,
+                   w.reference,
+                   w.title,
+                   d.completed_at,
+                   w.due_at,
+                   CASE
                        WHEN s.started_at IS NULL OR s.started_at > d.completed_at THEN NULL
                        ELSE EXTRACT(EPOCH FROM (d.completed_at - s.started_at)) / 3600.0
                    END AS hours,
@@ -100,34 +151,18 @@ final class KpiMetrics
               FROM done d
               JOIN work_items w ON w.id = d.work_item_id
          LEFT JOIN started s ON s.work_item_id = d.work_item_id
-        SQL, [$organizationId, $from, $to, ...$bindings, $organizationId]);
+             ORDER BY d.completed_at DESC
+        SQL, [$organizationId, $from->toDateTimeString(), $to->toDateTimeString(), ...$bindings, $organizationId]);
 
-        if ($source === 'cycle_time_p85') {
-            $hours = [];
-
-            foreach ($rows as $row) {
-                if ($row->hours !== null) {
-                    $hours[] = (float) $row->hours;
-                }
-            }
-
-            return self::nearestRank($hours, 0.85);
-        }
-
-        // on_time_rate: undated work is outside the denominator (ADR 0010).
-        $dated = 0;
-        $onTime = 0;
-
-        foreach ($rows as $row) {
-            if ($row->late === null) {
-                continue;
-            }
-
-            $dated++;
-            $onTime += $row->late ? 0 : 1;
-        }
-
-        return $dated === 0 ? null : round($onTime / $dated * 100, 1);
+        return array_values(array_map(static fn (object $row): array => [
+            'work_item_id' => (string) $row->work_item_id,
+            'reference' => (string) $row->reference,
+            'title' => (string) $row->title,
+            'completed_at' => CarbonImmutable::parse((string) $row->completed_at)->toIso8601String(),
+            'due_at' => $row->due_at === null ? null : CarbonImmutable::parse((string) $row->due_at)->toIso8601String(),
+            'hours' => $row->hours === null ? null : round((float) $row->hours, 2),
+            'late' => $row->late === null ? null : (bool) $row->late,
+        ], $rows));
     }
 
     /**

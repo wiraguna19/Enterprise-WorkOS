@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Insights\Http\Controller\AtRiskController;
+use App\Modules\Insights\Http\Controller\DeliveryController;
 use App\Modules\Insights\Http\Controller\FlowController;
 use App\Modules\Insights\Http\Controller\KpiController;
 use App\Modules\Insights\Http\Controller\ProjectHealthController;
@@ -142,3 +143,13 @@ Route::put('kpis/{id}/entries', [KpiController::class, 'record'])
     ->whereUuid('id')
     ->middleware('throttle:writes')
     ->name('kpis.record');
+
+// A person's delivery without a target (ADR 0062, "Delivery without a KPI").
+// Governed by the reporting line alone, like a person KPI.
+Route::get('people/{membership}/delivery', [DeliveryController::class, 'show'])
+    ->whereUuid('membership')
+    ->name('delivery.show');
+
+Route::get('people/{membership}/delivery/items', [DeliveryController::class, 'items'])
+    ->whereUuid('membership')
+    ->name('delivery.items');
