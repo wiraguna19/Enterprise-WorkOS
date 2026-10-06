@@ -1876,7 +1876,7 @@ export const id: Messages = {
   "join.title": "Bergabung dengan {org}",
   "join.invitedAs": "Diundang sebagai {email}. Pilih kata sandi dan Anda langsung bisa masuk.",
   "join.name": "Nama Anda",
-  "join.password.hint": "Minimal dua belas karakter.",
+  "join.password.hint": "Minimal dua belas karakter. Jika alamat ini sudah punya akun, gunakan password akun tersebut.",
   "join.joining": "Bergabung…",
   "join.join": "Bergabung",
 

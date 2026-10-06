@@ -13,7 +13,9 @@ use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Symfony\Component\Uid\UuidV7;
 
 /**
@@ -208,10 +210,9 @@ final class Invitations
      *
      * Two branches, and the second is the one that is easy to get wrong. If no
      * user has this address, one is created with the password given here. **If a
-     * user already exists, their password is not touched** — this is an
-     * invitation to join an organization, not a password reset, and a flow that
-     * quietly reset it would be an account takeover for anyone who could get an
-     * invitation sent to a colleague's address.
+     * user already exists, the password given must be theirs, and it is not
+     * changed** — this is an invitation to join an organization, not a password
+     * reset, and accepting it on somebody's behalf is not joining.
      *
      * @return array{membership_id: string, organization_id: string}
      */
@@ -239,7 +240,24 @@ final class Invitations
 
             $user = UserModel::query()->whereRaw('lower(email) = ?', [$row->email])->first();
 
+            // An address that already has an account joins only with that
+            // account's own password. Before this, the link alone was enough —
+            // and the link goes to whoever SENT the invitation, so an admin of
+            // any organization could invite a stranger's address, accept on
+            // their behalf, and gain authority over the account (revoking its
+            // second factor, for one). The password proves the person accepting
+            // is the person the account belongs to.
+            if ($user !== null && ! $this->ownsAccount($user, $password)) {
+                throw new InvitationRefused(
+                    'This address already has an account. Enter that account\'s password to join.',
+                    ['refusal' => 'existing_account_password'],
+                );
+            }
+
             if ($user === null) {
+                // Twelve characters: the one place a password is chosen.
+                Validator::make(['password' => $password], ['password' => [Password::min(12)]])->validate();
+
                 $user = new UserModel;
                 $user->forceFill([
                     'id' => UserModel::newId(),
@@ -409,6 +427,14 @@ final class Invitations
                 ['refusal' => 'beyond_your_own_authority', 'role' => $role->key, 'permissions' => $beyond],
             );
         }
+    }
+
+    /** The account's own password, checked the way login checks it. */
+    private function ownsAccount(UserModel $user, string $password): bool
+    {
+        $hash = $user->password_hash;
+
+        return is_string($hash) && $hash !== '' && Hash::check($password, $hash);
     }
 
     private function role(string $key): RoleModel

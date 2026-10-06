@@ -7,7 +7,6 @@ namespace App\Modules\Identity\Http\Request;
 use App\Modules\Identity\Application\Service\InterfaceLanguage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 /**
  * Accepting an invitation: who you are, and a password.
@@ -30,7 +29,11 @@ final class AcceptInvitationRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:120'],
-            'password' => ['required', 'string', Password::min(12)],
+            // The twelve-character rule applies to a password being CHOSEN,
+            // which is only the new-account branch; Invitations checks it
+            // there. An existing account proves itself with the password it
+            // already has, whatever its length.
+            'password' => ['required', 'string', 'max:255'],
             // The language the invitation page was read in. Optional: a
             // client that does not send it gets the product default.
             'locale' => ['sometimes', 'string', Rule::in(InterfaceLanguage::LOCALES)],

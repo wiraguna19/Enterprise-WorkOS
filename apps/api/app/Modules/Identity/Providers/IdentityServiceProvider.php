@@ -143,8 +143,12 @@ final class IdentityServiceProvider extends ServiceProvider
          * IP is what this is for, and somebody retyping their own link is not.
          */
         RateLimiter::for('invitation', fn (Request $request) => [
-            Limit::perMinutes(15, 10)->by($request->ip().'|'.$request->route('token')),
-            Limit::perMinutes(15, 30)->by((string) $request->ip()),
+            Limit::perMinutes(15, 10)->by('invitation:ip-token:'.$request->ip().'|'.$request->route('token')),
+            // Per link whatever the address: accepting for an existing account
+            // takes that account's password, and a link must not become a
+            // password-guessing endpoint by rotating addresses.
+            Limit::perMinutes(15, 10)->by('invitation:token:'.$request->route('token')),
+            Limit::perMinutes(15, 30)->by('invitation:ip:'.$request->ip()),
         ]);
 
         /*

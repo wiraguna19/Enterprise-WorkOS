@@ -131,9 +131,21 @@ it('does not touch the password of somebody who already has an account', functio
 
     $before = DB::table('users')->where('email', 'gil@globex.test')->value('password_hash');
 
+    // Somebody else holding the link cannot join on his behalf: an existing
+    // account joins only with its own password. The link goes to whoever SENT
+    // the invitation, so without this an admin of any organization could pull
+    // a stranger's account into theirs.
     $this->postJson("/api/v1/invitations/{$token}/accept", [
         'name' => 'Gil Barnes',
         'password' => 'a-brand-new-password-chosen-by-somebody-else',
+    ])->assertStatus(409)
+        ->assertJsonPath('error.details.refusal', 'existing_account_password');
+
+    // Gil himself, with the password he already has (shorter than twelve
+    // characters: the rule is for choosing one, not for proving one).
+    $this->postJson("/api/v1/invitations/{$token}/accept", [
+        'name' => 'Gil Barnes',
+        'password' => 'password',
     ])->assertOk();
 
     $after = DB::table('users')->where('email', 'gil@globex.test')->value('password_hash');
@@ -287,4 +299,18 @@ it('refuses to invite someone with more authority than the inviter holds', funct
     $this->withToken($this->admin)
         ->postJson('/api/v1/people/invite', ['email' => $this->address, 'role' => 'org_admin'])
         ->assertCreated();
+});
+
+it('still asks a new account for a password of twelve characters', function (): void {
+    $token = $this->withToken($this->admin)
+        ->postJson('/api/v1/people/invite', ['email' => $this->address])
+        ->assertStatus(201)
+        ->json('data.token');
+
+    $this->postJson("/api/v1/invitations/{$token}/accept", [
+        'name' => 'Newcomer Person',
+        'password' => 'too-short',
+    ])->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed')
+        ->assertJsonStructure(['error' => ['details' => ['password']]]);
 });

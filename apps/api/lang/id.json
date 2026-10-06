@@ -105,6 +105,7 @@
     "This KPI is computed from the work itself; there is nothing to enter.": "KPI ini dihitung dari pekerjaan itu sendiri; tidak ada yang perlu diisi.",
     "This account is also a member of another organization, so it cannot be erased from here. Revoke their access instead.": "Akun ini juga anggota organisasi lain, jadi tidak dapat dihapus dari sini. Cabut aksesnya saja.",
     "This action is unauthorized.": "Anda tidak diizinkan melakukan tindakan ini.",
+    "This address already has an account. Enter that account's password to join.": "Alamat ini sudah memiliki akun. Masukkan password akun tersebut untuk bergabung.",
     "This announcement does not ask to be acknowledged.": "Pengumuman ini tidak meminta konfirmasi telah dibaca.",
     "This approval has already been resolved.": "Persetujuan ini sudah diputuskan.",
     "This build has no permission keyed `:key`.": "Build ini tidak punya izin dengan key `:key`.",

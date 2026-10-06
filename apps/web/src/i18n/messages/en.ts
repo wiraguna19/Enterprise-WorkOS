@@ -1859,7 +1859,7 @@ export const en = {
   "join.title": "Join {org}",
   "join.invitedAs": "Invited as {email}. Choose a password and you are in.",
   "join.name": "Your name",
-  "join.password.hint": "At least twelve characters.",
+  "join.password.hint": "At least twelve characters. If this address already has an account, use that account's password.",
   "join.joining": "Joining…",
   "join.join": "Join",
 
