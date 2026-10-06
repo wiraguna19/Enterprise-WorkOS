@@ -150,3 +150,34 @@ it('says nothing to unlock when there is nothing on', function (): void {
         ->assertStatus(409)
         ->assertJsonPath('error.details.refusal', 'not_enabled');
 });
+
+it('leaves the factor alone when another organization this person is in requires it', function (): void {
+    enrolPerson('sarah@acme.test');
+
+    $sarah = DB::table('users')->where('email', 'sarah@acme.test')->value('id');
+
+    actingWithinTenant('01900000-0000-7000-8000-0000000000b0', function () use ($sarah): void {
+        DB::table('memberships')->insert([
+            'id' => (string) new UuidV7,
+            'organization_id' => '01900000-0000-7000-8000-0000000000b0',
+            'user_id' => $sarah,
+            'status' => 'active',
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Globex requires a second factor of everybody; Acme's administrator
+        // must not be able to take it off for Globex.
+        DB::table('organizations')
+            ->where('id', '01900000-0000-7000-8000-0000000000b0')
+            ->update(['require_mfa' => true]);
+    });
+
+    $this->withToken($this->loginAs('rina@acme.test'))
+        ->deleteJson('/api/v1/people/'.membershipIdOf('sarah@acme.test').'/mfa')
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.refusal', 'required_elsewhere');
+
+    expect(DB::table('users')->where('id', $sarah)->value('mfa_enabled_at'))->not->toBeNull();
+});

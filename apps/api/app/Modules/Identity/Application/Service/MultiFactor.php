@@ -258,8 +258,14 @@ final class MultiFactor
      * that case would leave exactly the people with the most to lose — somebody
      * working across two tenants — with no way back in at all, so the act is
      * allowed and the audit event is written into EVERY organization the person
-     * belongs to. The other tenant does not get a veto; it gets the truth,
-     * immediately, in the log its administrators already read.
+     * belongs to.
+     *
+     * With one exception: another organization this person belongs to that
+     * REQUIRES a second factor gets a veto. It relies on this factor for every
+     * one of its members, and an administrator somewhere else must not be able
+     * to remove it; the person asks an administrator there instead, who can.
+     * Which organization is not said — that would tell one tenant about
+     * another.
      *
      * Sessions are left alone. The person whose factor this was did not do
      * anything wrong, and signing them out of everything on the day they are
@@ -274,6 +280,35 @@ final class MultiFactor
             throw new MultiFactorRefused(
                 'Two-factor authentication is not on for this account.',
                 ['refusal' => 'not_enabled'],
+            );
+        }
+
+        $here = $this->tenant->organizationId();
+
+        $requiredElsewhere = $this->tenant->runAsPlatform(
+            'mfa revoke by an administrator: does another organization this person belongs to require it?',
+            function () use ($target, $here): bool {
+                $others = MembershipModel::query()
+                    ->where('user_id', $target->getKey())
+                    ->where('status', 'active')
+                    ->whereNull('revoked_at')
+                    ->where('organization_id', '!=', $here)
+                    ->pluck('organization_id');
+
+                foreach ($others as $organizationId) {
+                    if ($this->policy->requiresSecondFactor((string) $organizationId)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+        );
+
+        if ($requiredElsewhere) {
+            throw new MultiFactorRefused(
+                'This person also belongs to another organization that requires two-factor authentication. An administrator there has to reset it.',
+                ['refusal' => 'required_elsewhere'],
             );
         }
 

@@ -124,6 +124,7 @@
     "This organization has no role keyed `:key`.": "Organisasi ini tidak punya role dengan key `:key`.",
     "This organization has reached its export limit for the hour.": "Organisasi ini sudah mencapai batas ekspor untuk jam ini.",
     "This organization requires two-factor authentication, so it cannot be turned off here.": "Organisasi ini mewajibkan autentikasi dua faktor, jadi tidak dapat dimatikan di sini.",
+    "This person also belongs to another organization that requires two-factor authentication. An administrator there has to reset it.": "Orang ini juga anggota organisasi lain yang mewajibkan autentikasi dua faktor. Administrator di sana yang harus meresetnya.",
     "This person has already been erased.": "Orang ini sudah dihapus.",
     "This person has been erased from this organization.": "Orang ini sudah dihapus dari organisasi ini.",
     "This project changed while you were editing it.": "Proyek ini berubah saat Anda sedang mengubahnya.",
