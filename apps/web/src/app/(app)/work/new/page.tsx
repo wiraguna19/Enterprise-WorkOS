@@ -131,10 +131,15 @@ export default async function NewWorkItemPage({
           key: project.key,
           label: `${project.key} · ${project.name}`,
         }))}
-        people={people.map((person) => ({
-          id: person.id,
-          label: person.name ?? t("common.unnamed"),
-        }))}
+        // Without `work_item.assign` the only person new work can go to is
+        // the reader: the API refuses anyone else, so the form offers no one
+        // else rather than a choice that ends in a refusal.
+        people={people
+          .filter((person) => me.permissions.includes("work_item.assign") || person.id === me.membership.id)
+          .map((person) => ({
+            id: person.id,
+            label: person.name ?? t("common.unnamed"),
+          }))}
         defaultProjectId={fromProject?.id}
         projectKey={fromProject?.key}
         customFields={customFields}
