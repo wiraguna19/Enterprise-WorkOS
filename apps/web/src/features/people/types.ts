@@ -19,6 +19,8 @@ export type Person = {
   erased_at: string | null;
   joined_at: string | null;
   job_title: string | null;
+  /** ADR 0063: staff, supervisor, manager or director; null until recorded. */
+  job_level: string | null;
   employment_type: string | null;
   weekly_capacity_hours: string | null;
   department: { id: string; name: string } | null;

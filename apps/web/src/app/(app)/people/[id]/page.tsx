@@ -3,6 +3,7 @@ import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { PageBody } from "@/components/ui/PageBody";
 import { PersonKpis } from "@/features/kpi/PersonKpis";
 import { DeliveryPanel } from "@/features/people/DeliveryPanel";
+import { EmploymentEditor } from "@/features/people/EmploymentEditor";
 import type { Delivery } from "@/features/people/delivery";
 import type { Kpi } from "@/features/kpi/types";
 import { ErasePerson } from "@/features/people/ErasePerson";
@@ -150,6 +151,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         )}
 
         <PersonEmployment person={person} timeZone={me.user.timezone} locale={locale} />
+
+        {person.permissions.update_employment && person.erased_at === null && <EmploymentEditor person={person} />}
 
         {roles && (
           <PersonRoles

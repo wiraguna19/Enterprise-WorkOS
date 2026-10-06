@@ -12,6 +12,7 @@ import { requireUser } from "@/lib/auth";
  */
 type SectionKey =
   | "organization"
+  | "leave"
   | "notifications"
   | "language"
   | "display"
@@ -46,6 +47,7 @@ const SECTIONS: Array<{
   permission?: string;
 }> = [
   { href: "/settings/organization", key: "organization", permission: "organization.view" },
+  { href: "/settings/leave", key: "leave", permission: "leave.manage" },
   { href: "/settings/notifications", key: "notifications" },
   { href: "/settings/language", key: "language" },
   { href: "/settings/display", key: "display" },

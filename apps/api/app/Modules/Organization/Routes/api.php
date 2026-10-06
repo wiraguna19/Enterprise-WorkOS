@@ -61,6 +61,11 @@ Route::get('people', [PersonController::class, 'index'])
 Route::get('people/{membership}', [PersonController::class, 'show'])
     ->middleware('permission:person.view');
 
+// The facts leave and capacity are computed from (ADR 0063). The policy
+// refuses your own, whatever you hold.
+Route::patch('people/{membership}/employment', [PersonController::class, 'updateEmployment'])
+    ->middleware(['permission:person.update', 'throttle:writes']);
+
 // ── "Delete my data" (ADR 0022) ─────────────────────────────────────────────
 // Behind `person.deactivate`, which has been granted to two roles since Phase 1
 // with no route behind it. Not a DELETE: nothing is deleted. The person is

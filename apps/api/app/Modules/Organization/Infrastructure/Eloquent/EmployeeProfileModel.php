@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $manager_profile_id
  * @property string $employment_type
  * @property string $weekly_capacity_hours
+ * @property string|null $job_level
  * @property CarbonImmutable|null $hired_at
  * @property string $work_location
  * @property CarbonImmutable $created_at

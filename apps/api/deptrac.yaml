@@ -66,6 +66,10 @@ parameters:
       collectors:
         - type: directory
           value: app/Modules/Announcement/.*
+    - name: Leave
+      collectors:
+        - type: directory
+          value: app/Modules/Leave/.*
 
   ruleset:
     # Platform is the kernel: it depends on nothing above it.
@@ -171,6 +175,15 @@ parameters:
     # ADR 0061. Notification is imported to notify (ADR 0013); nothing that
     # Notification depends on reaches back here, and nothing imports this.
     Announcement:
+      - Platform
+      - Identity
+      - Organization
+      - Notification
+      - Governance
+
+    # ADR 0063. Leave reads the people it is about (Organization) and tells
+    # them (Notification); Insights and Calendar read it, nothing else does.
+    Leave:
       - Platform
       - Identity
       - Organization

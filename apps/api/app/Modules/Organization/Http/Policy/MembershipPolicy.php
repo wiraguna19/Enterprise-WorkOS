@@ -67,6 +67,12 @@ final class MembershipPolicy
         return $this->isSelf($membership) || $this->can('person.update');
     }
 
+    /** Employment facts other rules are computed from: never your own (ADR 0063). */
+    public function updateEmployment(UserModel $user, MembershipModel $membership): bool
+    {
+        return ! $this->isSelf($membership) && $this->can('person.update');
+    }
+
     public function deactivate(UserModel $user, MembershipModel $membership): bool
     {
         // Deactivating yourself would lock the last admin out of the

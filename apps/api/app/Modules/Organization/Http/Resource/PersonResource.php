@@ -58,6 +58,7 @@ final class PersonResource extends BaseResource
             'erase' => 'erase',
             'revoke_mfa' => 'revokeMfa',
             'view_workload' => 'viewWorkload',
+            'update_employment' => 'updateEmployment',
         ]);
 
         return [
@@ -77,6 +78,7 @@ final class PersonResource extends BaseResource
             'erased_at' => $this->resource->erased_at,
             'joined_at' => $this->resource->joined_at,
             'job_title' => $profile?->job_title,
+            'job_level' => $profile?->job_level,
             'employment_type' => $profile?->employment_type,
             'weekly_capacity_hours' => $profile?->weekly_capacity_hours,
             'department' => $profile?->department === null ? null : [

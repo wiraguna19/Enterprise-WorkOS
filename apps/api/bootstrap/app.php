@@ -15,6 +15,7 @@ use App\Modules\Identity\Http\Middleware\RequireSecondFactor;
 use App\Modules\Identity\Http\Middleware\ResolveTenant;
 use App\Modules\Identity\Providers\IdentityServiceProvider;
 use App\Modules\Insights\Providers\InsightsServiceProvider;
+use App\Modules\Leave\Providers\LeaveServiceProvider;
 use App\Modules\Notification\Providers\NotificationServiceProvider;
 use App\Modules\Organization\Providers\OrganizationServiceProvider;
 use App\Modules\Platform\Domain\Exception\DomainException;
@@ -58,6 +59,8 @@ return Application::configure(basePath: dirname(__DIR__))
         InsightsServiceProvider::class,
         // ADR 0061. Says things to groups and notifies them; nothing reads it.
         AnnouncementServiceProvider::class,
+        // ADR 0063. The organization's leave rules and the absences under them.
+        LeaveServiceProvider::class,
     ])
     ->withRouting(
         commands: __DIR__.'/../routes/console.php',

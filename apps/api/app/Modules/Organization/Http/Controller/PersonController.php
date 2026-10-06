@@ -7,6 +7,7 @@ namespace App\Modules\Organization\Http\Controller;
 use App\Modules\Identity\Application\Service\MultiFactor;
 use App\Modules\Identity\Application\Service\RecentAuthentication;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
+use App\Modules\Organization\Application\Service\EmploymentRecords;
 use App\Modules\Organization\Application\Service\PersonErasure;
 use App\Modules\Organization\Http\Resource\PersonResource;
 use App\Modules\Organization\Infrastructure\Eloquent\EmployeeProfileModel;
@@ -25,6 +26,7 @@ final class PersonController extends ApiController
         private readonly PersonErasure $erasure,
         private readonly MultiFactor $mfa,
         private readonly RecentAuthentication $recent,
+        private readonly EmploymentRecords $employment,
     ) {}
 
     /**
@@ -46,6 +48,33 @@ final class PersonController extends ApiController
         $this->recent->require($request);
 
         return $this->ok($this->erasure->erase($membership, $request));
+    }
+
+    /**
+     * The facts of somebody's employment that other rules are computed from
+     * (ADR 0063): when they were hired (tenure), their level, their title,
+     * contract type and weekly hours (capacity).
+     *
+     * Never your own, whatever you hold: these decide how much leave a person
+     * is owed and how much work they are measured against, and an HR person
+     * raising their own level is the case this exists to refuse. Somebody
+     * else with `person.update` does it.
+     */
+    public function updateEmployment(Request $request, MembershipModel $membership): ApiResponse
+    {
+        $this->authorize('updateEmployment', $membership);
+
+        $validated = $request->validate([
+            'job_title' => ['sometimes', 'string', 'max:120'],
+            'job_level' => ['sometimes', 'nullable', Rule::in(['staff', 'supervisor', 'manager', 'director'])],
+            'hired_at' => ['sometimes', 'nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'employment_type' => ['sometimes', Rule::in(['full_time', 'part_time', 'contract', 'intern'])],
+            'weekly_capacity_hours' => ['sometimes', 'numeric', 'gt:0', 'max:168'],
+        ]);
+
+        $this->employment->update($membership, $validated, $request);
+
+        return $this->show($membership);
     }
 
     /**

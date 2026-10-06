@@ -7,6 +7,7 @@ import { WorkItemRow } from "@/features/work-item/components/WorkItemRow";
 import type { WorkItem } from "@/features/work-item/types";
 import type { Locale } from "@/i18n/config";
 import { employmentName, personStatusName } from "@/i18n/labels";
+import type { MessageKey } from "@/i18n/messages/en";
 import { translator, type Translator } from "@/i18n/translate";
 import { formatDate } from "@/lib/format";
 import { WorkloadPanel } from "./WorkloadPanel";
@@ -149,6 +150,10 @@ export function PersonEmployment({
 
         <KeyValueItem label={t("tpl.type")}>
           {person.employment_type ? employmentName(person.employment_type, t) : <Unset />}
+        </KeyValueItem>
+
+        <KeyValueItem label={t("emp.level")}>
+          {person.job_level ? t(`level.${person.job_level}` as MessageKey) : <Unset />}
         </KeyValueItem>
 
         <KeyValueItem label={t("profile.location")}>{person.work_location || <Unset />}</KeyValueItem>

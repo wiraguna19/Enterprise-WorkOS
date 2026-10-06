@@ -66,7 +66,11 @@ INSERT INTO roles (id, organization_id, key, name, description, is_system, level
  ('01900000-0000-7000-8000-000000000403','01900000-0000-7000-8000-0000000000ac','employee', 'Employee',          'Works on assigned work',               true,30),
  ('01900000-0000-7000-8000-000000000404','01900000-0000-7000-8000-0000000000ac','viewer',   'Viewer',            'Read-only access to granted areas',    true,10),
  ('01900000-0000-7000-8000-000000000501','01900000-0000-7000-8000-0000000000b0','org_admin','Organization Admin','Full control within the organization', true,90),
- ('01900000-0000-7000-8000-000000000502','01900000-0000-7000-8000-0000000000b0','employee', 'Employee',          'Works on assigned work',               true,30);
+ ('01900000-0000-7000-8000-000000000502','01900000-0000-7000-8000-0000000000b0','employee', 'Employee',          'Works on assigned work',               true,30),
+ -- ADR 0063: the migration creates this for organizations that already exist;
+ -- these do not yet when it runs.
+ ('01900000-0000-7000-8000-000000000405','01900000-0000-7000-8000-0000000000ac','hr',       'HR',                'People, leave and the structure they sit in', true,50),
+ ('01900000-0000-7000-8000-000000000505','01900000-0000-7000-8000-0000000000b0','hr',       'HR',                'People, leave and the structure they sit in', true,50);
 
 -- ── role → permission grants ─────────────────────────────────────────────────
 -- Org Admin: everything in the catalogue.
@@ -103,7 +107,9 @@ WHERE r.key = 'manager' AND p.key IN (
     -- ADR 0061, for the same reason.
     'announcement.publish_own_group',
     -- ADR 0062, likewise.
-    'kpi.view','kpi.manage'
+    'kpi.view','kpi.manage',
+    -- ADR 0063, likewise.
+    'leave.request'
 );
 
 -- Employee: sees the org and its people, changes nothing structural.
@@ -112,7 +118,20 @@ SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.key = 'employee' AND p.key IN (
     'organization.view','department.view','team.view','person.view','activity.view',
     -- ADR 0062, repeated here because its migration runs before this seed.
-    'kpi.view'
+    'kpi.view',
+    -- ADR 0063, likewise.
+    'leave.request'
+);
+
+-- HR (ADR 0063): people, leave and structure; not projects or work. The list is
+-- the migration's HR constant, repeated for the reason above.
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.key = 'hr' AND p.key IN (
+    'organization.view','department.view','team.view',
+    'person.view','person.view_workload','person.invite','person.update',
+    'activity.view','announcement.publish','kpi.view',
+    'leave.request','leave.manage'
 );
 
 -- Viewer: the narrowest possible set.
