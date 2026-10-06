@@ -106,7 +106,11 @@ it('lets only the author, or someone who may assign, stop a rule', function (): 
 
     $this->withToken($this->loginAs('sarah@acme.test'))
         ->deleteJson("/api/v1/recurrences/{$id}")
-        ->assertForbidden();
+        ->assertForbidden()
+        // In the API's own envelope, like every other refusal: a code to
+        // branch on and the sentence, not the framework's bare message.
+        ->assertJsonPath('error.code', 'auth.forbidden')
+        ->assertJsonPath('error.message', 'Only its author, or someone who may assign work, can stop this recurring rule.');
 
     expect(DB::table('recurrences')->where('id', $id)->value('is_active'))->toBeTrue();
 

@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Throwable;
@@ -51,7 +52,14 @@ final class ApiExceptionRenderer
                 $requestId,
             ),
 
-            $e instanceof AuthorizationException => $this->envelope(
+            // Both, because the framework converts one into the other BEFORE
+            // render callbacks run: a policy refusal or a thrown
+            // AuthorizationException arrives here as AccessDeniedHttpException,
+            // and without this arm every 403 left the API as Laravel's bare
+            // `{"message": ...}` — no code for a client to branch on, no
+            // request id, untranslated.
+            $e instanceof AuthorizationException,
+            $e instanceof AccessDeniedHttpException => $this->envelope(
                 'auth.forbidden',
                 __($e->getMessage() ?: 'You are not permitted to perform this action.'),
                 403,
