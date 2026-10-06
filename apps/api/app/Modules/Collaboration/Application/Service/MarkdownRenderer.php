@@ -23,8 +23,18 @@ final class MarkdownRenderer
         'ul', 'ol', 'li', 'blockquote', 'a', 'span',
     ];
 
+    /** Marks a finished link while the passes after it run (private-use code points). */
+    private const OPEN = "\u{E000}";
+
+    private const CLOSE = "\u{E001}";
+
     public function render(string $markdown): string
     {
+        // The two characters the link placeholders are built from cannot come
+        // from the author: a forged placeholder would splice in a link they
+        // never wrote.
+        $markdown = str_replace([self::OPEN, self::CLOSE], '', $markdown);
+
         // Escape FIRST. Everything after this operates on text that can no
         // longer introduce markup, so the formatting rules below can only ever
         // produce the tags they explicitly write.
@@ -39,41 +49,67 @@ final class MarkdownRenderer
         ) ?? $html;
 
         $html = preg_replace('/`([^`\n]+)`/', '<code>$1</code>', $html) ?? $html;
+
+        // Links are finished HERE and set aside until every other pass has
+        // run. They used to be built in the middle of the pipeline, and the
+        // mention pass after them rewrote `@name` INSIDE an href into
+        // `<span class="mention">` — whose quote closed the attribute and
+        // turned the rest of the URL into attributes of the link: onfocus=,
+        // autofocus, anything. A pass that writes markup must never run over
+        // markup another pass has already written.
+        $links = [];
+        $html = $this->renderLinks($html, $links);
+
         $html = preg_replace('/\*\*([^*\n]+)\*\*/', '<strong>$1</strong>', $html) ?? $html;
         $html = preg_replace('/(?<![\*\w])\*([^*\n]+)\*(?![\*\w])/', '<em>$1</em>', $html) ?? $html;
         $html = preg_replace('/~~([^~\n]+)~~/', '<del>$1</del>', $html) ?? $html;
-
-        $html = $this->renderLinks($html);
         $html = $this->renderMentions($html);
+
+        $html = preg_replace_callback(
+            '/'.self::OPEN.'(\d+)'.self::CLOSE.'/u',
+            static fn (array $m): string => $links[(int) $m[1]] ?? '',
+            $html,
+        ) ?? $html;
+
         $html = $this->renderParagraphs($html);
 
         return $this->stripDisallowedTags($html);
     }
 
     /**
-     * Only http(s) links survive.
+     * Only http(s) links survive, and each is replaced by a placeholder until
+     * the end of rendering (see render()).
      *
      * `javascript:`, `data:`, and protocol-relative URLs are dropped to plain
      * text rather than rewritten — a rewritten hostile link is still a link.
+     * The URL is checked AFTER escaping, so it can hold no quote and no angle
+     * bracket; anything else that is not plain URL text (markup an earlier
+     * pass wrote, for one) makes it not a link at all.
      * `rel="noopener"` because a target="_blank" link without it hands the
      * opener window to the destination.
+     *
+     * @param  list<string>  $links  receives the finished links, by placeholder number
+     *
+     * @param-out list<string> $links
      */
-    private function renderLinks(string $html): string
+    private function renderLinks(string $html, array &$links): string
     {
         return preg_replace_callback(
             '/\[([^\]\n]+)\]\(([^)\s]+)\)/',
-            static function (array $m): string {
+            static function (array $m) use (&$links): string {
                 $url = $m[2];
 
-                if (! preg_match('#^https?://#i', $url)) {
+                if (preg_match('#^https?://[^\s<>"\'`]+$#i', $url) !== 1) {
                     return $m[1];
                 }
 
-                return sprintf(
+                $links[] = sprintf(
                     '<a href="%s" rel="noopener noreferrer nofollow" target="_blank">%s</a>',
                     $url,
                     $m[1],
                 );
+
+                return self::OPEN.(count($links) - 1).self::CLOSE;
             },
             $html,
         ) ?? $html;
