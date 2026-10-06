@@ -149,6 +149,10 @@ final class PersonErasure
         // record of what somebody was looking for is a record about them.
         DB::table('recent_searches')->where('membership_id', $id)->delete();
 
+        // Their calendar subscription: a URL that is a credential, and that a
+        // calendar app would otherwise keep polling after they are gone.
+        DB::table('calendar_feeds')->where('membership_id', $id)->delete();
+
         // Which announcements they read and acknowledged. What they WROTE
         // stays: it was said to the organization (ADR 0061).
         DB::table('announcement_reads')->where('membership_id', $id)->delete();

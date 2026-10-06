@@ -147,3 +147,23 @@ it('keeps an all-day event on its day in every timezone', function (): void {
     expect($ics)->toContain('DTSTART;VALUE=DATE:20260901')
         ->and($ics)->not->toContain('DTSTART:20260901T');
 });
+
+it('stops serving once the person behind it has left', function (): void {
+    $path = (string) parse_url(
+        (string) $this->withToken($this->token)->postJson('/api/v1/calendar/feed')->json('data.url'),
+        PHP_URL_PATH,
+    );
+
+    $this->withoutToken()->get($path)->assertOk();
+
+    // Sarah's membership is revoked, as offboarding does. Her calendar app
+    // keeps polling the URL; it must get nothing back.
+    DB::table('memberships')
+        ->where('id', '01900000-0000-7000-8000-000000000203')
+        ->update(['status' => 'revoked', 'revoked_at' => now()]);
+
+    // As a calendar app asks: no bearer token. (The test client would
+    // otherwise still carry Sarah's from above, and her revoked session is
+    // refused with a 403 before the feed is ever reached.)
+    $this->withoutToken()->get($path)->assertNotFound();
+});

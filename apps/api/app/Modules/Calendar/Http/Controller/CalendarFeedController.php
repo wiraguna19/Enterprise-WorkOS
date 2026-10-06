@@ -13,6 +13,7 @@ use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Subscription URLs, and the feed they serve.
@@ -92,6 +93,24 @@ final class CalendarFeedController extends ApiController
         // 404, not 401: a wrong token is not a login prompt, and distinguishing
         // "no such feed" from "not yours" would confirm a guess (docs/05 §3).
         if ($feed === null) {
+            abort(404);
+        }
+
+        // The person behind the feed must still be here. A subscribed URL
+        // outlives everything else about somebody who leaves — their sessions,
+        // roles and notifications are removed, and a calendar app keeps polling
+        // this — so a revoked or erased membership's feed answers like one that
+        // never existed.
+        $active = $this->tenant->runAsPlatform(
+            'calendar.feed_membership_check',
+            static fn (): bool => DB::table('memberships')
+                ->where('id', $feed->membership_id)
+                ->where('organization_id', $feed->organization_id)
+                ->where('status', 'active')
+                ->exists(),
+        );
+
+        if (! $active) {
             abort(404);
         }
 
