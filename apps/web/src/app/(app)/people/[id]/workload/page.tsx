@@ -1,18 +1,16 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ButtonLink } from "@/components/ui/Button";
-import { DataTable, TBody, THead, Td, Th, Tr } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageBody } from "@/components/ui/PageBody";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/Panel";
 import { WorkloadBar } from "@/components/ui/WorkloadBar";
+import { CommittedWorkTable } from "@/features/people/CommittedWorkTable";
 import type { PersonDetail, WorkloadItem, WorkloadItemsMeta } from "@/features/people/types";
 import { api, ApiRequestError } from "@/lib/api";
 import { asLocale } from "@/i18n/config";
-import { translator, type Translator } from "@/i18n/translate";
+import { translator } from "@/i18n/translate";
 import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 
@@ -184,84 +182,17 @@ export default async function WorkloadItemsPage({
             }
             bleed
           >
-            <WorkTable rows={counted} timeZone={me.user.timezone} t={t} locale={locale} weekStart={meta.week_start} />
+            <CommittedWorkTable rows={counted} timeZone={me.user.timezone} locale={locale} weekStart={meta.week_start} />
           </Panel>
         )}
 
         {held.length > 0 && (
           <Panel id="held" title={t("wl.held.title")} description={t("wl.held.description")} bleed>
-            <WorkTable rows={held} timeZone={me.user.timezone} t={t} locale={locale} weekStart={meta.week_start} />
+            <CommittedWorkTable rows={held} timeZone={me.user.timezone} locale={locale} weekStart={meta.week_start} />
           </Panel>
         )}
       </PageBody>
     </div>
-  );
-}
-
-function WorkTable({
-  rows,
-  timeZone,
-  t,
-  locale,
-  weekStart,
-}: {
-  rows: WorkloadItem[];
-  timeZone: string;
-  t: Translator;
-  locale: ReturnType<typeof asLocale>;
-  weekStart: string;
-}) {
-  return (
-    <DataTable caption={t("wl.caption")}>
-      <THead>
-        <Tr>
-          <Th>{t("wl.col.item")}</Th>
-          <Th width="w-36">{t("wl.col.due")}</Th>
-          <Th width="w-20" align="right">
-            {t("wl.col.hours")}
-          </Th>
-        </Tr>
-      </THead>
-      <TBody>
-        {rows.map((item) => {
-          // Due before the week began and not finished: the reason a row sits
-          // in the second panel, named on the row.
-          const overdue = item.due_at !== null && item.due_at.slice(0, 10) < weekStart;
-
-          return (
-            <Tr key={item.id}>
-              <Td>
-                <Link href={`/work/${item.reference}`} className="group flex min-w-0 items-baseline gap-2">
-                  <span className="w-16 shrink-0 font-mono text-caption text-n-500">{item.reference}</span>
-                  <span className="min-w-0 truncate font-medium text-n-900 group-hover:underline">
-                    {item.title}
-                  </span>
-                </Link>
-              </Td>
-              <Td muted>
-                <span className="flex items-center gap-1.5 whitespace-nowrap">
-                  {item.due_at ? formatDate(item.due_at, timeZone, locale) : t("items.noDue")}
-                  {overdue && <Badge tone="danger">{t("wl.overdue")}</Badge>}
-                </span>
-              </Td>
-              <Td align="right">
-                {/* The contribution, flagged where it is the organization's
-                    default rather than anyone's estimate. Marking it on the ROW
-                    is what lets a manager tell "this person has 32 committed
-                    hours" from "six items nobody has estimated". */}
-                <span
-                  className="tabular-nums text-n-700"
-                  title={item.counted_at_default ? t("wl.defaultEstimate") : undefined}
-                >
-                  {item.share_hours === null ? "—" : t("time.hours", { hours: item.share_hours })}
-                  {item.counted_at_default && <span className="ml-1 text-s-active">*</span>}
-                </span>
-              </Td>
-            </Tr>
-          );
-        })}
-      </TBody>
-    </DataTable>
   );
 }
 

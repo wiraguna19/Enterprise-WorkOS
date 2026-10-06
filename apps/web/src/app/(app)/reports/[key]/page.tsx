@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ExportPanel } from "@/features/report/ExportPanel";
+import type { Cell } from "@/features/report/ReportCell";
+import { ReportTable } from "@/features/report/ReportTable";
 import { listExports } from "@/features/report/actions";
 import { api, ApiRequestError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -35,8 +37,7 @@ export default async function ReportPage({
   params: Promise<{ key: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // Awaited for the redirect it performs, not for a value: this page renders
-  // nothing per-person, and binding an unused `me` would suggest it did.
+  // The reader's language and time zone: a timestamp is shown in theirs.
   const [me, { key }, rawQuery] = await Promise.all([requireUser(), params, searchParams]);
   const locale = asLocale(me.user.locale);
   const t = translator(locale);
@@ -71,11 +72,11 @@ export default async function ReportPage({
 
   const query = new URLSearchParams(parameters);
 
-  let rows: Array<Array<string | number | boolean | null>>;
+  let rows: Cell[][];
   let meta: { columns: string[]; hidden_count: number };
 
   try {
-    const response = await api<Array<Array<string | number | boolean | null>>>(
+    const response = await api<Cell[][]>(
       `/reports/${key}?${query}`,
     );
 
@@ -92,46 +93,15 @@ export default async function ReportPage({
     <div className="mx-auto max-w-5xl space-y-6">
       <Heading reportKey={key} locale={locale} />
 
+      {rows.length > 0 && <Summary reportKey={key} columns={meta.columns} rows={rows} locale={locale} />}
+
       {rows.length === 0 ? (
         <EmptyState
           title={t("rep.empty.title")}
           description={t("rep.empty.body")}
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-body-sm">
-            <thead>
-              <tr className="border-b border-n-200 text-left">
-                {meta.columns.map((column) => (
-                  <th
-                    key={column}
-                    scope="col"
-                    className="px-2 py-2 text-micro font-semibold uppercase tracking-[0.04em] text-n-500"
-                  >
-                    {column.replace(/_/g, " ")}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={index} className="border-b border-n-100 last:border-b-0">
-                  {row.map((cell, column) => (
-                    <td
-                      key={meta.columns[column] ?? column}
-                      className="px-2 py-1.5 align-top text-n-900"
-                    >
-                      {/* Null is an empty cell, not the word "null" and not a
-                          zero. Zero is a claim; absent is an absence, and four
-                          ADRs in this phase turn on the difference. */}
-                      {cell === null ? <span className="text-n-300">—</span> : String(cell)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ReportTable columns={meta.columns} rows={rows} locale={locale} timeZone={me.user.timezone} />
       )}
 
       {meta.hidden_count > 0 && (
@@ -152,6 +122,43 @@ export default async function ReportPage({
       </p>
     </div>
   );
+}
+
+/**
+ * A line above the table, read off the rows below it — counts, not new
+ * figures (ADR 0011) — and, for the team report, what its capacity does not
+ * yet account for.
+ */
+function Summary({
+  reportKey,
+  columns,
+  rows,
+  locale,
+}: {
+  reportKey: string;
+  columns: string[];
+  rows: Cell[][];
+  locale: Locale;
+}) {
+  const t = translator(locale);
+
+  if (reportKey === "organization") {
+    const late = columns.indexOf("late");
+    const dated = rows.filter((row) => row[late] === true || row[late] === false).length;
+    const lateCount = rows.filter((row) => row[late] === true).length;
+
+    return (
+      <p className="text-body-sm text-n-700">
+        {t("rep.summary.organization", { done: rows.length, late: lateCount, dated })}
+      </p>
+    );
+  }
+
+  if (reportKey === "team") {
+    return <p className="max-w-[72ch] text-caption text-n-500">{t("rep.summary.team")}</p>;
+  }
+
+  return null;
 }
 
 function Heading({ reportKey, locale }: { reportKey: string; locale: Locale }) {
