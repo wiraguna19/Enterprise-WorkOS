@@ -45,6 +45,19 @@ final class ServiceAccountRefused extends DomainException
         );
     }
 
+    /** @param  list<string>  $permissions */
+    public static function beyondYourAuthority(string $roleKey, array $permissions): self
+    {
+        return new self(
+            __('You cannot give a service account a role that holds permissions you do not hold yourself: :permissions', [
+                'permissions' => implode(', ', $permissions),
+            ]),
+            'service_account.beyond_your_own_authority',
+            409,
+            ['role' => $roleKey, 'permissions' => $permissions],
+        );
+    }
+
     public static function unknownRole(string $roleKey): self
     {
         return new self(__('There is no role called :role here.', ['role' => $roleKey]), 'service_account.unknown_role', 422, ['role' => $roleKey]);

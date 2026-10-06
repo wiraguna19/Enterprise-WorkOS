@@ -48,6 +48,7 @@ final class RoleAssignment
         private readonly PermissionResolver $permissions,
         private readonly ActivityLogger $activity,
         private readonly TenantContext $tenant,
+        private readonly AuthorityCeiling $ceiling,
     ) {}
 
     /**
@@ -147,6 +148,19 @@ final class RoleAssignment
                 throw new RoleGrantRefused(
                     'They already hold that role across the whole organization.',
                     ['refusal' => 'already_organization_wide', 'role' => $roleKey],
+                );
+            }
+
+            // Scoped is narrower in WHERE, not in WHAT: a role granted on one
+            // project still carries every permission in it there.
+            $beyond = $this->ceiling->beyond((string) $role->id);
+
+            if ($beyond !== []) {
+                throw new RoleGrantRefused(
+                    __('You cannot grant a role that holds permissions you do not hold yourself: :permissions', [
+                        'permissions' => implode(', ', $beyond),
+                    ]),
+                    ['refusal' => 'beyond_your_own_authority', 'role' => $roleKey, 'permissions' => $beyond],
                 );
             }
 

@@ -48,6 +48,7 @@ final class ServiceAccounts
         private readonly AuthenticationService $auth,
         private readonly PermissionResolver $permissions,
         private readonly AuditLogger $audit,
+        private readonly AuthorityCeiling $ceiling,
     ) {}
 
     /**
@@ -104,6 +105,16 @@ final class ServiceAccounts
 
         if ($roleId === null) {
             throw ServiceAccountRefused::unknownRole($roleKey);
+        }
+
+        // `org_admin` by name is not the whole of "too powerful": a custom role
+        // can carry the same keys, and an administrator of less than
+        // everything could otherwise make an account — and hold its token —
+        // with more than they have themselves (AuthorityCeiling).
+        $beyond = $this->ceiling->beyond((string) $roleId);
+
+        if ($beyond !== []) {
+            throw ServiceAccountRefused::beyondYourAuthority($roleKey, $beyond);
         }
 
         return DB::transaction(function () use ($name, $roleKey, $roleId, $request): MembershipModel {
