@@ -13,6 +13,7 @@ use App\Modules\Platform\Application\Event\RecordsDomainEvents;
 use App\Modules\Platform\Domain\Contract\RealtimePublisher;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Infrastructure\Realtime\Channel;
+use App\Modules\Work\Application\Query\WorkItemVisibility;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -37,6 +38,7 @@ final class CommentService
         private readonly TenantContext $tenant,
         private readonly RealtimePublisher $realtime,
         private readonly NotificationDispatcher $notifications,
+        private readonly WorkItemVisibility $visibility,
     ) {}
 
     public function create(
@@ -163,6 +165,15 @@ final class CommentService
 
                 if (in_array((string) $membership->getKey(), $mentioned, strict: true)) {
                     break;   // named twice in one comment; one row, one notification
+                }
+
+                // Not somebody who could not open the item. The notification
+                // carries the item's reference and title, and the mention row
+                // feeds their inbox: naming a person must not show them work
+                // in a private project they are not on.
+                if ($comment->commentable_type === 'work_item'
+                    && ! $this->visibility->visibleTo((string) $comment->commentable_id, $membership)) {
+                    break;
                 }
 
                 $mention = new MentionModel;

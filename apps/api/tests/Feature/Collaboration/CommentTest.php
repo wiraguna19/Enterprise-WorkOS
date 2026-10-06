@@ -148,6 +148,16 @@ it('resolves a name of any length, not one word or two', function (): void {
         'joined_at' => now(),
     ]);
 
+    // On the project, so the item is theirs to open: a mention only reaches
+    // somebody who can see what it is about.
+    DB::table('project_members')->insert([
+        'id' => (string) new UuidV7,
+        'organization_id' => '01900000-0000-7000-8000-0000000000ac',
+        'project_id' => '01900003-0000-7000-8000-000000000001',
+        'membership_id' => $membership,
+        'role' => 'member',
+    ]);
+
     $comment = $this->withToken($this->employee)
         ->postJson('/api/v1/work-items/ENG-144/comments', [
             'body' => '@I Made Wiraguna could you check the rollback plan?',
@@ -244,4 +254,36 @@ it('refuses a comment on work the author cannot see', function (): void {
     $this->withToken($this->employee)
         ->postJson('/api/v1/work-items/GBX-1/comments', ['body' => 'hello other tenant'])
         ->assertNotFound();
+});
+
+it('does not tell somebody about work they cannot open', function (): void {
+    // A FIN item (private; Sarah is not on it) that Sarah has no other way to
+    // see. Naming her in a comment must not put its reference and title in
+    // her inbox.
+    $sarah = '01900000-0000-7000-8000-000000000203';
+
+    $reference = DB::table('work_items as w')
+        ->where('w.project_id', '01900003-0000-7000-8000-000000000005')
+        ->where('w.created_by_membership_id', '!=', $sarah)
+        ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('work_item_assignments as a')
+            ->whereColumn('a.work_item_id', 'w.id')->where('a.membership_id', $sarah))
+        ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('work_item_watchers as x')
+            ->whereColumn('x.work_item_id', 'w.id')->where('x.membership_id', $sarah))
+        ->value('w.reference');
+
+    expect($reference)->not->toBeNull();
+
+    // Rina owns FIN.
+    $id = $this->withToken($this->loginAs('rina@acme.test'))
+        ->postJson("/api/v1/work-items/{$reference}/comments", [
+            'body' => '@Sarah Chen and @Ahmad Rizal, the budget lock is Friday.',
+        ])->assertCreated()->json('data.id');
+
+    $this->assertDatabaseMissing('mentions', ['comment_id' => $id, 'mentioned_membership_id' => $sarah]);
+
+    expect(DB::table('notifications')
+        ->where('membership_id', $sarah)
+        ->where('type', 'comment.mentioned')
+        ->whereRaw("payload->>'comment_id' = ?", [$id])
+        ->exists())->toBeFalse();
 });

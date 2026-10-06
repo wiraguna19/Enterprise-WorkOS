@@ -6,8 +6,8 @@ namespace App\Modules\Work\Application\Query;
 
 use App\Modules\Identity\Application\Service\ActingMembership;
 use App\Modules\Identity\Application\Service\PermissionResolver;
+use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Organization\Application\Query\ReportingLine;
-use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -31,7 +31,6 @@ final class WorkItemVisibility
     public function __construct(
         private readonly PermissionResolver $permissions,
         private readonly ActingMembership $acting,
-        private readonly TenantContext $tenant,
         private readonly ReportingLine $reportingLine,
     ) {}
 
@@ -41,11 +40,27 @@ final class WorkItemVisibility
      */
     public function apply(Builder $query): Builder
     {
-        $membershipId = $this->tenant->membershipId();
-
         // The same row every policy and permission check needs, read once per
         // request rather than once per call site.
-        $actor = $this->acting->getOrFail();
+        return $this->applyAs($query, $this->acting->getOrFail());
+    }
+
+    /**
+     * Could this person see this item? For deciding about somebody OTHER than
+     * the actor — who to tell about a mention — by the same rule as above.
+     */
+    public function visibleTo(string $workItemId, MembershipModel $member): bool
+    {
+        return $this->applyAs(WorkItemModel::query()->whereKey($workItemId), $member)->exists();
+    }
+
+    /**
+     * @param  Builder<WorkItemModel>  $query
+     * @return Builder<WorkItemModel>
+     */
+    private function applyAs(Builder $query, MembershipModel $actor): Builder
+    {
+        $membershipId = (string) $actor->getKey();
 
         // Someone who can see every project sees all its work. They still
         // cannot see PRIVATE projects they are not a member of — that is the
