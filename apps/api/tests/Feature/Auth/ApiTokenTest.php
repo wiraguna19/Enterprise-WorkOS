@@ -110,6 +110,24 @@ it('keeps every token away from credentials — sessions, second factors, re-aut
     'enrolling a second factor' => ['POST', '/api/v1/auth/mfa'],
 ]);
 
+it('keeps every token away from granting access — roles, invitations, the identity provider', function (string $method, string $uri): void {
+    [, $value] = makeApiToken($this->admin, 'read_write');
+
+    // Rina holds every one of these keys; her token, leaked, must not.
+    $this->withToken($value)
+        ->json($method, $uri, ['role_key' => 'org_admin', 'email' => 'accomplice@example.test', 'name' => 'Escalated'])
+        ->assertStatus(403)
+        ->assertJsonPath('error.code', 'auth.interactive_session_required');
+})->with([
+    'granting a role' => ['POST', '/api/v1/people/01900000-0000-7000-8000-000000000203/roles'],
+    'writing a role' => ['POST', '/api/v1/roles'],
+    'taking a permission away' => ['POST', '/api/v1/people/01900000-0000-7000-8000-000000000203/denials'],
+    'inviting somebody' => ['POST', '/api/v1/people/invite'],
+    'listing invitations' => ['GET', '/api/v1/invitations'],
+    'reading the identity provider' => ['GET', '/api/v1/sso-connection'],
+    'replacing the identity provider' => ['PUT', '/api/v1/sso-connection'],
+]);
+
 it('does not go idle, where a browser session would', function (): void {
     [$id, $value] = makeApiToken($this->admin);
 

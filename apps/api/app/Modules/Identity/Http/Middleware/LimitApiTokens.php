@@ -26,7 +26,14 @@ use Symfony\Component\HttpFoundation\Response;
  *    Over-refusing is the safe direction here: an integration that needs a
  *    new route says so in a bug report; a token that could reach one says
  *    nothing at all.
- * 2. **A read-only token reads.** Anything but GET or HEAD is refused.
+ * 2. **Nothing behind the keys that decide who gets in and what they may
+ *    do** — `role.manage`, `person.invite`, `sso.manage`. These routes are
+ *    unnamed or named outside the prefixes above, and a leaked administrator's
+ *    token could otherwise grant a role, invite an accomplice or replace the
+ *    identity provider. Read off the route's own `permission:` middleware, so
+ *    a route added behind one of these keys is refused without anyone
+ *    remembering to name it.
+ * 3. **A read-only token reads.** Anything but GET or HEAD is refused.
  *
  * Browser sessions pass straight through: the first line asks what kind of
  * row authenticated the request, and a session is not this class's business.
@@ -44,6 +51,14 @@ final class LimitApiTokens
      * @var list<string>
      */
     private const REFUSED_PREFIXES = ['auth.', 'api_tokens.', 'service_accounts.'];
+
+    /**
+     * Permissions that administer access itself. A route behind any of them
+     * is for a person at a keyboard, not a script.
+     *
+     * @var list<string>
+     */
+    private const REFUSED_PERMISSIONS = ['role.manage', 'person.invite', 'sso.manage'];
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -66,6 +81,22 @@ final class LimitApiTokens
                         'An API token cannot manage sign-ins, second factors or tokens. Sign in to do this.',
                     );
                 }
+            }
+        }
+
+        foreach ($request->route()?->gatherMiddleware() ?? [] as $middleware) {
+            if (! is_string($middleware) || ! str_starts_with($middleware, 'permission:')) {
+                continue;
+            }
+
+            $keys = preg_split('/[,|]/', substr($middleware, strlen('permission:'))) ?: [];
+
+            if (array_intersect($keys, self::REFUSED_PERMISSIONS) !== []) {
+                return $this->refuse(
+                    $request,
+                    'auth.interactive_session_required',
+                    'An API token cannot change who may sign in or what they may do. Sign in to do this.',
+                );
             }
         }
 
