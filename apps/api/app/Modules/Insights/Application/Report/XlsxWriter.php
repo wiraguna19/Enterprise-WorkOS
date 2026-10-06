@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Insights\Application\Report;
 
+use OpenSpout\Common\Entity\Cell;
+use OpenSpout\Common\Entity\Cell\StringCell;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Style;
 use OpenSpout\Writer\XLSX\Entity\SheetView;
@@ -25,10 +27,11 @@ use OpenSpout\Writer\XLSX\Writer;
  * written as a boolean. The distinction between a zero and an absence cost this
  * phase four ADRs, and the export is not where it gets dropped.
  *
- * **Nothing is coerced to a formula.** OpenSpout writes inline strings, so a
- * cell whose text begins with `=` stays that text. Worth stating because the
- * CSV path has the opposite hazard and solves it differently — a spreadsheet
- * opening a CSV *does* interpret a leading `=`.
+ * **Nothing is coerced to a formula.** OpenSpout's `Cell::fromValue()` turns
+ * any string beginning with `=` into a FORMULA cell — so a work item titled
+ * `=HYPERLINK("https://evil.example","Open")` arrived in the export as a live
+ * link. (An earlier version of this comment said the opposite; it was never
+ * tested.) Every string is written as a string cell, explicitly.
  *
  * **A header row that stays visible.** The header is bold and the top row is
  * frozen: a fifty-thousand-row export scrolled past its first screen is
@@ -64,10 +67,13 @@ final class XlsxWriter implements ReportWriter
             // and nothing may have been added to it yet.
             $writer->getCurrentSheet()->setSheetView(new SheetView(freezeRow: 1));
 
-            $writer->addRow(Row::fromValuesWithStyle($columns, new Style(fontBold: true)));
+            $writer->addRow(new Row(array_map(
+                static fn (string $column): Cell => new StringCell($column, new Style(fontBold: true)),
+                $columns,
+            )));
 
             foreach ($rows as $row) {
-                $writer->addRow(Row::fromValues($row));
+                $writer->addRow(new Row(array_map(self::cell(...), $row)));
             }
 
             $writer->close();
@@ -82,6 +88,14 @@ final class XlsxWriter implements ReportWriter
         } finally {
             @unlink($path);
         }
+    }
+
+    /** Strings as strings, never as formulas; everything else typed as before. */
+    private static function cell(string|int|float|bool|null $value): Cell
+    {
+        return is_string($value) && $value !== ''
+            ? new StringCell($value)
+            : Cell::fromValue($value);
     }
 
     public function mimeType(): string

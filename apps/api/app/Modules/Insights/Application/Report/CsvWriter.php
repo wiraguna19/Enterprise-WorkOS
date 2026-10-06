@@ -13,6 +13,13 @@ namespace App\Modules\Insights\Application\Report;
  * seed — and in its customers — into mojibake. The BOM is three bytes that
  * make the difference between a file that works and a support ticket.
  *
+ * **A cell that would start a formula is defused.** A spreadsheet opening a
+ * CSV runs `=`, `+`, `-` and `@` at the start of a cell as a formula — a work
+ * item titled `=HYPERLINK(...)` or `=cmd|...` becomes a link or a prompt to run
+ * something on the reader's machine. Such text gets a leading `'`, the
+ * convention spreadsheets read as "this is text" (OWASP: CSV injection).
+ * Numbers are left alone: `-3` is a value, not an attack.
+ *
  * **Null is an empty field, false is `false`.** A boolean written as an empty
  * string is indistinguishable from an absent one, and this phase has spent four
  * ADRs on the difference between a zero and an absence; the export is not where
@@ -34,7 +41,7 @@ final class CsvWriter implements ReportWriter
             throw new \RuntimeException('Could not open a buffer for the export.');
         }
 
-        fputcsv($handle, $columns, escape: '');
+        fputcsv($handle, array_map(self::cell(...), $columns), escape: '');
 
         foreach ($rows as $row) {
             fputcsv($handle, array_map(self::cell(...), $row), escape: '');
@@ -62,7 +69,19 @@ final class CsvWriter implements ReportWriter
         return match (true) {
             $value === null => '',
             is_bool($value) => $value ? 'true' : 'false',
+            is_string($value) => self::defused($value),
             default => (string) $value,
         };
+    }
+
+    private static function defused(string $text): string
+    {
+        if ($text === '' || is_numeric($text)) {
+            return $text;
+        }
+
+        return in_array($text[0], ['=', '+', '-', '@', "\t", "\r"], strict: true)
+            ? "'".$text
+            : $text;
     }
 }
