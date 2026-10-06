@@ -104,6 +104,14 @@ final class SingleSignOn
             throw SingleSignOnRefused::expired();
         }
 
+        // Once, even under a race. `Cache::pull` is a read and then a delete,
+        // and two requests carrying the same captured answer at the same
+        // moment can both read before either deletes. `add` is atomic: only
+        // the first caller sets the marker.
+        if (! Cache::add('sso:answered:'.hash('sha256', $pending['request_id']), true, self::PENDING_SECONDS)) {
+            throw SingleSignOnRefused::expired();
+        }
+
         $connection = $this->connections->find($pending['connection_id']);
 
         if ($connection === null) {
@@ -177,6 +185,12 @@ final class SingleSignOn
         $completion = Cache::pull($this->completionKey($code));
 
         if (! is_array($completion)) {
+            throw SingleSignOnRefused::expired();
+        }
+
+        // The same once-only marker as in consume(): a completion code is a
+        // session, and two of them from one code would be two sessions.
+        if (! Cache::add('sso:completed:'.hash('sha256', $code), true, self::COMPLETION_SECONDS)) {
             throw SingleSignOnRefused::expired();
         }
 
