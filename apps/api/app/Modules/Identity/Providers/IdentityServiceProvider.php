@@ -78,6 +78,26 @@ final class IdentityServiceProvider extends ServiceProvider
         });
     }
 
+    /** Whose credentials a login-limited request is trying. */
+    private static function loginSubject(Request $request): string
+    {
+        $email = mb_strtolower(trim((string) $request->input('email')));
+
+        if ($email !== '') {
+            return 'email:'.$email;
+        }
+
+        $user = $request->user();
+
+        if ($user !== null) {
+            return 'user:'.(string) $user->getAuthIdentifier();
+        }
+
+        $challenge = (string) $request->input('challenge');
+
+        return $challenge === '' ? 'anonymous' : 'challenge:'.hash('sha256', $challenge);
+    }
+
     /**
      * Login is limited per (IP + email) rather than per IP alone: per-IP only
      * lets one attacker lock every user out of a shared office network, and
@@ -85,12 +105,32 @@ final class IdentityServiceProvider extends ServiceProvider
      */
     private function registerRateLimiters(): void
     {
-        RateLimiter::for('login', fn (Request $request) => [
-            Limit::perMinutes(15, 5)->by(
-                $request->ip().'|'.mb_strtolower((string) $request->input('email'))
-            ),
-            Limit::perMinutes(15, 20)->by($request->ip()),
-        ]);
+        /*
+         * Three limits, because three different attacks reach this:
+         *
+         *   one address guessing one account   — 5 per quarter hour
+         *   many addresses guessing one account — 20 (rotating IPs gains nothing past it)
+         *   one address trying many accounts    — 50
+         *
+         * WHO is the email when there is one, and otherwise what the request
+         * carries instead: the signed-in user (re-authentication, confirming a
+         * factor) or the MFA challenge. Keying those on an empty email put every
+         * MFA prompt in the product into one shared bucket.
+         *
+         * Every key is prefixed so the three never collide. The address is the
+         * real client's (TrustTheWebServer); before that it was the web
+         * server's, and the per-address limit was one limit for everybody.
+         */
+        RateLimiter::for('login', function (Request $request): array {
+            $ip = (string) $request->ip();
+            $who = self::loginSubject($request);
+
+            return [
+                Limit::perMinutes(15, 5)->by("login:ip-who:{$ip}|{$who}"),
+                Limit::perMinutes(15, 20)->by("login:who:{$who}"),
+                Limit::perMinutes(15, 50)->by("login:ip:{$ip}"),
+            ];
+        });
 
         /*
          * Accepting an invitation is reachable with nothing but a link, so it

@@ -22,6 +22,7 @@ use App\Modules\Platform\Http\ApiExceptionRenderer;
 use App\Modules\Platform\Http\Middleware\AnswersQuery;
 use App\Modules\Platform\Http\Middleware\AssignRequestId;
 use App\Modules\Platform\Http\Middleware\RefuseUnansweredQuery;
+use App\Modules\Platform\Http\Middleware\TrustTheWebServer;
 use App\Modules\Platform\Http\Middleware\UseReadersLanguage;
 use App\Modules\Platform\Providers\PlatformServiceProvider;
 use App\Modules\Search\Providers\SearchServiceProvider;
@@ -72,6 +73,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Order matters. The request ID must exist before anything can log,
         // and the tenant must be resolved before any tenant-scoped query runs.
         $middleware->api(prepend: [
+            // First: everything after it — the rate limiters, the session
+            // list, the audit log — needs the real client's address.
+            TrustTheWebServer::class,
             AssignRequestId::class,
             UseReadersLanguage::class,
         ]);

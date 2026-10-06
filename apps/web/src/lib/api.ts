@@ -1,3 +1,4 @@
+import { headers as requestHeaders } from "next/headers";
 import { getSessionToken } from "./session";
 import { requestLocale } from "@/i18n/server";
 
@@ -112,6 +113,16 @@ export async function api<T>(
 
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
+  // Where the request really came from. This server calls the API itself, so
+  // without it every request reaches the API from one address and every
+  // per-address rate limit there is a single limit shared by everybody —
+  // twenty failed logins from anyone locked the whole product out. The API
+  // believes this header only from addresses it trusts (TRUSTED_PROXIES), and
+  // takes the right-most entry it does not trust: put a reverse proxy in front
+  // of this app that appends to X-Forwarded-For, and a client cannot choose it.
+  const forwarded = await forwardedFor();
+  if (forwarded) headers["X-Forwarded-For"] = forwarded;
+
   if (!anonymous) {
     const token = await getSessionToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -153,4 +164,16 @@ export async function api<T>(
   }
 
   return payload;
+}
+
+/** The forwarding chain this request arrived with, if it is a request at all. */
+async function forwardedFor(): Promise<string | null> {
+  try {
+    const incoming = await requestHeaders();
+
+    return incoming.get("x-forwarded-for") ?? incoming.get("x-real-ip");
+  } catch {
+    // Outside a request (a build step, a script): there is no client to name.
+    return null;
+  }
 }
