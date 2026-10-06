@@ -386,3 +386,22 @@ it('lists a category work is sitting in even when nothing has left it', function
     expect($rows->keys())->toContain('todo')
         ->and($rows['todo']['waiting_now'])->toBeGreaterThan(0);
 });
+
+it('does not filter flow to a private project the reader cannot see', function (): void {
+    // Ahmad reads reports but is not on FIN, which is private. The
+    // organization-wide figure is his to read; FIN's alone is not.
+    $ahmad = $this->loginAs('ahmad@acme.test');
+
+    $this->withToken($ahmad)
+        ->getJson('/api/v1/insights/flow?project_id=01900003-0000-7000-8000-000000000005')
+        ->assertNotFound();
+
+    $this->withToken($ahmad)
+        ->getJson('/api/v1/insights/flow?project_id='.FLOW_PROJECT)
+        ->assertOk();
+
+    // Rina owns FIN.
+    $this->withToken($this->admin)
+        ->getJson('/api/v1/insights/flow?project_id=01900003-0000-7000-8000-000000000005')
+        ->assertOk();
+});

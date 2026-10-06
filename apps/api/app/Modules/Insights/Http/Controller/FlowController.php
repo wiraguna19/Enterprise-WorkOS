@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Insights\Http\Controller;
 
+use App\Modules\Identity\Application\Service\ActingMembership;
+use App\Modules\Identity\Application\Service\PermissionResolver;
 use App\Modules\Insights\Application\Query\BottleneckQuery;
 use App\Modules\Insights\Application\Query\FlowQuery;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
+use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -29,6 +32,8 @@ final class FlowController extends ApiController
         private readonly FlowQuery $flow,
         private readonly BottleneckQuery $bottlenecks,
         private readonly WorkItemVisibility $visibility,
+        private readonly ActingMembership $acting,
+        private readonly PermissionResolver $permissions,
     ) {}
 
     /**
@@ -154,8 +159,24 @@ final class FlowController extends ApiController
     private function project(Request $request): ?string
     {
         $validated = $request->validate(['project_id' => ['sometimes', 'uuid']]);
+        $projectId = $validated['project_id'] ?? null;
 
-        return $validated['project_id'] ?? null;
+        if ($projectId === null) {
+            return null;
+        }
+
+        // An organization-wide figure is a fact about the organization; one
+        // filtered to a single project is a fact about THAT project, and a
+        // private project's throughput is not for somebody who cannot see the
+        // project. Answered as the directory answers it: not there (ADR 0004).
+        $actor = $this->acting->getOrFail();
+
+        ProjectModel::query()
+            ->visibleTo((string) $actor->getKey(), $this->permissions->has($actor, 'project.view_all'))
+            ->whereKey($projectId)
+            ->firstOrFail();
+
+        return (string) $projectId;
     }
 
     private function department(Request $request): ?string
