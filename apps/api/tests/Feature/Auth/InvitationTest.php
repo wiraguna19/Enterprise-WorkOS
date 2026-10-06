@@ -57,12 +57,13 @@ it('lets a stranger accept, and puts them in the organization with their role', 
 
     // Public: the person holding this link has no account yet, so there is
     // nothing to authenticate with.
-    $this->getJson("/api/v1/invitations/{$token}/preview")
+    $this->postJson('/api/v1/invitations/preview', ['token' => $token])
         ->assertOk()
         ->assertJsonPath('data.email', $this->address)
         ->assertJsonPath('data.organization', 'Acme Corporation');
 
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Newcomer Person',
         'password' => 'a-long-enough-password',
     ])->assertOk();
@@ -95,7 +96,8 @@ it('gives a new account the language its invitation was accepted in', function (
         ->postJson('/api/v1/people/invite', ['email' => $this->address])
         ->json('data.token');
 
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Newcomer Person',
         'password' => 'a-long-enough-password',
         'locale' => 'id',
@@ -111,7 +113,8 @@ it('refuses a language the interface does not have', function (): void {
         ->postJson('/api/v1/people/invite', ['email' => $this->address])
         ->json('data.token');
 
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Newcomer Person',
         'password' => 'a-long-enough-password',
         'locale' => 'fr',
@@ -135,7 +138,8 @@ it('does not touch the password of somebody who already has an account', functio
     // account joins only with its own password. The link goes to whoever SENT
     // the invitation, so without this an admin of any organization could pull
     // a stranger's account into theirs.
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Gil Barnes',
         'password' => 'a-brand-new-password-chosen-by-somebody-else',
     ])->assertStatus(409)
@@ -143,7 +147,8 @@ it('does not touch the password of somebody who already has an account', functio
 
     // Gil himself, with the password he already has (shorter than twelve
     // characters: the rule is for choosing one, not for proving one).
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Gil Barnes',
         'password' => 'password',
     ])->assertOk();
@@ -191,7 +196,7 @@ it('refuses a second invitation to the same address, and takes the first one bac
         ->deleteJson("/api/v1/invitations/{$first['id']}")
         ->assertNoContent();
 
-    $this->getJson("/api/v1/invitations/{$first['token']}/preview")
+    $this->postJson('/api/v1/invitations/preview', ['token' => $first['token']])
         ->assertNotFound();
 
     $this->withToken($this->admin)
@@ -210,8 +215,8 @@ it('refuses an expired link the same way it refuses a wrong one', function (): v
 
     // Wrong, expired, revoked, already used — one answer for all four. Any
     // difference between them is an oracle for guessing tokens.
-    $this->getJson("/api/v1/invitations/{$token}/preview")->assertNotFound();
-    $this->getJson('/api/v1/invitations/not-a-real-token/preview')->assertNotFound();
+    $this->postJson('/api/v1/invitations/preview', ['token' => $token])->assertNotFound();
+    $this->postJson('/api/v1/invitations/preview', ['token' => 'not-a-real-token'])->assertNotFound();
 });
 
 it('cannot be accepted twice', function (): void {
@@ -219,13 +224,15 @@ it('cannot be accepted twice', function (): void {
         ->postJson('/api/v1/people/invite', ['email' => $this->address])
         ->json('data.token');
 
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Newcomer Person',
         'password' => 'a-long-enough-password',
     ])->assertOk();
 
     // Otherwise one link is a membership factory.
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Newcomer Person',
         'password' => 'a-long-enough-password',
     ])->assertStatus(409);
@@ -245,7 +252,8 @@ it('refuses a password nobody should be allowed to choose', function (): void {
 
     // The one place in this product where a password is CHOSEN is the only
     // place that can refuse a bad one.
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Newcomer Person',
         'password' => 'short',
     ])->assertStatus(422);
@@ -307,7 +315,8 @@ it('still asks a new account for a password of twelve characters', function (): 
         ->assertStatus(201)
         ->json('data.token');
 
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Newcomer Person',
         'password' => 'too-short',
     ])->assertStatus(422)

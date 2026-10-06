@@ -30,7 +30,16 @@ export function AcceptInviteForm({ token }: { token: string }) {
         event.preventDefault();
 
         startAction(async () => {
-          const result = await acceptInvitation(token, { name, password });
+          // FormData, not plain arguments: Next.js prints a Server Action's
+          // plain arguments to the development log, and these are the link's
+          // token and a password.
+          const form = new FormData();
+
+          form.append("token", token);
+          form.append("name", name);
+          form.append("password", password);
+
+          const result = await acceptInvitation(form);
 
           setError(result.error);
 

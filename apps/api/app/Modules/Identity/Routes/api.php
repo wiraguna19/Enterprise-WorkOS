@@ -136,9 +136,10 @@ Route::prefix('me/api-tokens')->middleware('auth:sanctum')->group(function (): v
  * accepted: telling those apart is an oracle for guessing tokens.
  */
 Route::prefix('invitations')->middleware('throttle:invitation')->group(function (): void {
-    Route::get('{token}/preview', [InvitationAcceptController::class, 'show'])
+    // The token in the body, not the path: a path is written to access logs.
+    Route::post('preview', [InvitationAcceptController::class, 'show'])
         ->name('invitations.preview');
-    Route::post('{token}/accept', [InvitationAcceptController::class, 'accept'])
+    Route::post('accept', [InvitationAcceptController::class, 'accept'])
         ->name('invitations.accept');
 });
 

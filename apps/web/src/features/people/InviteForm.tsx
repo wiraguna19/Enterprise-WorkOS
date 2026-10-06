@@ -145,9 +145,14 @@ export function InviteForm({ roles }: { roles: Array<{ key: string; name: string
   );
 }
 
-/** Built here rather than by the API: the API does not know this app's URL. */
+/**
+ * Built here rather than by the API: the API does not know this app's URL.
+ *
+ * The token goes in the FRAGMENT: browsers never send it to a server, so it
+ * stays out of every access log between the newcomer and this app.
+ */
 function inviteUrl(token: string): string {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
 
-  return `${origin}/invite/${token}`;
+  return `${origin}/invite#${token}`;
 }

@@ -28,6 +28,8 @@ final class AcceptInvitationRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // In the body, never the path: a path is written to access logs.
+            'token' => ['required', 'string', 'max:200'],
             'name' => ['required', 'string', 'max:120'],
             // The twelve-character rule applies to a password being CHOSEN,
             // which is only the new-account branch; Invitations checks it

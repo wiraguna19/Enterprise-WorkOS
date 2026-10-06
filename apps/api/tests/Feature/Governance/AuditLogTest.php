@@ -111,7 +111,8 @@ it('records the events that happen with no session, against the organization the
         ->assertStatus(201)
         ->json('data.token');
 
-    $this->postJson("/api/v1/invitations/{$token}/accept", [
+    $this->postJson('/api/v1/invitations/accept', [
+        'token' => $token,
         'name' => 'Audit Newcomer',
         'password' => 'a-long-enough-password',
     ])->assertOk();

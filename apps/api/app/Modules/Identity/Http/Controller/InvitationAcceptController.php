@@ -8,6 +8,7 @@ use App\Modules\Identity\Application\Service\Invitations;
 use App\Modules\Identity\Http\Request\AcceptInvitationRequest;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
+use Illuminate\Http\Request;
 
 /**
  * The public half of an invitation (ADR 0017).
@@ -31,9 +32,14 @@ final class InvitationAcceptController extends ApiController
      * not the role, not anything about who else is here: this is readable by
      * anyone holding a string.
      */
-    public function show(string $token): ApiResponse
+    public function show(Request $request): ApiResponse
     {
-        $invitation = $this->invitations->preview($token);
+        // POST with the token in the body rather than GET with it in the
+        // path: the token is the whole of the credential, and a path ends up
+        // in every proxy's and web server's access log.
+        $validated = $request->validate(['token' => ['required', 'string', 'max:200']]);
+
+        $invitation = $this->invitations->preview((string) $validated['token']);
 
         if ($invitation === null) {
             abort(404);
@@ -42,10 +48,10 @@ final class InvitationAcceptController extends ApiController
         return $this->ok($invitation);
     }
 
-    public function accept(AcceptInvitationRequest $request, string $token): ApiResponse
+    public function accept(AcceptInvitationRequest $request): ApiResponse
     {
         return $this->ok($this->invitations->accept(
-            $token,
+            $request->string('token')->toString(),
             $request->string('name')->toString(),
             $request->string('password')->toString(),
             $request,

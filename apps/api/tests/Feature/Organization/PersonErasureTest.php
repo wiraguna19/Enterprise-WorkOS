@@ -31,7 +31,8 @@ beforeEach(function (): void {
             ->assertStatus(201)
             ->json('data.token');
 
-        $this->postJson("/api/v1/invitations/{$token}/accept", [
+        $this->postJson('/api/v1/invitations/accept', [
+            'token' => $token,
             'name' => 'Pat Newcomer',
             'password' => 'a-long-enough-password',
         ])->assertOk();

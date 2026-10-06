@@ -185,7 +185,7 @@ test.describe("building the organization", () => {
     // testing a path no person can take.
     const link = await page.locator("code").first().innerText();
 
-    expect(link, "The invitation was created and no link was shown.").toContain("/invite/");
+    expect(link, "The invitation was created and no link was shown.").toContain("/invite#");
 
     await expect(
       page.getByText("Nothing was emailed", { exact: false }),
@@ -203,7 +203,8 @@ test.describe("building the organization", () => {
     try {
       const strangerPage = await stranger.newPage();
 
-      await strangerPage.goto(new URL(link).pathname);
+      // Path AND fragment: the token lives in the fragment.
+      await strangerPage.goto(new URL(link).pathname + new URL(link).hash);
 
       await expect(strangerPage.getByRole("heading", { level: 1 })).toContainText("Acme");
       await expect(strangerPage.getByText(address)).toBeVisible();

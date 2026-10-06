@@ -147,12 +147,16 @@ final class IdentityServiceProvider extends ServiceProvider
          * Keyed by the token as well as the address: guessing tokens from one
          * IP is what this is for, and somebody retyping their own link is not.
          */
+        //
+        // The token arrives in the BODY (it used to be in the path, and so in
+        // every access log between the browser and here), and is hashed
+        // before it becomes part of a cache key.
         RateLimiter::for('invitation', fn (Request $request) => [
-            Limit::perMinutes(15, 10)->by('invitation:ip-token:'.$request->ip().'|'.$request->route('token')),
+            Limit::perMinutes(15, 10)->by('invitation:ip-token:'.$request->ip().'|'.hash('sha256', (string) $request->input('token', ''))),
             // Per link whatever the address: accepting for an existing account
             // takes that account's password, and a link must not become a
             // password-guessing endpoint by rotating addresses.
-            Limit::perMinutes(15, 10)->by('invitation:token:'.$request->route('token')),
+            Limit::perMinutes(15, 10)->by('invitation:token:'.hash('sha256', (string) $request->input('token', ''))),
             Limit::perMinutes(15, 30)->by('invitation:ip:'.$request->ip()),
         ]);
 
