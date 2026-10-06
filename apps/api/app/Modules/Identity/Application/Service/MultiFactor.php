@@ -16,6 +16,7 @@ use App\Modules\Platform\Domain\Contract\SessionPolicy;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -350,7 +351,31 @@ final class MultiFactor
             throw new InvalidCredentials('These credentials do not match our records.');
         }
 
-        if ($this->consumeRecoveryCode($user, $code)) {
+        // Decided under a row lock, and recorded after it.
+        //
+        // Both one-time rules — a recovery code is spent, a TOTP period is
+        // used up — are read-modify-write on the user row. Without the lock,
+        // two requests carrying the same code at the same moment both read
+        // the row before either wrote it, and both signed in: "one-time"
+        // became "one-time per race". The audit lines are written outside
+        // the transaction so a refusal is still recorded when it throws.
+        $outcome = DB::transaction(function () use ($user, $code): string {
+            /** @var UserModel $locked */
+            $locked = UserModel::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+
+            $result = $this->decide($locked, $code);
+
+            // The caller's copy sees what was written (codes remaining).
+            $user->setRawAttributes($locked->getAttributes(), sync: true);
+
+            return $result;
+        });
+
+        if ($outcome === 'totp') {
+            return;
+        }
+
+        if ($outcome === 'recovery') {
             $this->audit->record('auth.mfa_recovery_used', [
                 'codes_remaining' => count($user->mfa_recovery_codes ?? []),
             ], $request, actorUserId: (string) $user->getKey());
@@ -358,15 +383,28 @@ final class MultiFactor
             return;
         }
 
+        if ($outcome === 'reused') {
+            $this->refuseCode($user, $request, 'code_reused', 'That code has already been used. Wait for the next one.');
+        }
+
+        $this->refuseCode($user, $request, 'code_mismatch', 'That code is not right.');
+    }
+
+    /**
+     * The code against the LOCKED row: `recovery`, `totp`, `reused` or
+     * `mismatch`, with the row already updated for the first two.
+     */
+    private function decide(UserModel $user, string $code): string
+    {
+        if ($this->consumeRecoveryCode($user, $code)) {
+            return 'recovery';
+        }
+
         $secret = Crypt::decryptString((string) $user->mfa_secret_encrypted);
         $matched = Totp::match($secret, $code, now()->getTimestamp());
 
         if ($matched === null) {
-            $this->audit->record('auth.mfa_failed', [
-                'reason' => 'code_mismatch',
-            ], $request, actorUserId: (string) $user->getKey());
-
-            throw new InvalidCredentials('That code is not right.');
+            return 'mismatch';
         }
 
         // One-time means once, and what is remembered is the period the CODE
@@ -380,14 +418,21 @@ final class MultiFactor
         // inside the same thirty seconds has to wait for the next code, and the
         // message says that rather than calling the code wrong.
         if ($user->mfa_last_counter !== null && $matched <= $user->mfa_last_counter) {
-            $this->audit->record('auth.mfa_failed', [
-                'reason' => 'code_reused',
-            ], $request, actorUserId: (string) $user->getKey());
-
-            throw new InvalidCredentials('That code has already been used. Wait for the next one.');
+            return 'reused';
         }
 
         $user->forceFill(['mfa_last_counter' => $matched])->save();
+
+        return 'totp';
+    }
+
+    private function refuseCode(UserModel $user, Request $request, string $reason, string $message): never
+    {
+        $this->audit->record('auth.mfa_failed', [
+            'reason' => $reason,
+        ], $request, actorUserId: (string) $user->getKey());
+
+        throw new InvalidCredentials($message);
     }
 
     /** The password, or nothing happens — recorded either way. */
