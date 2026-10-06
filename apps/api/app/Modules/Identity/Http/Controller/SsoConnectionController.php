@@ -78,6 +78,23 @@ final class SsoConnectionController extends ApiController
         return $this->ok($this->present($connection));
     }
 
+    /**
+     * Prove one domain by its DNS record.
+     *
+     * Asks for the password again like every other write here: a proven
+     * domain is what lets this organization's IdP sign people in.
+     */
+    public function verifyDomain(Request $request, string $domain): ApiResponse
+    {
+        $this->recent->require($request);
+
+        $this->connections->verifyDomain($domain, $request);
+
+        $connection = $this->connections->current();
+
+        return $this->ok($connection === null ? null : $this->present($connection));
+    }
+
     public function destroy(Request $request): ApiResponse
     {
         $this->recent->require($request);
@@ -118,6 +135,19 @@ final class SsoConnectionController extends ApiController
             'domains' => $connection->domains
                 ->map(fn (SsoDomainModel $domain): string => $domain->domain)
                 ->sort()
+                ->values()
+                ->all(),
+            // Each domain's proof: what to publish, where, and whether it has
+            // been found. Unproven domains sign nobody in.
+            'domain_verification' => $connection->domains
+                ->sortBy('domain')
+                ->map(fn (SsoDomainModel $domain): array => [
+                    'domain' => $domain->domain,
+                    'verified' => $domain->verified_at !== null,
+                    'verified_at' => $domain->verified_at?->toIso8601String(),
+                    'record_name' => SsoConnections::recordName($domain->domain),
+                    'record_value' => SsoConnections::recordValue($domain->verification_token),
+                ])
                 ->values()
                 ->all(),
             'enforced' => $connection->enforced,

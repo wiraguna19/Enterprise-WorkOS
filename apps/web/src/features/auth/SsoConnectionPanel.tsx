@@ -9,7 +9,12 @@ import { KeyValue, KeyValueItem } from "@/components/ui/KeyValue";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
 import { formatDateTime } from "@/lib/format";
-import { deleteSsoConnection, saveSsoConnection, setSsoEnforced } from "./sso-connection-actions";
+import {
+  deleteSsoConnection,
+  saveSsoConnection,
+  setSsoEnforced,
+  verifySsoDomain,
+} from "./sso-connection-actions";
 import { useLocale, useT } from "@/i18n/I18nProvider";
 
 export type SsoConnection = {
@@ -18,9 +23,19 @@ export type SsoConnection = {
   idp_sso_url: string;
   idp_certificate: string;
   domains: string[];
+  /** Each domain's DNS proof. Unproven domains sign nobody in. */
+  domain_verification: DomainProof[];
   enforced: boolean;
   last_succeeded_at: string | null;
   updated_at: string;
+};
+
+export type DomainProof = {
+  domain: string;
+  verified: boolean;
+  verified_at: string | null;
+  record_name: string;
+  record_value: string;
 };
 
 export type SsoSettings = {
@@ -80,6 +95,8 @@ export function SsoConnectionPanel({
       </Panel>
 
       <ConnectionForm connection={connection} timeZone={timeZone} />
+
+      {connection !== null && <DomainProofPanel proofs={connection.domain_verification} />}
 
       {connection !== null && (
         <EnforcementPanel
@@ -256,6 +273,101 @@ function ConnectionForm({
           />
         )}
       </div>
+    </Panel>
+  );
+}
+
+/**
+ * Proving each domain (DNS TXT).
+ *
+ * A domain typed into the form is a claim; it signs nobody in until a record
+ * only its real owner could publish is found. The record's name and value are
+ * shown in full and selectable, because the next thing the reader does is
+ * paste them into a DNS console.
+ */
+function DomainProofPanel({ proofs }: { proofs: DomainProof[] }) {
+  const [error, setError] = useState<string | null>(null);
+  const [needsPassword, setNeedsPassword] = useState<string | null>(null);
+  const [busy, start] = useTransition();
+  const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
+
+  const verify = (domain: string) =>
+    start(async () => {
+      const result = await verifySsoDomain(domain);
+
+      setNeedsPassword(result.needsPassword ? domain : null);
+      setError(result.error);
+
+      if (result.error === null && !result.needsPassword) {
+        toast({ tone: "done", message: t("sso.domains.toast", { domain }) });
+      }
+    });
+
+  const pending = proofs.filter((proof) => !proof.verified).length;
+
+  return (
+    <Panel
+      id="sso-domains-proof"
+      title={t("sso.domains.title")}
+      description={t("sso.domains.description")}
+      actions={
+        pending === 0 ? (
+          <Badge tone="success" icon="check">{t("sso.domains.allProven")}</Badge>
+        ) : (
+          <Badge tone="warning">{t.plural("sso.domains.pending", pending)}</Badge>
+        )
+      }
+    >
+      {error && (
+        <p role="alert" className="mb-3 rounded-md border border-s-danger/40 bg-s-danger/5 px-3 py-2 text-body-sm text-s-danger">
+          {error}
+        </p>
+      )}
+
+      <ul className="divide-y divide-n-100">
+        {proofs.map((proof) => (
+          <li key={proof.domain} className="space-y-2 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-n-900">{proof.domain}</span>
+              {proof.verified ? (
+                <Badge tone="success" icon="check">{t("sso.domains.proven")}</Badge>
+              ) : (
+                <Badge tone="warning">{t("sso.domains.notProven")}</Badge>
+              )}
+            </div>
+
+            {!proof.verified && (
+              <>
+                <KeyValue columns={2}>
+                  <KeyValueItem label={t("sso.domains.recordName")}>
+                    <code className="select-all break-all font-mono text-caption">{proof.record_name}</code>
+                  </KeyValueItem>
+                  <KeyValueItem label={t("sso.domains.recordValue")}>
+                    <code className="select-all break-all font-mono text-caption">{proof.record_value}</code>
+                  </KeyValueItem>
+                </KeyValue>
+
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => verify(proof.domain)}>
+                  {busy ? t("sso.domains.checking") : t("sso.domains.check")}
+                </Button>
+
+                {needsPassword === proof.domain && (
+                  <ConfirmPassword
+                    action={t("sso.confirm.verify", { domain: proof.domain })}
+                    locale={locale}
+                    onConfirmed={() => {
+                      setNeedsPassword(null);
+                      verify(proof.domain);
+                    }}
+                  />
+                )}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
     </Panel>
   );
 }

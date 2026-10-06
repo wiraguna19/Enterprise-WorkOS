@@ -181,6 +181,10 @@ Route::prefix('sso-connection')->middleware(['auth:sanctum', 'permission:sso.man
     Route::delete('', [SsoConnectionController::class, 'destroy'])
         ->middleware('throttle:writes')
         ->name('sso.connection.destroy');
+    // Proving a domain by its DNS TXT record: until then it signs nobody in.
+    Route::post('domains/{domain}/verify', [SsoConnectionController::class, 'verifyDomain'])
+        ->middleware('throttle:writes')
+        ->name('sso.connection.verify_domain');
     Route::patch('enforcement', [SsoConnectionController::class, 'enforcement'])
         ->middleware('throttle:writes')
         ->name('sso.connection.enforcement');

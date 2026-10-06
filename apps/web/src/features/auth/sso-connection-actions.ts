@@ -70,3 +70,19 @@ export async function deleteSsoConnection(): Promise<SsoActionResult> {
 
   return { error: null };
 }
+
+/**
+ * Prove one domain by its DNS TXT record. Until it is proven the domain signs
+ * nobody in, so this is the step that makes a connection usable at all.
+ */
+export async function verifySsoDomain(domain: string): Promise<SsoActionResult> {
+  try {
+    await api(`/sso-connection/domains/${encodeURIComponent(domain)}/verify`, { method: "POST" });
+  } catch (error) {
+    return failure(error);
+  }
+
+  revalidatePath("/settings/sso");
+
+  return { error: null };
+}

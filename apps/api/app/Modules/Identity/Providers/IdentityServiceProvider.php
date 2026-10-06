@@ -6,8 +6,10 @@ namespace App\Modules\Identity\Providers;
 
 use App\Modules\Identity\Application\Service\ActingMembership;
 use App\Modules\Identity\Application\Service\PermissionResolver;
+use App\Modules\Identity\Domain\Contract\TxtRecords;
 use App\Modules\Identity\Http\Middleware\ResolveTenant;
 use App\Modules\Identity\Infrastructure\Console\PruneExpiredSessions;
+use App\Modules\Identity\Infrastructure\Dns\SystemTxtRecords;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Saml\SamlToolkit;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -29,6 +31,9 @@ final class IdentityServiceProvider extends ServiceProvider
         // membership row gets read five times in one request (docs/11 §3).
         $this->app->scoped(ActingMembership::class);
         $this->app->scoped(PermissionResolver::class);
+
+        // Proving an SSO domain asks DNS; tests answer for it.
+        $this->app->bind(TxtRecords::class, SystemTxtRecords::class);
 
         // The service provider's URLs are the WEB application's — the browser
         // posts the IdP's answer there, and the session cookie is set there

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Identity\Domain\Contract\TxtRecords;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
 use App\Modules\Identity\Infrastructure\Saml\SamlToolkit;
 use Illuminate\Http\Response;
@@ -33,14 +34,63 @@ beforeEach(function (): void {
  *
  * @return TestResponse<Response>
  */
-function connectAcme(string $token, array $domains = ['acme.test']): TestResponse
+function connectAcme(string $token, array $domains = ['acme.test'], bool $proven = true): TestResponse
 {
-    return test()->withToken($token)->putJson('/api/v1/sso-connection', [
+    $response = test()->withToken($token)->putJson('/api/v1/sso-connection', [
         'idp_entity_id' => SamlFixture::ENTITY_ID,
         'idp_sso_url' => SamlFixture::SSO_URL,
         'idp_certificate' => SamlFixture::pair()['certificate'],
         'domains' => $domains,
     ]);
+
+    // Most of this file is about signing in, not about proving a domain, so
+    // the domains are marked proven as if their TXT records had been found.
+    // Proving itself is tested below, through the real endpoint.
+    if ($proven && $response->status() === 200) {
+        actingWithinTenant(SSO_ACME, fn () => DB::table('sso_domains')
+            ->where('organization_id', SSO_ACME)
+            ->whereNull('verified_at')
+            ->update(['verified_at' => now()]));
+    }
+
+    return $response;
+}
+
+/**
+ * Answer DNS for this test: these TXT strings at these names.
+ *
+ * One answerer per test, changed in place, and bound before the test's first
+ * request: the router keeps the controller — and the service it was built
+ * with — between requests in the same test, so an answerer bound later would
+ * never be asked.
+ *
+ * @param  array<string, list<string>>  $records
+ */
+function publishTxt(array $records): void
+{
+    $current = app()->bound(TxtRecords::class) ? app(TxtRecords::class) : null;
+
+    if ($current instanceof FakeTxtRecords) {
+        $current->records = $records;
+
+        return;
+    }
+
+    $fake = new FakeTxtRecords;
+    $fake->records = $records;
+
+    app()->instance(TxtRecords::class, $fake);
+}
+
+final class FakeTxtRecords implements TxtRecords
+{
+    /** @var array<string, list<string>> */
+    public array $records = [];
+
+    public function at(string $name): array
+    {
+        return $this->records[$name] ?? [];
+    }
 }
 
 /**
@@ -170,6 +220,8 @@ it('refuses a domain another organization signs in already', function (): void {
         'organization_id' => SSO_GLOBEX,
         'connection_id' => probeSsoConnectionIn(SSO_GLOBEX),
         'domain' => 'shared.test',
+        // Proven: only a proven domain is anybody's to refuse.
+        'verified_at' => now(),
     ]));
 
     connectAcme($this->rina, ['acme.test', 'shared.test'])
@@ -179,6 +231,69 @@ it('refuses a domain another organization signs in already', function (): void {
 
     // Nothing half-saved: the whole connection rolled back with the domain.
     expect(DB::table('sso_connections')->where('organization_id', SSO_ACME)->exists())->toBeFalse();
+});
+
+it('does not let an unproven claim block the domain\'s real owner', function (): void {
+    // Globex typed acme.test and never proved it.
+    actingWithinTenant(SSO_GLOBEX, fn () => DB::table('sso_domains')->insert([
+        'id' => '01900000-0000-7000-8000-00000000d002',
+        'organization_id' => SSO_GLOBEX,
+        'connection_id' => probeSsoConnectionIn(SSO_GLOBEX),
+        'domain' => 'acme.test',
+    ]));
+
+    connectAcme($this->rina)->assertOk();
+
+    // And Acme, having proven it, is who acme.test signs in through.
+    signInThroughIdp('ahmad@acme.test');
+});
+
+it('signs nobody in through a domain the organization has not proven', function (): void {
+    connectAcme($this->rina, proven: false)
+        ->assertOk()
+        ->assertJsonPath('data.domain_verification.0.verified', false);
+
+    $this->postJson('/api/v1/auth/sso/start', ['email' => 'ahmad@acme.test', 'binding' => SSO_BINDING])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'auth.sso_not_available');
+});
+
+it('proves a domain by its TXT record, and says where it looked when it is missing', function (): void {
+    // Before the first request: the controller built for it is kept.
+    publishTxt([]);
+
+    $pending = connectAcme($this->rina, proven: false)->assertOk()->json('data.domain_verification.0');
+
+    expect($pending['record_name'])->toBe('_workos.acme.test')
+        ->and($pending['record_value'])->toStartWith('workos-domain-verification=');
+
+    publishTxt(['_workos.acme.test' => ['v=spf1 -all']]);
+
+    $this->withToken($this->rina)
+        ->postJson('/api/v1/sso-connection/domains/acme.test/verify')
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'sso.domain_not_verified')
+        ->assertJsonPath('error.details.record_name', '_workos.acme.test');
+
+    publishTxt(['_workos.acme.test' => ['v=spf1 -all', $pending['record_value']]]);
+
+    $this->withToken($this->rina)
+        ->postJson('/api/v1/sso-connection/domains/acme.test/verify')
+        ->assertOk()
+        ->assertJsonPath('data.domain_verification.0.verified', true);
+
+    expect(ssoAudit('sso.domain_verified', SSO_ACME))->toBe(1);
+
+    signInThroughIdp('ahmad@acme.test');
+});
+
+it('will not prove a domain the connection does not claim', function (): void {
+    connectAcme($this->rina, proven: false)->assertOk();
+
+    $this->withToken($this->rina)
+        ->postJson('/api/v1/sso-connection/domains/globex.test/verify')
+        ->assertNotFound()
+        ->assertJsonPath('error.code', 'sso.domain_not_claimed');
 });
 
 it('serves this product\'s metadata for an IdP to import', function (): void {

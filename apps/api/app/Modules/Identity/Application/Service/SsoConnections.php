@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Application\Service;
 
 use App\Modules\Governance\Application\Service\AuditLogger;
+use App\Modules\Identity\Domain\Contract\TxtRecords;
 use App\Modules\Identity\Domain\Exception\SingleSignOnRefused;
 use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\SessionModel;
@@ -16,6 +17,7 @@ use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use OneLogin\Saml2\Utils;
 use Symfony\Component\Uid\UuidV7;
 
@@ -30,12 +32,34 @@ use Symfony\Component\Uid\UuidV7;
  */
 final class SsoConnections
 {
+    /**
+     * Where the proof of a domain is published, and what it says.
+     *
+     * Under its own label rather than on the domain itself: a TXT record at
+     * the apex sits beside SPF and every other vendor's proof, and a DNS
+     * administrator should be able to see at a glance what this one is for.
+     */
+    public const RECORD_LABEL = '_workos';
+
+    public const RECORD_PREFIX = 'workos-domain-verification=';
+
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly TenantContext $tenant,
         private readonly SamlToolkit $saml,
         private readonly PermissionResolver $permissions,
+        private readonly TxtRecords $txt,
     ) {}
+
+    public static function recordName(string $domain): string
+    {
+        return self::RECORD_LABEL.'.'.$domain;
+    }
+
+    public static function recordValue(string $token): string
+    {
+        return self::RECORD_PREFIX.$token;
+    }
 
     public function current(): ?SsoConnectionModel
     {
@@ -102,10 +126,20 @@ final class SsoConnections
                 ->all();
 
             foreach (array_diff($domains, $existing) as $domain) {
+                // A domain another organization has PROVED is refused here,
+                // by name; one another organization has merely typed is not —
+                // an unproven claim must not block the domain's real owner.
+                if ($this->verifiedElsewhere($domain, $connection->id)) {
+                    throw SingleSignOnRefused::domainTaken($domain);
+                }
+
                 $row = new SsoDomainModel;
                 $row->id = (string) new UuidV7;
                 $row->connection_id = $connection->id;
                 $row->domain = $domain;
+                // Pending until its TXT record is found (verifyDomain).
+                $row->verification_token = Str::lower(Str::random(32));
+                $row->verified_at = null;
 
                 try {
                     // A savepoint per row, so the refusal can name the
@@ -133,6 +167,58 @@ final class SsoConnections
         ], $request, targetType: 'sso_connection', targetId: $connection->id);
 
         return $connection->load('domains');
+    }
+
+    /**
+     * Prove one of this connection's domains by its DNS record.
+     *
+     * Idempotent: a domain already proven answers as it is. The record is
+     * looked for at `_workos.<domain>`; any TXT string there equal to the
+     * expected value is proof.
+     */
+    public function verifyDomain(string $domain, ?Request $request = null): SsoDomainModel
+    {
+        $connection = $this->current() ?? throw SingleSignOnRefused::notConfigured();
+
+        /** @var SsoDomainModel|null $row */
+        $row = $connection->domains->firstWhere('domain', mb_strtolower(trim($domain)));
+
+        if ($row === null) {
+            throw SingleSignOnRefused::domainNotClaimed($domain);
+        }
+
+        if ($row->verified_at !== null) {
+            return $row;
+        }
+
+        $name = self::recordName($row->domain);
+        $expected = self::recordValue($row->verification_token);
+
+        if (! in_array($expected, $this->txt->at($name), strict: true)) {
+            throw SingleSignOnRefused::domainNotProven($row->domain, $name, $expected);
+        }
+
+        try {
+            DB::transaction(function () use ($row): void {
+                $row->verified_at = now()->toImmutable();
+                $row->save();
+            });
+        } catch (QueryException $e) {
+            if ($e->getCode() === '23505') {
+                // Proven elsewhere first. DNS can say yes to two
+                // organizations — a record left behind by a previous owner —
+                // and the index decides.
+                throw SingleSignOnRefused::domainTaken($row->domain);
+            }
+
+            throw $e;
+        }
+
+        $this->audit->record('sso.domain_verified', [
+            'domain' => $row->domain,
+        ], $request, targetType: 'sso_connection', targetId: $connection->id);
+
+        return $row;
     }
 
     /** Remove it. Refused while it is required — see SingleSignOnRefused::stillEnforced(). */
@@ -240,7 +326,8 @@ final class SsoConnections
      */
     public function membersOutsideDomains(SsoConnectionModel $connection): array
     {
-        $domains = $connection->domains->pluck('domain')->all();
+        // Only proven domains sign anybody in, so only they keep anybody in.
+        $domains = $connection->domains->whereNotNull('verified_at')->pluck('domain')->all();
         $out = [];
 
         $members = MembershipModel::query()
@@ -293,7 +380,11 @@ final class SsoConnections
         return $this->tenant->runAsPlatform(
             'find the identity provider for an email domain',
             function () use ($domain): ?SsoConnectionModel {
-                $row = SsoDomainModel::query()->where('domain', mb_strtolower($domain))->first();
+                // Proven domains only: an unproven claim signs nobody in.
+                $row = SsoDomainModel::query()
+                    ->where('domain', mb_strtolower($domain))
+                    ->whereNotNull('verified_at')
+                    ->first();
 
                 return $row === null
                     ? null
@@ -332,6 +423,19 @@ final class SsoConnections
         DB::table('sso_connections')
             ->where('id', $connection->id)
             ->update(['last_succeeded_at' => now()]);
+    }
+
+    /** Has an organization other than this connection's proven this domain? */
+    private function verifiedElsewhere(string $domain, string $connectionId): bool
+    {
+        return $this->tenant->runAsPlatform(
+            'check whether another organization has proven an email domain',
+            fn (): bool => SsoDomainModel::query()
+                ->where('domain', $domain)
+                ->whereNotNull('verified_at')
+                ->where('connection_id', '!=', $connectionId)
+                ->exists(),
+        );
     }
 
     /**

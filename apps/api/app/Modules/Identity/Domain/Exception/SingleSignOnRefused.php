@@ -157,6 +157,35 @@ final class SingleSignOnRefused extends DomainException
         );
     }
 
+    public static function domainNotClaimed(string $domain): self
+    {
+        return new self(
+            __(':domain is not one of this connection\'s domains.', ['domain' => $domain]),
+            'sso.domain_not_claimed',
+            404,
+            ['domain' => $domain],
+        );
+    }
+
+    /**
+     * The record is not there, or not yet visible.
+     *
+     * Says exactly where to put what: the person reading this is about to
+     * open a DNS console, and DNS changes can take minutes to be seen.
+     */
+    public static function domainNotProven(string $domain, string $recordName, string $recordValue): self
+    {
+        return new self(
+            __('No matching TXT record at :name yet. Publish ":value" there, then try again — DNS changes can take a few minutes to be seen.', [
+                'name' => $recordName,
+                'value' => $recordValue,
+            ]),
+            'sso.domain_not_verified',
+            409,
+            ['domain' => $domain, 'record_name' => $recordName, 'record_value' => $recordValue],
+        );
+    }
+
     public static function invalidDomain(string $domain): self
     {
         return new self(

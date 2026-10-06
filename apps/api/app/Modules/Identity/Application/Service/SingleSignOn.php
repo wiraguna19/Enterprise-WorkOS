@@ -131,7 +131,9 @@ final class SingleSignOn
         // whether that person also happened to belong here.
         $domain = (string) Str::afterLast($assertion->email, '@');
 
-        if (! $connection->domains->contains('domain', $domain)) {
+        // And only the ones it has PROVED it owns (DNS TXT): an unproven
+        // claim is a typed word, not a domain.
+        if (! $connection->domains->whereNotNull('verified_at')->contains('domain', $domain)) {
             $this->refuse($connection, $request, 'domain_not_claimed', ['email' => $assertion->email]);
 
             throw SingleSignOnRefused::rejected();
