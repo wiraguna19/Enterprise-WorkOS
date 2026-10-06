@@ -45,6 +45,7 @@
     "No work item with that reference.": "Tidak ada item kerja dengan referensi itu.",
     "Nobody has signed in through this connection yet. Sign in with single sign-on once — in a private window, so you keep this session — before requiring it of everybody.": "Belum ada yang masuk lewat koneksi ini. Masuklah sekali dengan single sign-on — di jendela privat, agar sesi ini tetap ada — sebelum mewajibkannya bagi semua orang.",
     "Only its author, or someone who can publish to everyone, can change this announcement.": "Hanya penulisnya, atau orang yang dapat menerbitkan ke semua orang, yang dapat mengubah pengumuman ini.",
+    "Only its author, or someone who may assign work, can stop this recurring rule.": "Hanya penulisnya, atau orang yang dapat menugaskan pekerjaan, yang dapat menghentikan aturan berulang ini.",
     "Only someone above this person in the reporting line can set their KPIs.": "Hanya atasan orang ini dalam garis pelaporan yang dapat menetapkan KPI-nya.",
     "Only the person a KPI is about can enter its values.": "Hanya orang yang menjadi subjek KPI ini yang dapat mengisi nilainya.",
     "Organization-wide templates are written by people with work_item_template.manage.": "Template untuk seluruh organisasi ditulis oleh orang yang memiliki izin work_item_template.manage.",

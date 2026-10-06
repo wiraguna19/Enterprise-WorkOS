@@ -6,10 +6,13 @@ namespace App\Modules\Workflow\Http\Controller;
 
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
+use App\Modules\Work\Application\Service\WorkCreationAccess;
+use App\Modules\Workflow\Application\Query\RecurrenceVisibility;
 use App\Modules\Workflow\Application\Service\RecurrenceService;
 use App\Modules\Workflow\Http\Request\CreateRecurrenceRequest;
 use App\Modules\Workflow\Infrastructure\Eloquent\RecurrenceModel;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * Standing instructions to create work (docs/03 §4, docs/10 Phase 5).
@@ -24,11 +27,16 @@ final class RecurrenceController extends ApiController
 {
     public function __construct(
         private readonly RecurrenceService $recurrences,
+        private readonly RecurrenceVisibility $visibility,
+        private readonly WorkCreationAccess $creation,
     ) {}
 
     public function index(): ApiResponse
     {
-        $recurrences = RecurrenceModel::query()
+        $query = RecurrenceModel::query();
+        $this->visibility->apply($query);
+
+        $recurrences = $query
             ->orderByDesc('is_active')
             ->orderBy('next_run_at')
             ->get();
@@ -40,6 +48,11 @@ final class RecurrenceController extends ApiController
 
     public function store(CreateRecurrenceRequest $request): ApiResponse
     {
+        // A rule makes work every time it fires, so it is held to what making
+        // that work by hand would be: a project the author can see, and an
+        // assignee they may assign (WorkCreationAccess).
+        $this->creation->authorize($request->array('template'));
+
         $next = $request->firstOccurrenceAfterNow();
         $endsAt = $request->input('ends_at');
 
@@ -67,8 +80,15 @@ final class RecurrenceController extends ApiController
      */
     public function destroy(string $id): ApiResponse
     {
+        $query = RecurrenceModel::query()->whereKey($id);
+        $this->visibility->apply($query);
+
         /** @var RecurrenceModel $recurrence */
-        $recurrence = RecurrenceModel::query()->findOrFail($id);
+        $recurrence = $query->firstOrFail();
+
+        if (! $this->visibility->mayStop($recurrence)) {
+            throw new AuthorizationException('Only its author, or someone who may assign work, can stop this recurring rule.');
+        }
 
         $this->recurrences->deactivate($recurrence);
 
@@ -91,6 +111,8 @@ final class RecurrenceController extends ApiController
             // What it has actually produced. A rule nobody can audit is a rule
             // nobody trusts (docs/02 §7).
             'created_count' => $recurrence->workItemCount(),
+            // So the page offers Stop only to someone the API will let stop it.
+            'can_stop' => $this->visibility->mayStop($recurrence),
         ];
     }
 }

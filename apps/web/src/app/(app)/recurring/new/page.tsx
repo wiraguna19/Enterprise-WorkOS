@@ -86,7 +86,11 @@ export default async function NewRecurrencePage({
           id: project.id,
           label: `${project.key} · ${project.name}`,
         }))}
-        people={people.map((person) => ({ id: person.id, label: person.name }))}
+        // Without `work_item.assign` a rule may only make work for its author:
+        // the API refuses anyone else, so the form offers no one else.
+        people={people
+          .filter((person) => me.permissions.includes("work_item.assign") || person.id === me.membership.id)
+          .map((person) => ({ id: person.id, label: person.name }))}
         priorities={vocabulary.priorities}
       />
     </div>

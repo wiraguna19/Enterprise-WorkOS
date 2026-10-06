@@ -7,19 +7,17 @@ namespace App\Modules\Work\Http\Controller;
 use App\Modules\Governance\Application\Service\CustomFieldValues;
 use App\Modules\Identity\Application\Service\ActingMembership;
 use App\Modules\Identity\Application\Service\PermissionResolver;
-use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Platform\Application\Query\CursorPage;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
+use App\Modules\Work\Application\Service\WorkCreationAccess;
 use App\Modules\Work\Application\Service\WorkItemService;
 use App\Modules\Work\Http\Request\CreateWorkItemRequest;
 use App\Modules\Work\Http\Request\ListWorkItemsRequest;
 use App\Modules\Work\Http\Request\UpdateWorkItemRequest;
 use App\Modules\Work\Http\Resource\WorkItemResource;
-use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 
 final class WorkItemController extends ApiController
@@ -30,6 +28,7 @@ final class WorkItemController extends ApiController
         private readonly PermissionResolver $permissions,
         private readonly ActingMembership $acting,
         private readonly CustomFieldValues $customFields,
+        private readonly WorkCreationAccess $creation,
     ) {}
 
     public function index(ListWorkItemsRequest $request): ApiResponse
@@ -132,7 +131,8 @@ final class WorkItemController extends ApiController
 
     public function store(CreateWorkItemRequest $request): ApiResponse
     {
-        $this->authorizeCreation($request->validated());
+        // Where the new work may go, and to whom (WorkCreationAccess).
+        $this->creation->authorize($request->validated());
 
         $item = $this->workItems->create($request->validated());
 
@@ -285,52 +285,6 @@ final class WorkItemController extends ApiController
      * A work item that exists but is not visible returns 404, never 403: a 403
      * confirms it exists (docs/05 §3).
      */
-    /**
-     * What creating work may not be used to reach.
-     *
-     * The request only checked that a project or parent EXISTS in the
-     * organization, so `POST /work-items` would put an item on a private board
-     * the caller cannot see — and hand back the project's key and name — and
-     * would assign it to anyone, past the `assign` rule every other path
-     * applies. Checked here, on the request path, rather than in the service:
-     * the recurrence materializer and the template flow create work as the
-     * system, and their own rules decide what they may do.
-     *
-     * A project or parent the caller cannot see is reported as not found,
-     * exactly as reading it would be.
-     *
-     * @param  array<string, mixed>  $attributes
-     */
-    private function authorizeCreation(array $attributes): void
-    {
-        /** @var MembershipModel $actor */
-        $actor = $this->acting->getOrFail();
-        $me = (string) $actor->getKey();
-
-        if (! empty($attributes['project_id'])) {
-            $project = ProjectModel::query()
-                ->visibleTo($me, $this->permissions->has($actor, 'project.view_all'))
-                ->whereKey((string) $attributes['project_id'])
-                ->firstOrFail();
-
-            $this->authorize('createWork', $project);
-        }
-
-        if (! empty($attributes['parent_id'])) {
-            $parent = WorkItemModel::query()->whereKey((string) $attributes['parent_id']);
-            $this->visibility->apply($parent);
-            $parent->firstOrFail();
-        }
-
-        // Taking work yourself is not assigning it to somebody; anyone else
-        // needs the permission AssignmentController and bulk edits require.
-        $assignee = $attributes['assignee_id'] ?? null;
-
-        if (! empty($assignee) && (string) $assignee !== $me && ! $this->permissions->has($actor, 'work_item.assign')) {
-            throw new AuthorizationException('You cannot assign work to somebody else.');
-        }
-    }
-
     private function findVisible(string $reference): WorkItemModel
     {
         $query = WorkItemModel::query()->where('reference', mb_strtoupper($reference));

@@ -10,6 +10,7 @@ use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
 use App\Modules\Work\Infrastructure\Eloquent\ProjectModel;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
+use App\Modules\Workflow\Application\Query\RecurrenceVisibility;
 use App\Modules\Workflow\Infrastructure\Eloquent\RecurrenceModel;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,7 @@ final class CalendarQuery
         private readonly PermissionResolver $permissions,
         private readonly ActingMembership $acting,
         private readonly TenantContext $tenant,
+        private readonly RecurrenceVisibility $recurrenceVisibility,
     ) {}
 
     /**
@@ -153,8 +155,14 @@ final class CalendarQuery
     {
         $events = [];
 
+        // Only the rules this reader could see listed (RecurrenceVisibility):
+        // a projected occurrence shows the rule's title, and a calendar is not
+        // a way around the rule's own visibility.
+        $query = RecurrenceModel::query()->where('is_active', true);
+        $this->recurrenceVisibility->apply($query);
+
         /** @var iterable<RecurrenceModel> $recurrences */
-        $recurrences = RecurrenceModel::query()->where('is_active', true)->get();
+        $recurrences = $query->get();
 
         foreach ($recurrences as $recurrence) {
             try {

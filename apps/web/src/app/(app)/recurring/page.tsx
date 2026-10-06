@@ -35,6 +35,7 @@ type Recurrence = {
   last_run_at: string | null;
   ends_at: string | null;
   created_count: number;
+  can_stop: boolean;
 };
 
 export default async function RecurringPage() {
@@ -126,7 +127,7 @@ export default async function RecurringPage() {
                   : t("rec.stopped")}
               </span>
 
-              {recurrence.is_active && mayCreate && (
+              {recurrence.is_active && mayCreate && recurrence.can_stop && (
                 <StopButton
                   id={recurrence.id}
                   schedule={recurrence.template.title ?? describe(recurrence.rrule, locale)}
