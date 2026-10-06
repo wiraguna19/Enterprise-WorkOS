@@ -1331,6 +1331,7 @@ export const id: Messages = {
   "nprefs.digest.weekly": "Mingguan",
 
   // ── Settings: two-factor ────────────────────────────────────────────────
+  "tfa.confirm.setUp": "memasang aplikasi autentikator di akun Anda",
   "tfa.page.required": "{org} mewajibkan faktor kedua. Sampai Anda menyiapkannya, hanya halaman ini yang bisa Anda pakai — tidak ada hal lain yang dicabut.",
   "tfa.page.description": "Kode dari aplikasi di ponsel Anda, diminta saat masuk selain kata sandi.",
   "tfa.codes.title": "Simpan kode pemulihan Anda",

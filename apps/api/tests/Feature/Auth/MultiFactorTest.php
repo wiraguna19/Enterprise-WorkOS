@@ -324,3 +324,24 @@ it('refuses a spent code even after its period has passed', function (): void {
         'code' => Totp::at(secretOf('sarah@acme.test'), now()->getTimestamp()),
     ])->assertOk();
 });
+
+it('asks for the password again before enrolling a session that signed in a while ago', function (): void {
+    $token = $this->loginAs('sarah@acme.test');
+
+    // An unlocked laptop, an hour after its owner signed in.
+    DB::table('sessions')
+        ->where('id', explode('|', $token)[0])
+        ->update(['reauthenticated_at' => now()->subHour()]);
+
+    $this->withToken($token)->postJson('/api/v1/auth/mfa')
+        ->assertForbidden()
+        ->assertJsonPath('error.code', 'auth.reauthentication_required');
+
+    expect(DB::table('users')->where('email', 'sarah@acme.test')->value('mfa_secret_encrypted'))->toBeNull();
+
+    $this->withToken($token)
+        ->postJson('/api/v1/auth/reauthenticate', ['password' => 'password'])
+        ->assertNoContent();
+
+    $this->withToken($token)->postJson('/api/v1/auth/mfa')->assertOk();
+});

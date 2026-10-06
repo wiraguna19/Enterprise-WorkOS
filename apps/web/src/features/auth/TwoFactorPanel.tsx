@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { Field, INPUT } from "@/components/ui/Field";
 import { Panel } from "@/components/ui/Panel";
 import { useToast } from "@/components/ui/Toast";
@@ -13,7 +14,7 @@ import {
   disableTwoFactor,
   regenerateRecoveryCodes,
 } from "./actions";
-import { useT } from "@/i18n/I18nProvider";
+import { useLocale, useT } from "@/i18n/I18nProvider";
 
 /**
  * Enrolling, and un-enrolling, a second factor (ADR 0030).
@@ -40,8 +41,27 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, startAction] = useTransition();
+  const [needsPassword, setNeedsPassword] = useState(false);
   const toast = useToast();
   const t = useT();
+  const locale = useLocale();
+
+  // Beginning asks for the password again when the sign-in is older than the
+  // re-authentication window (ADR 0034); the prompt appears under the button
+  // and starts enrolment itself once the password is accepted.
+  const begin = () =>
+    startAction(async () => {
+      const result = await beginEnrolment();
+
+      setNeedsPassword(result.needsPassword === true);
+      setError(result.error);
+
+      if (result.error === null && result.secret !== null) {
+        setSecret(result.secret);
+        setUri(result.uri);
+        setStage("scanning");
+      }
+    });
 
   if (stage === "codes") {
     return (
@@ -269,22 +289,21 @@ export function TwoFactorPanel({ enabled }: { enabled: boolean }) {
           variant="primary"
           size="sm"
           disabled={busy}
-          onClick={() =>
-            startAction(async () => {
-              const result = await beginEnrolment();
-
-              setError(result.error);
-
-              if (result.error === null) {
-                setSecret(result.secret);
-                setUri(result.uri);
-                setStage("scanning");
-              }
-            })
-          }
+          onClick={begin}
         >
           {busy ? t("tfa.preparing") : t("tfa.setUp")}
         </Button>
+
+        {needsPassword && (
+          <ConfirmPassword
+            action={t("tfa.confirm.setUp")}
+            locale={locale}
+            onConfirmed={() => {
+              setNeedsPassword(false);
+              begin();
+            }}
+          />
+        )}
       </div>
     </Panel>
   );

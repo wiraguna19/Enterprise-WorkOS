@@ -50,6 +50,9 @@ final class RequireSecondFactor
     private const ALLOWED = [
         'auth.me',
         'auth.logout',
+        // Beginning enrolment asks for the password again once the sign-in
+        // is older than the window (ADR 0034), so proving it must stay open.
+        'auth.reauthenticate',
         'auth.mfa.begin',
         'auth.mfa.confirm',
         // Leaving (ADR 0050). The requirement is THIS organization's; somebody

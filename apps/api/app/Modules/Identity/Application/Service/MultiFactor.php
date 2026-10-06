@@ -46,6 +46,7 @@ final class MultiFactor
         private readonly AuthenticationService $auth,
         private readonly TenantContext $tenant,
         private readonly SessionPolicy $policy,
+        private readonly RecentAuthentication $recent,
     ) {}
 
     /**
@@ -68,6 +69,12 @@ final class MultiFactor
                 ['refusal' => 'already_enabled'],
             );
         }
+
+        // The password again, like turning the factor off (ADR 0034). Without
+        // it, somebody holding an unlocked session could put THEIR phone on
+        // the account: every later sign-in, and every recovery code, would
+        // then belong to them, and the owner would be the one locked out.
+        $this->recent->require($request);
 
         $secret = Totp::generateSecret();
 

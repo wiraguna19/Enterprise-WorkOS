@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { api, describeApiError } from "@/lib/api";
+import { api, describeApiError, REAUTH_CODE } from "@/lib/api";
 
 /**
  * Turning a second factor on and off (ADR 0030).
@@ -16,6 +16,8 @@ export type BeginResult = {
   error: string | null;
   secret: string | null;
   uri: string | null;
+  /** The sign-in is older than the re-authentication window (ADR 0034). */
+  needsPassword?: boolean;
 };
 
 export async function beginEnrolment(): Promise<BeginResult> {
@@ -24,7 +26,11 @@ export async function beginEnrolment(): Promise<BeginResult> {
 
     return { error: null, secret: data.secret, uri: data.uri };
   } catch (error) {
-    return { error: describeApiError(error).error, secret: null, uri: null };
+    const described = describeApiError(error);
+
+    return described.code === REAUTH_CODE
+      ? { error: null, secret: null, uri: null, needsPassword: true }
+      : { error: described.error, secret: null, uri: null };
   }
 }
 

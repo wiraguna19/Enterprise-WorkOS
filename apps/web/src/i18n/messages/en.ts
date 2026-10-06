@@ -1314,6 +1314,7 @@ export const en = {
   "nprefs.digest.weekly": "Weekly",
 
   // ── Settings: two-factor ────────────────────────────────────────────────
+  "tfa.confirm.setUp": "put an authenticator app on your account",
   "tfa.page.required": "{org} requires a second factor. Until you set one up, this is the only page you can use — nothing else has been taken away.",
   "tfa.page.description": "A code from an app on your phone, asked for at sign-in as well as your password.",
   "tfa.codes.title": "Save your recovery codes",
