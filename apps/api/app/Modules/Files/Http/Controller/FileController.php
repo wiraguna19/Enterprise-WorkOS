@@ -7,10 +7,12 @@ namespace App\Modules\Files\Http\Controller;
 use App\Modules\Files\Application\Service\UploadService;
 use App\Modules\Files\Infrastructure\Eloquent\AttachmentModel;
 use App\Modules\Files\Infrastructure\Eloquent\FileModel;
+use App\Modules\Platform\Domain\Tenancy\TenantContext;
 use App\Modules\Platform\Http\Controller\ApiController;
 use App\Modules\Platform\Http\Response\ApiResponse;
 use App\Modules\Work\Application\Query\WorkItemVisibility;
 use App\Modules\Work\Infrastructure\Eloquent\WorkItemModel;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
 final class FileController extends ApiController
@@ -18,6 +20,7 @@ final class FileController extends ApiController
     public function __construct(
         private readonly UploadService $uploads,
         private readonly WorkItemVisibility $visibility,
+        private readonly TenantContext $tenant,
     ) {}
 
     public function reserve(Request $request): ApiResponse
@@ -37,7 +40,8 @@ final class FileController extends ApiController
 
     public function complete(string $file): ApiResponse
     {
-        $model = FileModel::query()->findOrFail($file);
+        // Only the person who reserved the upload finishes it.
+        $model = $this->ownUpload($file);
 
         return $this->ok([
             'id' => $model->id,
@@ -53,7 +57,7 @@ final class FileController extends ApiController
      */
     public function download(string $file): ApiResponse
     {
-        $model = FileModel::query()->findOrFail($file);
+        $model = $this->readable($file);
 
         return $this->ok(['url' => $this->uploads->downloadUrl($model)]);
     }
@@ -103,8 +107,9 @@ final class FileController extends ApiController
 
         $validated = $request->validate(['file_id' => ['required', 'uuid']]);
 
-        /** @var FileModel $file */
-        $file = FileModel::query()->findOrFail($validated['file_id']);
+        // Your own upload only. Attaching somebody else's file to an item you
+        // can see would be a second way to READ it — attach, then list.
+        $file = $this->ownUpload((string) $validated['file_id']);
 
         $attachment = $this->uploads->attach($file, 'work_item', (string) $item->getKey());
 
@@ -118,6 +123,53 @@ final class FileController extends ApiController
                 'available' => $file->isAvailable(),
             ],
         ]);
+    }
+
+    /**
+     * A file this person may download: one they uploaded, or one attached to a
+     * work item they can see.
+     *
+     * Downloading used to need only `work_item.view` and the file's id — no
+     * look at what it was attached to. Somebody removed from a private
+     * project, or anyone the id reached, kept fetching that project's
+     * attachments. Anything else is reported as not found, like an item one
+     * cannot see.
+     */
+    private function readable(string $id): FileModel
+    {
+        $file = FileModel::query()->findOrFail($id);
+
+        if ($file->uploaded_by_membership_id === $this->tenant->membershipId()) {
+            return $file;
+        }
+
+        $visible = WorkItemModel::query()->select('id');
+        $this->visibility->apply($visible);
+
+        $attachedToVisibleWork = AttachmentModel::query()
+            ->where('file_id', $file->getKey())
+            ->where('attachable_type', 'work_item')
+            ->whereNull('deleted_at')
+            ->whereIn('attachable_id', $visible)
+            ->exists();
+
+        if (! $attachedToVisibleWork) {
+            throw new ModelNotFoundException;
+        }
+
+        return $file;
+    }
+
+    /** An upload this person made; anyone else's does not exist to them. */
+    private function ownUpload(string $id): FileModel
+    {
+        $file = FileModel::query()->findOrFail($id);
+
+        if ($file->uploaded_by_membership_id !== $this->tenant->membershipId()) {
+            throw new ModelNotFoundException;
+        }
+
+        return $file;
     }
 
     private function findVisibleWorkItem(string $reference): WorkItemModel
