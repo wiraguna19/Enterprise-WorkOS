@@ -137,6 +137,7 @@
     "Work items can be nested at most :max levels deep.": "Item kerja hanya bisa bersarang paling dalam :max tingkat.",
     "You are not permitted to perform this action.": "Anda tidak diizinkan melakukan tindakan ini.",
     "You cannot change the KPIs of this team, department or project.": "Anda tidak dapat mengubah KPI tim, departemen, atau proyek ini.",
+    "You cannot invite someone with a role that holds permissions you do not hold yourself: :permissions": "Anda tidak dapat mengundang seseorang dengan role yang memuat izin yang tidak Anda miliki sendiri: :permissions",
     "You cannot keep KPIs for this team, department or project.": "Anda tidak dapat mengelola KPI untuk tim, departemen, atau proyek ini.",
     "You cannot publish an announcement to this group.": "Anda tidak dapat menerbitkan pengumuman ke kelompok ini.",
     "You cannot review your own submission, and no other reviewer is assigned.": "Anda tidak dapat meninjau pengajuan Anda sendiri, dan tidak ada peninjau lain yang ditugaskan.",

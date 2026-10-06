@@ -263,3 +263,28 @@ it('records who opened the way in', function (): void {
 
     expect($logged)->toBeTrue();
 });
+
+it('refuses to invite someone with more authority than the inviter holds', function (): void {
+    $manager = $this->loginAs('ahmad@acme.test');   // person.invite, not org admin
+
+    // The escalation this closes: a manager invited a second address of their
+    // own as org_admin and accepted the link the API handed back.
+    $this->withToken($manager)
+        ->postJson('/api/v1/people/invite', ['email' => $this->address, 'role' => 'org_admin'])
+        ->assertStatus(409)
+        ->assertJsonPath('error.details.refusal', 'beyond_your_own_authority');
+
+    expect(DB::table('invitations')->where('email', $this->address)->exists())->toBeFalse();
+
+    // Within their own authority, the same manager still invites.
+    foreach (['employee', 'manager'] as $i => $role) {
+        $this->withToken($manager)
+            ->postJson('/api/v1/people/invite', ['email' => "m{$i}-{$this->address}", 'role' => $role])
+            ->assertCreated();
+    }
+
+    // And an administrator may invite an administrator.
+    $this->withToken($this->admin)
+        ->postJson('/api/v1/people/invite', ['email' => $this->address, 'role' => 'org_admin'])
+        ->assertCreated();
+});

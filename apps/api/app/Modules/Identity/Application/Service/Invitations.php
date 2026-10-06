@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Application\Service;
 
 use App\Modules\Governance\Application\Service\AuditLogger;
 use App\Modules\Identity\Domain\Exception\InvitationRefused;
+use App\Modules\Identity\Infrastructure\Eloquent\MembershipModel;
 use App\Modules\Identity\Infrastructure\Eloquent\RoleModel;
 use App\Modules\Identity\Infrastructure\Eloquent\UserModel;
 use App\Modules\Platform\Domain\Tenancy\TenantContext;
@@ -52,6 +53,7 @@ final class Invitations
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly TenantContext $tenant,
+        private readonly PermissionResolver $permissions,
     ) {}
 
     /**
@@ -65,6 +67,10 @@ final class Invitations
 
         return DB::transaction(function () use ($email, $roleKey, $request): array {
             $role = $roleKey === null ? null : $this->role($roleKey);
+
+            if ($role !== null) {
+                $this->refuseBeyondYourOwnAuthority($role);
+            }
 
             if ($this->alreadyAMember($email)) {
                 // Not an error in the invitations table — this one is about the
@@ -368,6 +374,41 @@ final class Invitations
             ->whereNull('accepted_at')
             ->whereNull('revoked_at')
             ->exists();
+    }
+
+    /**
+     * An invitation cannot hand out more than its sender holds (ADR 0018).
+     *
+     * Accepting writes the role as an ORGANIZATION-WIDE grant — the one kind
+     * no other endpoint will make any more — and `person.invite` is held by
+     * managers. Without this, a manager invited a second address of their own
+     * as `org_admin`, opened the link the API handed back to them, and was an
+     * administrator. The same rule RoleBuilder applies to a role's contents.
+     */
+    private function refuseBeyondYourOwnAuthority(RoleModel $role): void
+    {
+        $actor = MembershipModel::query()->find($this->tenant->membershipId());
+
+        /** @var list<string> $granted */
+        $granted = DB::table('role_permissions')
+            ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+            ->where('role_permissions.role_id', $role->getKey())
+            ->pluck('permissions.key')
+            ->map(strval(...))
+            ->all();
+
+        $beyond = $actor === null
+            ? $granted
+            : array_values(array_diff($granted, $this->permissions->permissionsFor($actor)));
+
+        if ($beyond !== []) {
+            throw new InvitationRefused(
+                __('You cannot invite someone with a role that holds permissions you do not hold yourself: :permissions', [
+                    'permissions' => implode(', ', $beyond),
+                ]),
+                ['refusal' => 'beyond_your_own_authority', 'role' => $role->key, 'permissions' => $beyond],
+            );
+        }
     }
 
     private function role(string $key): RoleModel
