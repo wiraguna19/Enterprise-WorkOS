@@ -83,6 +83,19 @@ final class NotificationResource extends BaseResource
 
         $actor = $payload['actor_name'];
 
+        // Leave (ADR 0063): the title is the type and the dates, written by
+        // the sender, and the request is the subject.
+        if (str_starts_with((string) $this->resource->type, 'leave.')) {
+            $title = (string) ($payload['title'] ?? '');
+
+            return match ($this->resource->type) {
+                'leave.requested' => ['leave_requested', "{$actor} asked for time off: {$title}"],
+                'leave.approved' => ['leave_approved', "{$actor} approved your time off: {$title}"],
+                'leave.rejected' => ['leave_rejected', "{$actor} declined your time off: {$title}"],
+                default => ['update', "Update on {$title}"],
+            };
+        }
+
         // Not about work: the subject is the announcement, and its title is
         // the thing worth reading in the inbox (ADR 0061).
         if ($this->resource->type === 'announcement.published') {

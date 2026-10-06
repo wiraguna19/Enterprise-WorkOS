@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Leave\Http\Controller\LeaveRequestController;
 use App\Modules\Leave\Http\Controller\LeaveSettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,3 +44,43 @@ Route::delete('leave/holidays/{id}', [LeaveSettingsController::class, 'destroyHo
     ->whereUuid('id')
     ->middleware(['permission:leave.manage', 'throttle:writes'])
     ->name('leave.holidays.destroy');
+
+/*
+ * Requests (slice 2). `leave.request` to ask and to decide: deciding is a
+ * manager's or HR's, and the service checks which — a reporting line is not
+ * a permission.
+ */
+Route::get('leave/me', [LeaveRequestController::class, 'mine'])
+    ->middleware('permission:leave.request')
+    ->name('leave.me');
+
+Route::get('leave/quote', [LeaveRequestController::class, 'quote'])
+    ->middleware('permission:leave.request')
+    ->name('leave.quote');
+
+Route::post('leave/requests', [LeaveRequestController::class, 'store'])
+    ->middleware(['permission:leave.request', 'throttle:writes'])
+    ->name('leave.requests.store');
+
+Route::get('leave/awaiting', [LeaveRequestController::class, 'awaiting'])
+    ->middleware('permission:leave.request')
+    ->name('leave.awaiting');
+
+Route::post('leave/requests/{id}/approve', [LeaveRequestController::class, 'approve'])
+    ->whereUuid('id')
+    ->middleware(['permission:leave.request', 'throttle:writes'])
+    ->name('leave.requests.approve');
+
+Route::post('leave/requests/{id}/reject', [LeaveRequestController::class, 'reject'])
+    ->whereUuid('id')
+    ->middleware(['permission:leave.request', 'throttle:writes'])
+    ->name('leave.requests.reject');
+
+Route::post('leave/requests/{id}/cancel', [LeaveRequestController::class, 'cancel'])
+    ->whereUuid('id')
+    ->middleware(['permission:leave.request', 'throttle:writes'])
+    ->name('leave.requests.cancel');
+
+Route::get('leave/requests', [LeaveRequestController::class, 'index'])
+    ->middleware('permission:leave.manage')
+    ->name('leave.requests.index');

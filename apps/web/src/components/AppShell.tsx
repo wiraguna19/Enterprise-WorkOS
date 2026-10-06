@@ -75,6 +75,8 @@ const SECONDARY: FixedItem[] = [
   { href: "/announcements", labelKey: "nav.announcements", icon: "megaphone" },
   { href: "/calendar", labelKey: "nav.calendar", icon: "calendar" },
   { href: "/time", labelKey: "nav.timesheet", icon: "clock" },
+  // ADR 0063. Asking for time off, and — for a manager or HR — deciding.
+  { href: "/leave", labelKey: "nav.leave", icon: "sun", permission: "leave.request" },
   // Standing instructions to create work. Gated on the permission the route
   // itself requires, so it does not appear for somebody who would only find a
   // refusal behind it.

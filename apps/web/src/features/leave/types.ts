@@ -44,3 +44,45 @@ export type LeaveSettingsData = {
 };
 
 export type Holiday = { id: string; on_date: string; name: string; kind: "public" | "collective" };
+
+export type LeaveBalance = {
+  period_start: string;
+  period_end: string;
+  entitlement: number;
+  earned: number;
+  carried: number;
+  carry_expires_on: string | null;
+  used: number;
+  pending: number;
+  available: number;
+  probation_ends_on: string;
+  hired_on: string | null;
+};
+
+export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export type LeaveRequest = {
+  id: string;
+  person: { id: string; name: string };
+  type: { id: string; key: string; name: string };
+  uses_quota: boolean;
+  paid: boolean;
+  starts_on: string;
+  ends_on: string;
+  half_day: "am" | "pm" | null;
+  days: number;
+  reason: string | null;
+  document_required: boolean;
+  status: LeaveStatus;
+  step: "manager" | "hr" | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  created_at: string;
+  /** Only on the approvals queue, for quota types. */
+  balance?: LeaveBalance | null;
+};
+
+export type MyLeave = { balance: LeaveBalance | null; requests: LeaveRequest[]; types: LeaveType[] };
+
+export type LeaveQuote = { days: number; uses_quota: boolean; available: number | null; document_required: boolean };

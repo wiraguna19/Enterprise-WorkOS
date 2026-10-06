@@ -70,6 +70,16 @@ const GROUPS: Array<{
     description: "nprefs.group.announcements.description",
     types: [{ key: "announcement.published", label: "An announcement is published for you" }],
   },
+  {
+    id: "leave",
+    label: "nprefs.group.leave",
+    description: "nprefs.group.leave.description",
+    types: [
+      { key: "leave.requested", label: "Someone asks you to approve time off" },
+      { key: "leave.approved", label: "Your time off is approved" },
+      { key: "leave.rejected", label: "Your time off is declined" },
+    ],
+  },
 ];
 
 export default async function NotificationPreferencesPage() {

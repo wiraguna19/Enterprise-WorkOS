@@ -118,6 +118,12 @@ export function NotificationList({
 function hrefFor(notification: Notification): string {
   const reference = notification.subject.reference;
 
+  // Leave (ADR 0063): a request to decide opens the queue; a decision opens
+  // the person's own leave.
+  if (notification.subject.type === "leave_request") {
+    return notification.type === "leave.requested" ? "/leave/approvals" : "/leave";
+  }
+
   // Not about work: it opens the announcement itself (ADR 0061).
   if (notification.subject.type === "announcement") {
     return `/announcements/${notification.subject.id}`;
@@ -172,6 +178,9 @@ const WORDED = new Set([
   "needs_attention",
   "mentioned",
   "announced",
+  "leave_requested",
+  "leave_approved",
+  "leave_rejected",
   "update",
 ]);
 
